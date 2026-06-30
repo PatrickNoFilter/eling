@@ -1,0 +1,47 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "eling-memory"
+version = "0.1.0"
+description = "Eling — Unified second brain for AI agents (Hermes-first). 5-layer cognitive memory with Notion as online brain."
+readme = "README.md"
+license = "MIT"
+authors = [{name = "PatrickNoFilter"}]
+requires-python = ">=3.10"
+keywords = ["memory", "ai-agent", "mcp", "hermes", "notion", "second-brain", "rag", "knowledge-graph"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "httpx>=0.25",
+    "mcp>=1.0",
+]
+
+[project.optional-dependencies]
+hrr = ["numpy>=1.24"]
+codegraph = []  # codegraph CLI assumed system-installed
+dev = ["pytest>=7", "pytest-cov", "ruff"]
+all = ["eling-memory[hrr,dev]"]
+
+[project.scripts]
+eling = "eling.cli:main"
+eling-mcp = "eling.server:main"
+
+[project.urls]
+Homepage = "https://github.com/PatrickNoFilter/eling"
+Issues = "https://github.com/PatrickNoFilter/eling/issues"
+Repository = "https://github.com/PatrickNoFilter/eling"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/eling"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
