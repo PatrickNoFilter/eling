@@ -404,8 +404,21 @@ class Brain:
         fact = self.facts.get(fact_id)
         if not fact:
             return {"error": f"fact_id {fact_id} not found"}
-        if not self.notion.available:
-            return {"error": "Notion not configured"}
+        
+        # Detailed configuration check
+        missing = []
+        if not self.notion._has_httpx():
+            missing.append("httpx library (pip install eling[notion])")
+        if not self.notion.api_key:
+            missing.append("NOTION_API_KEY environment variable")
+        if not (parent_page_id or self.notion.parent_page_id):
+            missing.append("parent_page_id or NOTION_PARENT_PAGE_ID")
+        if missing:
+            return {
+                "error": f"Notion not configured. Missing: {'; '.join(missing)}",
+                "fact_id": fact_id,
+                "promoted": False,
+            }
 
         # Get all entities for this fact for richer context
         entities = self.facts.entities_for_fact(fact_id)

@@ -10,16 +10,25 @@ import logging
 import os
 from typing import Any
 
-try:
-    import httpx
-    _HAS_HTTPX = True
-except ImportError:
-    _HAS_HTTPX = False
+_HAS_HTTPX: bool | None = None  # lazy — checked on first use
 
 logger = logging.getLogger(__name__)
 
 NOTION_API = "https://api.notion.com/v1"
 NOTION_VERSION = "2022-06-28"
+
+
+def _require_httpx():
+    """Import httpx lazily on first use. Returns the httpx module."""
+    global _HAS_HTTPX
+    import importlib
+    try:
+        mod = importlib.import_module("httpx")
+        _HAS_HTTPX = True
+        return mod
+    except ImportError:
+        _HAS_HTTPX = False
+        raise RuntimeError("httpx not installed. Run: pip install eling-memory[notion]")
 
 
 class NotionLayer:
@@ -34,15 +43,21 @@ class NotionLayer:
         self.api_key = api_key or os.environ.get("NOTION_API_KEY")
         self.parent_page_id = parent_page_id or os.environ.get("NOTION_PARENT_PAGE_ID")
         self.timeout = timeout
-        self._client: httpx.Client | None = None
+        self._client: "httpx.Client | None" = None
 
     @property
     def available(self) -> bool:
+        if _HAS_HTTPX is None:
+            _require_httpx()
         return _HAS_HTTPX and bool(self.api_key)
 
+    def _has_httpx(self) -> bool:
+        if _HAS_HTTPX is None:
+            _require_httpx()
+        return bool(_HAS_HTTPX)
+
     def _get_client(self) -> "httpx.Client":
-        if not _HAS_HTTPX:
-            raise RuntimeError("httpx not installed. Run: pip install eling-memory[notion]")
+        httpx = _require_httpx()
         if not self.api_key:
             raise RuntimeError("NOTION_API_KEY not set")
         if self._client is None:
