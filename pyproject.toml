@@ -1,6 +1,6 @@
 [build-system]
 requires = ["setuptools>=68.0"]
-build-backend = "setuptools.backends._legacy:_Backend"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "eling"
@@ -27,11 +27,14 @@ classifiers = [
 ]
 
 dependencies = [
-    "numpy>=1.24",
+    # numpy is optional — needed only for HRR.
+    # Install via: pip install eling[hrr] or pip install eling[dev]
 ]
 
 [project.optional-dependencies]
+hrr = ["numpy>=1.24"]
 dev = [
+    "eling[hrr]",
     "pytest>=7.0",
     "pytest-cov>=4.0",
 ]
