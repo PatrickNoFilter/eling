@@ -46,11 +46,15 @@ def export_facts(brain: Brain) -> list[dict]:
 
 
 def export_entity_graph(brain: Brain) -> list[dict]:
-    """Return the entity_graph edges."""
+    """Return the entity_graph edges with entity names."""
     try:
         conn = brain.facts._conn
         cur = conn.execute(
-            "SELECT a, b, weight, updated_at FROM entity_graph ORDER BY weight DESC"
+            "SELECT ea.name AS a, eb.name AS b, eg.weight, eg.updated_at "
+            "FROM entity_graph eg "
+            "JOIN entities ea ON ea.entity_id = eg.entity_a_id "
+            "JOIN entities eb ON eb.entity_id = eg.entity_b_id "
+            "ORDER BY eg.weight DESC"
         )
         return _dict_rows(cur)
     except Exception as exc:
@@ -75,8 +79,8 @@ def export_all(brain: Brain) -> dict:
         conn = brain.kb._conn
         payload["kb"] = _dict_rows(
             conn.execute(
-                "SELECT chunk_id, source, content, category, tags, "
-                "created_at, updated_at FROM kb_chunks ORDER BY chunk_id"
+                "SELECT chunk_id, source, section, content, content_type, "
+                "created_at FROM kb_chunks ORDER BY chunk_id"
             )
         )
     except Exception as exc:
