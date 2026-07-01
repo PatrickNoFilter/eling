@@ -378,6 +378,24 @@ class Brain:
             },
         }
 
+    # ── export — dump all layers (Task 13.2) ──
+
+    def export(self, format: str = "json", path: str | None = None) -> dict:
+        """Export all memory layers. format='json' or 'markdown'."""
+        from .export import export_json, export_markdown
+
+        if format == "markdown":
+            text, file_path = export_markdown(self, path)
+        else:
+            text, file_path = export_json(self, path)
+
+        return {
+            "format": format,
+            "bytes": len(text),
+            "path": str(file_path) if file_path else None,
+            "preview": text[:500],
+        }
+
     # ------------------------------------------------------------------
     # reflect — promote fact to Notion
     # ------------------------------------------------------------------

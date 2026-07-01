@@ -208,6 +208,27 @@ TOOLS = [
             "required": ["query"],
         },
     },
+    {
+        "name": "eling_export",
+        "description": "Export all memory layers as JSON or Markdown. Portable snapshot for migration, backup, or debug inspection.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "format": {
+                    "type": "string",
+                    "enum": ["json", "markdown"],
+                    "default": "json",
+                    "description": "Output format",
+                },
+                "path": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Optional file path to write to (default: no file, returns preview only)",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 
@@ -288,6 +309,10 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             return ok(brain.stats())
         elif tool_name == "eling_think":
             return ok(brain.think(**args))
+        elif tool_name == "eling_export":
+            fmt = args.pop("format", "json")
+            path = args.pop("path", None) or None
+            return ok(brain.export(format=fmt, path=path))
         else:
             return _error(rid, -32601, f"unknown tool: {tool_name}")
     except Exception as e:
