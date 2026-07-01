@@ -164,6 +164,8 @@ eling/
 
 - **HRR phase encoding + facts layer** — adapted from [holographic plugin](https://github.com/dusterbloom) by dusterbloom (Hermes PR #2351, MIT)
 - **FTS5 retrieval** — inspired by Nous Research's [context-mode](https://github.com/NousResearch/context-mode)
+- **Codegraph symbol indexing** — concept from [codegraph MCP](https://github.com/NousResearch/hermes-agent) (Hermes context-mode); replaced with pure-Python AST engine
+- **Notion API client** — inspired by [awkoy/notion-mcp-server](https://github.com/awkoy/notion-mcp-server); replaced subprocess with direct httpx API
 
 ## 📜 License
 
