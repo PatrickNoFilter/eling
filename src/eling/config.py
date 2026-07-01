@@ -26,6 +26,8 @@ DEFAULTS: dict[str, Any] = {
     "codegraph_enabled": True,
     "dedup_cache_size": 1000,
     "auto_sync_turns": True,
+    "schema_pack": "default",
+    "adapter": "hermes",
 }
 
 ENV_MAP: dict[str, str] = {
@@ -37,6 +39,8 @@ ENV_MAP: dict[str, str] = {
     "codegraph_enabled": "ELING_CODEGRAPH_ENABLED",
     "dedup_cache_size": "ELING_DEDUP_CACHE_SIZE",
     "auto_sync_turns": "ELING_AUTO_SYNC_TURNS",
+    "schema_pack": "ELING_SCHEMA_PACK",
+    "adapter": "ELING_ADAPTER",
 }
 
 TYPE_MAP: dict[str, type] = {
@@ -47,7 +51,67 @@ TYPE_MAP: dict[str, type] = {
     "codegraph_enabled": bool,
     "dedup_cache_size": int,
     "auto_sync_turns": bool,
+    "schema_pack": str,
+    "adapter": str,
 }
+
+# ── Schema packs ──────────────────────────────────────────────────────────────
+# Each pack defines the category set available for its domain.
+# 'default' is the baseline; additional packs extend or override.
+
+SCHEMA_PACKS: dict[str, dict[str, Any]] = {
+    "default": {
+        "categories": [
+            "general",
+            "preference",
+            "fact",
+            "decision",
+            "code",
+        ],
+    },
+    "coding": {
+        "categories": [
+            "general",
+            "preference",
+            "fact",
+            "decision",
+            "code",
+            "api_ref",
+            "function",
+            "bug_pattern",
+            "config",
+        ],
+    },
+    "research": {
+        "categories": [
+            "general",
+            "preference",
+            "fact",
+            "decision",
+            "source_note",
+            "hypothesis",
+            "finding",
+            "method",
+        ],
+    },
+}
+
+
+def resolve_schema_pack(pack_name: str) -> dict[str, Any]:
+    """Resolve a schema pack, merging with 'default' for the base."""
+    from copy import deepcopy
+    base = deepcopy(SCHEMA_PACKS.get("default", {}))
+    if pack_name and pack_name != "default":
+        overrides = SCHEMA_PACKS.get(pack_name, {})
+        for key, vals in overrides.items():
+            existing = base.get(key, [])
+            base[key] = existing + [v for v in vals if v not in existing]
+    return base
+
+
+def categories_for_pack(pack_name: str) -> list[str]:
+    """Return the list of valid categories for the given schema pack."""
+    return resolve_schema_pack(pack_name).get("categories", [])
 
 
 # ── Config file ops ───────────────────────────────────────────────────────────
@@ -202,4 +266,6 @@ def describe_config() -> dict[str, dict]:
         "codegraph_enabled": {"type": "bool", "default": True, "env": "ELING_CODEGRAPH_ENABLED", "description": "Enable codegraph layer"},
         "dedup_cache_size": {"type": "int", "default": 1000, "env": "ELING_DEDUP_CACHE_SIZE", "description": "Dedup cache entry count"},
         "auto_sync_turns": {"type": "bool", "default": True, "env": "ELING_AUTO_SYNC_TURNS", "description": "Auto-store user/assistant messages"},
+        "schema_pack": {"type": "str", "default": "default", "env": "ELING_SCHEMA_PACK", "description": "Category schema pack: default | coding | research"},
+        "adapter": {"type": "str", "default": "hermes", "env": "ELING_ADAPTER", "description": "Harness adapter: hermes | claude_cli | opencode | openclaw | openclaude"},
     }
