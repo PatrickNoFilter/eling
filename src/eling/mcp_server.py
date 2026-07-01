@@ -184,6 +184,30 @@ TOOLS = [
         "description": "Get statistics about all memory layers.",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "eling_think",
+        "description": "Synthesis + gap-analysis. Runs recall + reason, returns results plus stale/contradicted/unknown analysis. Keeps the cheap eling_recall path unchanged.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query",
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional entities to reason across (compositional HRR query)",
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Max results to analyze",
+                },
+            },
+            "required": ["query"],
+        },
+    },
 ]
 
 
@@ -262,6 +286,8 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             return ok(brain.sync(**args))
         elif tool_name == "eling_stats":
             return ok(brain.stats())
+        elif tool_name == "eling_think":
+            return ok(brain.think(**args))
         else:
             return _error(rid, -32601, f"unknown tool: {tool_name}")
     except Exception as e:

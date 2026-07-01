@@ -245,6 +245,139 @@ class Brain:
         """All facts about a single entity."""
         return self.facts.probe(entity, limit=limit)
 
+    # ── think — synthesis + gap-analysis (Task 12.5) ──
+
+    @staticmethod
+    def _think_content(item: dict) -> str:
+        """Extract human-readable content from any layer's RRF result item."""
+        layer = item.get("_layer", "")
+        if layer == "code":
+            return f"{item.get('file','')}::{item.get('symbol','')} ({item.get('kind','')})"
+        if layer == "notion":
+            return item.get("title", item.get("id", ""))
+        if layer == "builtin":
+            return item.get("content", str(item.get("source", "")))
+        # facts, kb
+        return item.get("content", json.dumps(item, default=str))
+
+    def think(
+        self,
+        query: str,
+        entities: list[str] | None = None,
+        limit: int = 10,
+    ) -> dict:
+        """Synthesis + gap-analysis: recall + reason, then report stale/contradicted/unknown.
+
+        This is the expensive path — kept behind an explicit tool call so the
+        cheap ``eling_recall`` path stays unchanged.
+
+        Returns
+        -------
+        dict with:
+          query, synthesis (summary),
+          results (merged recall),
+          gap_analysis { stale_count, stale_facts, contradicted_count,
+                         contradicted_facts, unknown_count }
+        """
+        # Empty-query short-circuit: return immediately
+        if not query or not query.strip():
+            return {
+                "query": query,
+                "synthesis": "No query provided.",
+                "results": [],
+                "reason_results": [],
+                "gap_analysis": {
+                    "stale_count": 0, "stale_facts": [],
+                    "contradicted_count": 0, "contradicted_facts": [],
+                    "unknown_count": 1,
+                },
+            }
+
+        # 1. Raw recall (cheap, unchanged)
+        recall_result = self.recall(query, limit=limit)
+        merged = recall_result.get("merged", [])
+
+        # 2. Reason if entities provided (compositional)
+        reason_results: list[dict] = []
+        if entities:
+            reason_results = self.reason(entities, limit=limit)
+
+        # 3. Gap analysis — scan recall results for stale / contradicted
+        from . import decay
+        ACTIVE = decay.ACTIVE_THRESHOLD
+        stale: list[dict] = []
+        contradicted: list[dict] = []
+
+        for fact in merged:
+            strength = fact.get("strength", 1.0)
+            tags = fact.get("tags") or ""
+            if isinstance(strength, (int, float)) and strength < ACTIVE:
+                stale.append({
+                    "fact_id": fact.get("fact_id"),
+                    "content": self._think_content(fact),
+                    "strength": round(strength, 3),
+                    "source": fact.get("source"),
+                })
+            if "contradiction_pending" in tags:
+                contradicted.append({
+                    "fact_id": fact.get("fact_id"),
+                    "content": self._think_content(fact),
+                    "tags": tags,
+                })
+
+        # Also check reason results for stale/contradicted
+        seen_ids = {f.get("fact_id") for f in merged}
+        for fact in reason_results:
+            if fact.get("fact_id") in seen_ids:
+                continue
+            strength = fact.get("strength", 1.0)
+            tags = fact.get("tags") or ""
+            if isinstance(strength, (int, float)) and strength < ACTIVE:
+                stale.append({
+                    "fact_id": fact.get("fact_id"),
+                    "content": self._think_content(fact),
+                    "strength": round(strength, 3),
+                    "source": fact.get("source"),
+                })
+            if "contradiction_pending" in tags:
+                contradicted.append({
+                    "fact_id": fact.get("fact_id"),
+                    "content": self._think_content(fact),
+                    "tags": tags,
+                })
+            seen_ids.add(fact.get("fact_id"))
+
+        unknown_count = 0 if merged else 1  # no results = unknown topic
+
+        # Programmatic synthesis
+        parts = []
+        n_facts = len(merged)
+        n_layers = len(recall_result.get("per_layer", {}))
+        if n_facts:
+            parts.append(f"Found {n_facts} result{'s' if n_facts != 1 else ''} across {n_layers} layer{'s' if n_layers != 1 else ''}.")
+        else:
+            parts.append("No relevant facts found — this appears to be new/unexplored information.")
+        if stale:
+            parts.append(f"{len(stale)} fact{'s' if len(stale) != 1 else ''} {'are' if len(stale) != 1 else 'is'} stale (strength < {ACTIVE}).")
+        if contradicted:
+            parts.append(f"{len(contradicted)} fact{'s' if len(contradicted) != 1 else ''} {'are' if len(contradicted) != 1 else 'is'} flagged as contradicted.")
+        if entities:
+            parts.append(f"Reasoned across {len(entities)} entit{'y' if len(entities) == 1 else 'ies'}: {', '.join(entities)}.")
+
+        return {
+            "query": query,
+            "synthesis": " ".join(parts),
+            "results": merged,
+            "reason_results": reason_results,
+            "gap_analysis": {
+                "stale_count": len(stale),
+                "stale_facts": stale[:5],
+                "contradicted_count": len(contradicted),
+                "contradicted_facts": contradicted[:5],
+                "unknown_count": unknown_count,
+            },
+        }
+
     # ------------------------------------------------------------------
     # reflect — promote fact to Notion
     # ------------------------------------------------------------------
