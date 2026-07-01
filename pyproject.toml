@@ -26,7 +26,6 @@ dependencies = [
 
 [project.optional-dependencies]
 hrr = ["numpy>=1.24"]
-codegraph = []  # codegraph CLI assumed system-installed
 dev = ["pytest>=7", "pytest-cov", "ruff"]
 all = ["eling-memory[hrr,dev]"]
 

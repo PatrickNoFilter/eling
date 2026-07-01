@@ -1,98 +1,86 @@
-"""Code layer — codegraph integration for code symbol memory.
+"""Code layer — embedded code intelligence (pure Python, no external deps).
 
-Tries to import codegraph as a library. If unavailable, falls back to
-subprocess CLI call. Both paths return the same dict structure.
+Replaced external codegraph (Node.js CLI) with internal AST-based engine.
+Zero external dependencies — just Python stdlib.
 """
 
 from __future__ import annotations
 
-import json
-import shutil
-import subprocess
 from pathlib import Path
 
-try:
-    from codegraph.core import CodeGraph  # type: ignore
-    _HAS_LIB = True
-except ImportError:
-    _HAS_LIB = False
+from .code_index import CodeIndex
 
 
 class CodeLayer:
-    """codegraph integration. Library-first, CLI fallback."""
+    """Embedded code intelligence — symbol index, search, explore.
 
-    def __init__(self, project_path: str | Path | None = None):
+    Uses Python AST (for .py files) and regex (for other languages).
+    No external tools required.
+    """
+
+    def __init__(
+        self,
+        project_path: str | Path | None = None,
+        cache_path: str | Path | None = None,
+        auto_index: bool = True,
+    ):
         self.project_path = Path(project_path) if project_path else Path.cwd()
-        self._cli_available = shutil.which("codegraph") is not None
-        self._lib_available = _HAS_LIB
+        if cache_path is None:
+            cache_path = self.project_path / ".eling" / "code_index.json"
+        self._index = CodeIndex(cache_path=cache_path)
+        self._initialized = False
+
+        if auto_index:
+            self._init_index()
+
+    def _init_index(self) -> None:
+        """Lazy-load or build index on first use."""
+        if self._initialized:
+            return
+        self._index.load_or_build(self.project_path)
+        self._initialized = True
 
     @property
     def available(self) -> bool:
-        return self._lib_available or self._cli_available
+        self._init_index()
+        return self._index.available or True  # always available (may be empty)
+
+    @property
+    def symbol_count(self) -> int:
+        self._init_index()
+        return self._index.symbol_count
+
+    @property
+    def file_count(self) -> int:
+        self._init_index()
+        return self._index.file_count
 
     def search(self, query: str, max_files: int = 12) -> list[dict]:
-        """Symbol search across codebase. Returns list of {file, symbol, kind, line}."""
-        if not self.available:
-            return []
-        if self._lib_available:
-            return self._search_lib(query, max_files)
-        return self._search_cli(query, max_files)
+        """Symbol search across codebase.
+
+        Returns list of {file, symbol, kind, line, column}.
+        """
+        self._init_index()
+        return self._index.search(query, limit=max_files)
 
     def explore(self, query: str, max_files: int = 12) -> dict:
-        """Explore a code area — returns symbols + source snippets."""
-        if not self.available:
-            return {"available": False, "results": []}
-        if self._cli_available:
-            try:
-                out = subprocess.run(
-                    ["codegraph", "explore", query, "--max-files", str(max_files), "--json"],
-                    cwd=str(self.project_path),
-                    capture_output=True,
-                    text=True,
-                    timeout=30,
-                )
-                if out.returncode == 0 and out.stdout.strip():
-                    return {"available": True, "results": json.loads(out.stdout)}
-            except (subprocess.TimeoutExpired, json.JSONDecodeError):
-                pass
-        return {"available": self.available, "results": []}
+        """Explore a code area — returns symbols + source snippets.
+
+        Returns {available: bool, results: [{file, symbols, source}]}
+        """
+        self._init_index()
+        return self._index.explore(query, max_files=max_files)
 
     def reindex(self, file_path: str | Path) -> bool:
-        """Re-index a specific file in codegraph (no-op if CLI not available)."""
-        if not self._cli_available:
-            return False
-        try:
-            subprocess.run(
-                ["codegraph", "index", str(file_path)],
-                cwd=str(self.project_path),
-                capture_output=True,
-                text=True,
-                timeout=30,
-            )
-            return True
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            return False
+        """Re-index a specific file (called when file changes)."""
+        self._init_index()
+        return self._index.reindex_file(file_path)
 
-    def _search_lib(self, query: str, max_files: int) -> list[dict]:
-        try:
-            cg = CodeGraph(str(self.project_path))
-            results = cg.search(query, limit=max_files)
-            return [{"file": r.file, "symbol": r.name, "kind": r.kind} for r in results]
-        except Exception:
-            return []
+    def build_index(self) -> int:
+        """Force a full rebuild of the code index.
 
-    def _search_cli(self, query: str, max_files: int) -> list[dict]:
-        try:
-            out = subprocess.run(
-                ["codegraph", "search", query, "--limit", str(max_files), "--json"],
-                cwd=str(self.project_path),
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            if out.returncode == 0 and out.stdout.strip():
-                data = json.loads(out.stdout)
-                return data if isinstance(data, list) else data.get("results", [])
-        except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
-            pass
-        return []
+        Returns number of files indexed.
+        """
+        self._index.build(self.project_path)
+        self._initialized = True
+        return self._index.file_count
