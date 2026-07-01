@@ -70,6 +70,23 @@ class Brain:
         """Fire a lifecycle hook. Context kwargs become the dict passed to handlers."""
         return self.hooks.fire(hook_name, ctx)
 
+    # ── Snapshot / rollback (Task 13.1) ──
+
+    def snapshot(self, reason: str = "") -> dict:
+        """Snapshot the facts database before bulk operations."""
+        from . import snapshot as snap_mod
+        return snap_mod.create_snapshot(self.facts.db_path, reason=reason)
+
+    def rollback(self, snapshot_id: str) -> dict:
+        """Rollback the facts database to a named snapshot."""
+        from . import snapshot as snap_mod
+        return snap_mod.rollback(snapshot_id, self.facts.db_path)
+
+    def list_snapshots(self) -> list[dict]:
+        """List available snapshots."""
+        from . import snapshot as snap_mod
+        return snap_mod.list_snapshots(self.facts.db_path)
+
     # ------------------------------------------------------------------
     # remember — smart routing with privacy + compression
     # ------------------------------------------------------------------
