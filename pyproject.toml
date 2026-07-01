@@ -1,46 +1,47 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
-name = "eling-memory"
+name = "eling"
 version = "0.1.0"
-description = "Eling — Unified second brain for AI agents (Hermes-first). 5-layer cognitive memory with Notion as online brain."
+description = "Unified second brain for AI agents — 5-tier memory, HRR reasoning, 9 MCP tools"
 readme = "README.md"
-license = "MIT"
-authors = [{name = "PatrickNoFilter"}]
+license = {text = "MIT"}
 requires-python = ">=3.10"
-keywords = ["memory", "ai-agent", "mcp", "hermes", "notion", "second-brain", "rag", "knowledge-graph"]
+keywords = ["memory", "mcp", "ai-agent", "second-brain", "hrr"]
+
+authors = [
+    {name = "PatrickNoFilter"},
+]
+
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "Operating System :: OS Independent",
 ]
+
 dependencies = [
-    "httpx>=0.25",
-    "mcp>=1.0",
+    "numpy>=1.24",
 ]
 
 [project.optional-dependencies]
-hrr = ["numpy>=1.24"]
-dev = ["pytest>=7", "pytest-cov", "ruff"]
-all = ["eling-memory[hrr,dev]"]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
 
-[project.scripts]
-eling = "eling.cli:main"
-eling-mcp = "eling.server:main"
+[tool.setuptools.packages.find]
+where = ["src"]
 
-[project.urls]
-Homepage = "https://github.com/PatrickNoFilter/eling"
-Issues = "https://github.com/PatrickNoFilter/eling/issues"
-Repository = "https://github.com/PatrickNoFilter/eling"
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/eling"]
-
-[tool.ruff]
-line-length = 100
-target-version = "py310"
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
