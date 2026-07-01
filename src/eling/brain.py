@@ -22,6 +22,7 @@ from .layers.code import CodeLayer
 from .layers.notion import NotionLayer
 from . import compress
 from . import hooks as eling_hooks
+from . import permissions
 from .privacy import PrivacyPipeline, redact_kinds
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,18 @@ class Brain:
         if compressed != clean_content:
             meta["compressed_from"] = len(clean_content)
             meta["compressed_to"] = len(compressed)
+
+        # ── Permissions gate (Task 12.4) ──
+        target_layer = layer
+        if target_layer == "auto":
+            target_layer = "kb" if (len(compressed) > 500 or "\n# " in compressed or "\n## " in compressed) else "facts"
+        src_ident = source or "manual"
+        if not permissions.check_access(src_ident, target_layer, "write"):
+            return {
+                "layer": target_layer,
+                "error": f"permission denied: source '{src_ident}' cannot write to layer '{target_layer}'",
+                "redacted": redacted,
+            }
 
         if layer == "auto":
             if len(compressed) > 500 or "\n# " in compressed or "\n## " in compressed:
