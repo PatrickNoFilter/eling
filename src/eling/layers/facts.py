@@ -171,13 +171,13 @@ class FactsLayer:
             return cur.rowcount > 0
 
     # ---- search ops ----
-    def search(self, query: str, category: str | None = None, min_trust: float = 0.3, limit: int = 10) -> list[dict]:
-        """Hybrid BM25 + Jaccard + HRR search."""
+    def search(self, query: str, category: str | None = None, source: str | None = None, min_trust: float = 0.3, limit: int = 10) -> list[dict]:
+        """Hybrid BM25 + Jaccard + HRR search. Filter by category or source."""
         with self._lock:
             query = query.strip()
             if not query:
                 return []
-            candidates = self._fts_candidates(query, category, min_trust, limit * 3)
+            candidates = self._fts_candidates(query, category, source, min_trust, limit * 3)
             if not candidates:
                 return []
             query_tokens = self._tokenize(query)
@@ -199,6 +199,39 @@ class FactsLayer:
                 scored.append(fact)
             scored.sort(key=lambda x: x["score"], reverse=True)
             return scored[:limit]
+
+    def _fts_candidates(self, query: str, category: str | None, source: str | None, min_trust: float, limit: int) -> list[dict]:
+        params = [query, min_trust]
+        filters = []
+        if category:
+            filters.append("f.category = ?")
+            params.append(category)
+        if source:
+            filters.append("f.source = ?")
+            params.append(source)
+        filter_clause = " AND ".join(filters) if filters else ""
+        if filter_clause:
+            filter_clause = " AND " + filter_clause
+        params.append(limit)
+        sql = f"""
+            SELECT f.fact_id, f.content, f.category, f.tags, f.trust_score,
+                   f.retrieval_count, f.helpful_count, f.created_at, f.updated_at,
+                   f.source, f.notion_page_id, f.hrr_vector,
+                   -fts.rank as fts_rank
+            FROM facts f JOIN facts_fts fts ON fts.rowid = f.fact_id
+            WHERE facts_fts MATCH ? AND f.trust_score >= ? {filter_clause}
+            ORDER BY fts.rank LIMIT ?
+        """
+        try:
+            rows = self._conn.execute(sql, params).fetchall()
+        except sqlite3.OperationalError:
+            return []
+        cands = [dict(r) for r in rows]
+        if cands:
+            max_rank = max(c.get("fts_rank", 0.0) for c in cands) or 1.0
+            for c in cands:
+                c["fts_rank"] = c.get("fts_rank", 0.0) / max_rank
+        return cands
 
     def list_all(self, category: str | None = None, min_trust: float = 0.0, limit: int = 100) -> list[dict]:
         with self._lock:
@@ -248,36 +281,6 @@ class FactsLayer:
                 "by_category": {r["category"]: r["n"] for r in cats},
                 "hrr_enabled": self._hrr_available,
             }
-
-    # ---- internal helpers ----
-    def _fts_candidates(self, query: str, category: str | None, min_trust: float, limit: int) -> list[dict]:
-        params = [query, min_trust]
-        cat_clause = ""
-        if category:
-            cat_clause = "AND f.category = ?"
-            params.append(category)
-        params.append(limit)
-        # FTS5 rank is negative (lower = better) — normalize to [0,1]
-        sql = f"""
-            SELECT f.fact_id, f.content, f.category, f.tags, f.trust_score,
-                   f.retrieval_count, f.helpful_count, f.created_at, f.updated_at,
-                   f.source, f.notion_page_id, f.hrr_vector,
-                   -fts.rank as fts_rank
-            FROM facts f JOIN facts_fts fts ON fts.rowid = f.fact_id
-            WHERE facts_fts MATCH ? AND f.trust_score >= ? {cat_clause}
-            ORDER BY fts.rank LIMIT ?
-        """
-        try:
-            rows = self._conn.execute(sql, params).fetchall()
-        except sqlite3.OperationalError:
-            return []
-        # Normalize fts_rank to [0,1] — use max for normalization
-        cands = [dict(r) for r in rows]
-        if cands:
-            max_rank = max(c.get("fts_rank", 0.0) for c in cands) or 1.0
-            for c in cands:
-                c["fts_rank"] = c.get("fts_rank", 0.0) / max_rank
-        return cands
 
     @staticmethod
     def _tokenize(text: str) -> set[str]:

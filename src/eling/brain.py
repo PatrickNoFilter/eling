@@ -152,10 +152,11 @@ class Brain:
         layers: list[str] | None = None,
         limit: int = 10,
         min_trust: float = 0.3,
+        source: str | None = None,
     ) -> dict:
         """Cross-layer search with Reciprocal Rank Fusion.
 
-        Returns dict with per-layer raw + fused 'merged' ranking.
+        Optional `source` limits results to one agent origin (hermes, opencode, etc.).
         """
         self.fire_hook(eling_hooks.HOOK_PRE_TOOL_USE, tool_name="recall", arguments=query)
 
@@ -167,9 +168,9 @@ class Brain:
         if "builtin" in layers:
             per_layer["builtin"] = self.builtin.search(query)[:limit]
         if "facts" in layers:
-            per_layer["facts"] = self.facts.search(query, min_trust=min_trust, limit=limit)
+            per_layer["facts"] = self.facts.search(query, min_trust=min_trust, source=source, limit=limit)
         if "kb" in layers:
-            per_layer["kb"] = self.kb.search(query, limit=limit)
+            per_layer["kb"] = self.kb.search(query, source=source, limit=limit)
         if "code" in layers and self.code.available:
             per_layer["code"] = self.code.search(query, max_files=limit)
         if "notion" in layers and self.notion.available:

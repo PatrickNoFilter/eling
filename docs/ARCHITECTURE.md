@@ -211,11 +211,43 @@ Sync state persisted to `~/.eling/sync_state.json` (tracks last sync time, count
 
 | Tool | Arguments | Returns |
 |------|-----------|---------|
-| `eling_remember` | content, layer, category, tags, title, skip_dedup | `{layer, id, redacted}` |
-| `eling_recall` | query, layers[], limit | `{merged[], per_layer{}}` |
+| `eling_remember` | content, layer, category, tags, **source**, title, skip_dedup | `{layer, id, redacted}` |
+| `eling_recall` | query, layers[], limit, **source** | `{merged[], per_layer{}}` |
 | `eling_reason` | entities[], limit | `facts[]` connecting all entities |
+| `eling_probe` | entity, limit | `facts[]` about entity |
 | `eling_reflect` | fact_id | `{page_id}` in Notion |
+| `eling_sync` | direction, layer | `{pushed, pulled, errors}` |
 | `eling_stats` | — | `{facts, kb, code, notion, privacy, hooks}` |
+
+Each tool accepts an optional `source` parameter for multi-agent identity. When
+`source` is set during remember, the fact is tagged with that agent name. When
+set during recall, results are filtered to that agent's memories only.
+Empty `source` = all agents.
+
+### Multi-agent setup
+
+Configure each agent to connect to the same Eling MCP server:
+
+```yaml
+# Hermes (~/.hermes/config.yaml)
+mcp_servers:
+  eling:
+    command: python -m eling.mcp_server
+
+# OpenCode (~/.opencode/config.yaml)
+mcpServers:
+  eling:
+    command: python -m eling.mcp_server
+
+# OpenCLAW (~/.openclaw/config.yaml)
+mcpServers:
+  eling:
+    command: python -m eling.mcp_server
+```
+
+Each agent sets `source` when storing or querying. Facts are shared across
+agents (cross-layer RRF finds relevant results from any origin) but scoped
+search is available by passing `source="agent_name"`.
 
 ---
 

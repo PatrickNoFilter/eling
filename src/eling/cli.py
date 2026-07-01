@@ -19,11 +19,17 @@ def main():
     p_rem.add_argument("--category", default="general")
     p_rem.add_argument("--tags", default="")
     p_rem.add_argument("--title", default="")
+    p_rem.add_argument("--source", default="mcp", help="Agent origin (hermes, opencode, etc.)")
 
     p_rec = sub.add_parser("recall", help="Search across all layers")
     p_rec.add_argument("query")
     p_rec.add_argument("--limit", type=int, default=10)
     p_rec.add_argument("--layers", default="", help="comma-separated subset")
+    p_rec.add_argument("--source", default="", help="Filter by agent origin (hermes, opencode, etc.)")
+
+    p_probe = sub.add_parser("probe", help="Get facts about an entity")
+    p_probe.add_argument("entity")
+    p_probe.add_argument("--limit", type=int, default=10)
 
     p_reason = sub.add_parser("reason", help="Compositional entity query")
     p_reason.add_argument("entities", nargs="+")
@@ -90,10 +96,13 @@ def main():
     try:
         if args.cmd == "remember":
             out = brain.remember(args.content, layer=args.layer, category=args.category,
-                                  tags=args.tags, title=args.title)
+                                  tags=args.tags, title=args.title, source=args.source)
         elif args.cmd == "recall":
             layers = [s.strip() for s in args.layers.split(",") if s.strip()] or None
-            out = brain.recall(args.query, layers=layers, limit=args.limit)
+            source = args.source or None
+            out = brain.recall(args.query, layers=layers, limit=args.limit, source=source)
+        elif args.cmd == "probe":
+            out = brain.probe(args.entity, limit=args.limit)
         elif args.cmd == "reason":
             out = brain.reason(args.entities, limit=args.limit)
         elif args.cmd == "reflect":

@@ -25,8 +25,9 @@ Store content in the appropriate memory layer. Auto-routes based on content leng
 | `content` | string | **required** | Content to store |
 | `layer` | string | `"auto"` | `"auto"`, `"facts"`, `"kb"`, or `"notion"` |
 | `category` | string | `"general"` | Fact category (facts layer) |
-| `tags` | string | `""` | Comma-separated tags |
-| `title` | string | `""` | Page title (notion layer) |
+| `tags` | string | `` | Comma-separated tags |
+| `source` | string | `mcp` | Agent origin (hermes, opencode, openclaw, etc.) |
+| `title` | string | `` | Page title (notion layer) |
 | `skip_dedup` | boolean | `false` | Skip SHA-256 dedup check |
 
 **Auto-routing logic:**
@@ -56,6 +57,7 @@ Cross-layer semantic search with RRF fusion.
 | `query` | string | **required** | Search query |
 | `layers` | string[] | `["builtin","facts","kb","code","notion"]` | Layers to search |
 | `limit` | integer | `10` | Max results in merged output |
+| `source` | string | `` | Filter by agent origin (empty = all agents) |
 
 **Response:**
 ```json
@@ -131,6 +133,32 @@ Promote a high-trust fact to a Notion page.
 
 ---
 
+#### `eling_probe`
+
+Get all facts about a single entity (from facts layer).
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `entity` | string | **required** | Entity name to probe |
+| `limit` | integer | `10` | Max results |
+
+---
+
+#### `eling_sync`
+
+Synchronize data between layers (facts→Notion, flush to disk after writes).
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `direction` | string | `"all"` | `"push"` (facts→Notion), `"pull"` (Notion→KB), `"flush"` (disk), or `"all"` |
+| `layer` | string | `"auto"` | Layer scope |
+
+---
+
 #### `eling_stats`
 
 Get statistics about all memory layers.
@@ -177,30 +205,33 @@ eling <command> [options]
 
 | Command | Description | Example |
 |---------|-------------|---------|
-| `remember` | Store content | `eling remember "Use pytest -x to stop on first failure" --tags testing` |
-| `recall` | Search layers | `eling recall "testing patterns" --limit 5` |
+| `remember` | Store content | `eling remember "Use pytest -x to stop on first failure" --tags testing --source opencode` |
+| `recall` | Search layers | `eling recall "testing patterns" --limit 5 --source hermes` |
 | `reason` | Connect entities | `eling reason pytest HRR facts` |
+| `probe` | Facts about entity | `eling probe pytest` |
 | `reflect` | Promote to Notion | `eling reflect 17` |
+| `sync` | Sync layers | `eling sync --direction push` |
 | `stats` | Show brain stats | `eling stats` |
 | `mcp` | Run MCP server | `eling mcp` |
-| `sync` | Sync layers | `eling sync --direction push` |
 | `config` | Manage config | `eling config get hrr_dim` |
 
 ### `eling remember`
 
 ```
 usage: eling remember [-h] [--layer {auto,facts,kb,notion}]
-                      [--category CATEGORY] [--tags TAGS] [--title TITLE]
+                      [--category CATEGORY] [--tags TAGS]
+                      [--source SOURCE] [--title TITLE]
                       content
 ```
 
 ### `eling recall`
 
 ```
-usage: eling recall [-h] [--limit LIMIT] [--layers LAYERS] query
+usage: eling recall [-h] [--limit LIMIT] [--layers LAYERS] [--source SOURCE] query
 
 optional arguments:
   --layers LAYERS      comma-separated: "facts,kb,code"
+  --source SOURCE      filter by agent origin: "hermes", "opencode", etc.
 ```
 
 ### `eling reason`
@@ -275,14 +306,23 @@ brain = Brain(
     hrr_dim=1024,                # default: 512
 )
 
-# Store
-brain.remember("Content", layer="auto")
+# Store (with agent source for multi-agent setups)
+brain.remember("Content", layer="auto", source="hermes")
 
-# Search
-results = brain.recall("query", limit=10)
+# Search (filter by agent source or leave empty for cross-agent)
+results = brain.recall("query", limit=10, source="opencode")
 
 # Connect
-facts = brain.reason(["entity_a", "entity_b"])
+facts = brain.reason(["pytest", "HRR"])
+
+# Probe a single entity
+facts = brain.probe("pytest")
+
+# Sync layers (push facts→Notion + flush to disk)
+result = brain.sync(direction="all")
+
+# Stats
+stats = brain.stats()
 
 # Promote
 brain.reflect(fact_id=17)
