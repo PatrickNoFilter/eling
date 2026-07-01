@@ -128,6 +128,14 @@ class KBLayer:
                 "total_sources": sources["n"],
             }
 
+    def flush(self) -> None:
+        """Flush pending writes to disk (WAL checkpoint)."""
+        with self._lock:
+            try:
+                self._conn.commit()
+            except Exception:
+                pass
+
     @staticmethod
     def _split_markdown(content: str) -> list[tuple[str, str]]:
         """Split markdown by headings. Returns [(section_title, body)]."""

@@ -225,6 +225,16 @@ class FactsLayer:
             ).fetchone()
             return dict(row) if row else None
 
+    def set_trust(self, fact_id: int, score: float) -> None:
+        """Update the trust score for a fact (clamped to [0, 1])."""
+        score = max(0.0, min(1.0, score))
+        with self._lock:
+            self._conn.execute(
+                "UPDATE facts SET trust_score = ?, updated_at = CURRENT_TIMESTAMP "
+                "WHERE fact_id = ?", (score, fact_id)
+            )
+            self._conn.commit()
+
     def stats(self) -> dict:
         with self._lock:
             counts = self._conn.execute("SELECT COUNT(*) as n FROM facts").fetchone()
@@ -379,3 +389,10 @@ class FactsLayer:
 
     def close(self):
         self._conn.close()
+
+    def flush(self):
+        """Flush pending writes to disk (WAL checkpoint)."""
+        try:
+            self._conn.commit()
+        except Exception:
+            pass

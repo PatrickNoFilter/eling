@@ -1,0 +1,51 @@
+name: eling
+version: 0.2.0
+description: "Eling — 5-layer memory provider (facts + code + KB + Notion + HRR). Replaces holographic."
+author: PatrickNoFilter
+license: MIT
+homepage: https://github.com/PatrickNoFilter/eling
+
+# Plugin entry: register() function that calls registry.register_memory_provider()
+# Found by scanning the directory for MemoryProvider subclasses or register().
+
+config_schema:
+  - key: home
+    type: string
+    default: ""
+    env_var: ELING_HOME
+    description: "Eling data directory (default: $HERMES_HOME/eling-brain)"
+  - key: hrr_dim
+    type: integer
+    default: 512
+    env_var: ELING_HRR_DIM
+    description: "HRR vector dimension for fact encoding (max 2048)"
+  - key: default_trust
+    type: number
+    default: 0.5
+    env_var: ELING_DEFAULT_TRUST
+    description: "Default trust score for new facts"
+  - key: min_trust
+    type: number
+    default: 0.0
+    env_var: ELING_MIN_TRUST
+    description: "Minimum trust for search results"
+  - key: notion_enabled
+    type: boolean
+    default: true
+    env_var: ELING_NOTION_ENABLED
+    description: "Enable Notion reflection layer (auto-disabled if NOTION_API_KEY missing)"
+  - key: codegraph_enabled
+    type: boolean
+    default: true
+    env_var: ELING_CODEGRAPH_ENABLED
+    description: "Enable codegraph library"
+  - key: dedup_cache_size
+    type: integer
+    default: 1000
+    env_var: ELING_DEDUP_CACHE_SIZE
+    description: "SHA-256 dedup cache entry count"
+  - key: auto_sync_turns
+    type: boolean
+    default: true
+    env_var: ELING_AUTO_SYNC_TURNS
+    description: "Auto-store user/assistant messages via sync_turn()"

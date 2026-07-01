@@ -4,9 +4,13 @@
 """
 
 __version__ = "0.1.0"
-__all__ = ["Brain", "remember", "recall", "reason"]
+__all__ = ["Brain", "HookRegistry", "ALL_HOOKS", "register_default_hooks",
+           "remember", "recall", "reason", "resolve_config", "set_config_key",
+           "get_config", "describe_config"]
 
 from .brain import Brain
+from .hooks import HookRegistry, ALL_HOOKS, register_default_hooks
+from .config import resolve_config, set_config_key, get_config, describe_config
 
 _default_brain: Brain | None = None
 

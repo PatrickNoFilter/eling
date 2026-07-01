@@ -57,6 +57,22 @@ class CodeLayer:
                 pass
         return {"available": self.available, "results": []}
 
+    def reindex(self, file_path: str | Path) -> bool:
+        """Re-index a specific file in codegraph (no-op if CLI not available)."""
+        if not self._cli_available:
+            return False
+        try:
+            subprocess.run(
+                ["codegraph", "index", str(file_path)],
+                cwd=str(self.project_path),
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return True
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+
     def _search_lib(self, query: str, max_files: int) -> list[dict]:
         try:
             cg = CodeGraph(str(self.project_path))

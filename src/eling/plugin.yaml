@@ -10,4 +10,15 @@ entrypoint: eling.hermes_plugin:register
 
 # Optional: hooks for session lifecycle
 hooks:
+  - on_session_start
   - on_session_end
+  - on_pre_user_message
+  - on_post_user_message
+  - on_pre_tool_use
+  - on_post_tool_use
+  - on_post_assistant_message
+  - on_compaction
+  - on_error_occurred
+  - on_decision_made
+  - on_file_edit
+  - on_idle_30min

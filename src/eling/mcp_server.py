@@ -31,6 +31,7 @@ TOOLS = [
                 "category": {"type": "string", "default": "general"},
                 "tags": {"type": "string", "default": ""},
                 "title": {"type": "string", "default": ""},
+                "skip_dedup": {"type": "boolean", "default": False},
             },
             "required": ["content"],
         },
