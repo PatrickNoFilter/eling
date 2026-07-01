@@ -314,11 +314,14 @@ def _make_session_end_handler(brain: "Brain") -> HookHandler:
 
 
 def _make_idle_30min_handler(brain: "Brain") -> HookHandler:
-    """HOOK: idle_30min — promote high-trust facts to Notion."""
+    """HOOK: idle_30min — apply decay, promote high-trust facts to Notion."""
     def handler(name: str, ctx: dict) -> dict:
+        # Apply forgetting decay first
+        decay_result = brain.facts.apply_decay()
+
         promoted = 0
         if not brain.notion.available:
-            return {"promoted": 0, "reason": "Notion not configured"}
+            return {"promoted": 0, "decay": decay_result, "reason": "Notion not configured"}
 
         # Find high-trust (≥0.9) facts not yet in Notion
         high_trust = brain.facts.search("", min_trust=0.9, limit=10)
@@ -328,7 +331,7 @@ def _make_idle_30min_handler(brain: "Brain") -> HookHandler:
             if fid and not fact.get("notion_page_id"):
                 brain.reflect(fid, parent_page_id=parent_id)
                 promoted += 1
-        return {"promoted": promoted}
+        return {"promoted": promoted, "decay": decay_result}
     return handler
 
 

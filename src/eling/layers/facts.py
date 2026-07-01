@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import hrr
+from .. import decay
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS facts (
@@ -110,6 +111,17 @@ class FactsLayer:
         except sqlite3.OperationalError:
             pass
         self._conn.executescript(_SCHEMA)
+        # Migration: add strength + last_access_at columns (v4 forgetting engine)
+        # NOTE: SQLite ALTER TABLE only allows constant default values, not
+        # CURRENT_TIMESTAMP, so last_access_at starts as NULL.
+        for col in (
+            "ALTER TABLE facts ADD COLUMN strength REAL DEFAULT 1.0",
+            "ALTER TABLE facts ADD COLUMN last_access_at TIMESTAMP",
+        ):
+            try:
+                self._conn.execute(col)
+            except sqlite3.OperationalError:
+                pass  # column already exists
         self._conn.commit()
 
     # ---- write ops ----
@@ -120,7 +132,7 @@ class FactsLayer:
                 raise ValueError("content must not be empty")
             try:
                 cur = self._conn.execute(
-                    "INSERT INTO facts (content, category, tags, trust_score, source) VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO facts (content, category, tags, trust_score, source, strength, last_access_at) VALUES (?, ?, ?, ?, ?, 1.0, CURRENT_TIMESTAMP)",
                     (content, category, tags, self.default_trust, source),
                 )
                 self._conn.commit()
@@ -149,18 +161,23 @@ class FactsLayer:
     def update_trust(self, fact_id: int, helpful: bool) -> dict:
         with self._lock:
             row = self._conn.execute(
-                "SELECT trust_score, helpful_count FROM facts WHERE fact_id = ?", (fact_id,)
+                "SELECT trust_score, helpful_count, strength FROM facts WHERE fact_id = ?", (fact_id,)
             ).fetchone()
             if not row:
                 raise KeyError(f"fact_id {fact_id} not found")
             delta = _HELPFUL_DELTA if helpful else _UNHELPFUL_DELTA
             new_trust = _clamp(row["trust_score"] + delta)
+            # Boost strength on helpful feedback (decision_made)
+            new_strength = decay.boost_strength(
+                row["strength"], decay.DECISION_BOOST if helpful else 0.0
+            )
             self._conn.execute(
-                "UPDATE facts SET trust_score=?, helpful_count=helpful_count+? WHERE fact_id=?",
-                (new_trust, 1 if helpful else 0, fact_id),
+                "UPDATE facts SET trust_score=?, helpful_count=helpful_count+?, "
+                "strength=?, last_access_at=CURRENT_TIMESTAMP WHERE fact_id=?",
+                (new_trust, 1 if helpful else 0, new_strength, fact_id),
             )
             self._conn.commit()
-            return {"fact_id": fact_id, "trust_score": new_trust}
+            return {"fact_id": fact_id, "trust_score": new_trust, "strength": new_strength}
 
     def set_notion_page(self, fact_id: int, notion_page_id: str) -> bool:
         with self._lock:
@@ -171,8 +188,12 @@ class FactsLayer:
             return cur.rowcount > 0
 
     # ---- search ops ----
-    def search(self, query: str, category: str | None = None, source: str | None = None, min_trust: float = 0.3, limit: int = 10) -> list[dict]:
-        """Hybrid BM25 + Jaccard + HRR search. Filter by category or source."""
+    def search(self, query: str, category: str | None = None, source: str | None = None, min_trust: float = 0.3, limit: int = 10, include_cleared: bool = False) -> list[dict]:
+        """Hybrid BM25 + Jaccard + HRR search. Filter by category or source.
+
+        Excludes cleared facts (strength <= DORMANT_THRESHOLD) unless include_cleared=True.
+        Boosts strength + updates last_access_at for returned facts.
+        """
         with self._lock:
             query = query.strip()
             if not query:
@@ -180,6 +201,11 @@ class FactsLayer:
             candidates = self._fts_candidates(query, category, source, min_trust, limit * 3)
             if not candidates:
                 return []
+            # Filter out cleared facts unless explicitly included
+            if not include_cleared:
+                candidates = [c for c in candidates if c.get("strength", 1.0) > decay.DORMANT_THRESHOLD]
+                if not candidates:
+                    return []
             query_tokens = self._tokenize(query)
             scored = []
             for fact in candidates:
@@ -198,7 +224,12 @@ class FactsLayer:
                 fact.pop("hrr_vector", None)
                 scored.append(fact)
             scored.sort(key=lambda x: x["score"], reverse=True)
-            return scored[:limit]
+            results = scored[:limit]
+            # Boost strength for returned facts (read/recall boost)
+            for fact in results:
+                self._boost_strength(fact["fact_id"], decay.READ_BOOST)
+            self._conn.commit()
+            return results
 
     def _fts_candidates(self, query: str, category: str | None, source: str | None, min_trust: float, limit: int) -> list[dict]:
         params = [query, min_trust]
@@ -216,7 +247,7 @@ class FactsLayer:
         sql = f"""
             SELECT f.fact_id, f.content, f.category, f.tags, f.trust_score,
                    f.retrieval_count, f.helpful_count, f.created_at, f.updated_at,
-                   f.source, f.notion_page_id, f.hrr_vector,
+                   f.source, f.notion_page_id, f.hrr_vector, f.strength,
                    -fts.rank as fts_rank
             FROM facts f JOIN facts_fts fts ON fts.rowid = f.fact_id
             WHERE facts_fts MATCH ? AND f.trust_score >= ? {filter_clause}
@@ -233,18 +264,23 @@ class FactsLayer:
                 c["fts_rank"] = c.get("fts_rank", 0.0) / max_rank
         return cands
 
-    def list_all(self, category: str | None = None, min_trust: float = 0.0, limit: int = 100) -> list[dict]:
+    def list_all(self, category: str | None = None, min_trust: float = 0.0, limit: int = 100, include_cleared: bool = False) -> list[dict]:
         with self._lock:
             params = [min_trust]
             cat_clause = ""
             if category:
                 cat_clause = "AND category = ?"
                 params.append(category)
+            cleared_clause = ""
+            if not include_cleared:
+                cleared_clause = "AND (strength IS NULL OR strength > ?)"
+                params.append(decay.DORMANT_THRESHOLD)
             params.append(limit)
             sql = f"""
                 SELECT fact_id, content, category, tags, trust_score, retrieval_count,
-                       helpful_count, created_at, updated_at, source, notion_page_id
-                FROM facts WHERE trust_score >= ? {cat_clause}
+                       helpful_count, created_at, updated_at, source, notion_page_id,
+                       strength
+                FROM facts WHERE trust_score >= ? {cat_clause} {cleared_clause}
                 ORDER BY trust_score DESC LIMIT ?
             """
             return [dict(r) for r in self._conn.execute(sql, params).fetchall()]
@@ -256,6 +292,13 @@ class FactsLayer:
                 "helpful_count, created_at, updated_at, source, notion_page_id "
                 "FROM facts WHERE fact_id = ?", (fact_id,)
             ).fetchone()
+            if row:
+                # Update last_access_at on read
+                self._conn.execute(
+                    "UPDATE facts SET last_access_at = CURRENT_TIMESTAMP WHERE fact_id = ?",
+                    (fact_id,),
+                )
+                self._conn.commit()
             return dict(row) if row else None
 
     def set_trust(self, fact_id: int, score: float) -> None:
@@ -268,6 +311,56 @@ class FactsLayer:
             )
             self._conn.commit()
 
+    # ── decay / forgetting engine (v4) ─────────────────────────────────
+
+    def apply_decay(self, decay_rate: float = decay.DEFAULT_DECAY_RATE) -> dict:
+        """Apply exponential strength decay to all facts.
+
+        strength *= exp(-decay_rate * days_since_last_access)
+
+        Returns dict with counts of active/dormant/cleared facts after decay.
+        """
+        with self._lock:
+            self._conn.execute(
+                """UPDATE facts
+                   SET strength = MAX(0.0, MIN(1.0, strength * exp(-? * (julianday('now') - julianday(last_access_at)))))
+                   WHERE julianday('now') - julianday(last_access_at) > 0""",
+                (decay_rate,),
+            )
+            self._conn.commit()
+
+            # Count lifecycle states
+            total = self._conn.execute("SELECT COUNT(*) as n FROM facts").fetchone()["n"]
+            active = self._conn.execute(
+                "SELECT COUNT(*) as n FROM facts WHERE strength > ?", (decay.ACTIVE_THRESHOLD,)
+            ).fetchone()["n"]
+            dormant = self._conn.execute(
+                "SELECT COUNT(*) as n FROM facts WHERE strength > ? AND strength <= ?",
+                (decay.DORMANT_THRESHOLD, decay.ACTIVE_THRESHOLD),
+            ).fetchone()["n"]
+            cleared = self._conn.execute(
+                "SELECT COUNT(*) as n FROM facts WHERE strength <= ?", (decay.DORMANT_THRESHOLD,)
+            ).fetchone()["n"]
+
+        return {
+            "total": int(total),
+            "active": int(active),
+            "dormant": int(dormant),
+            "cleared": int(cleared),
+        }
+
+    def _boost_strength(self, fact_id: int, boost: float = decay.READ_BOOST) -> None:
+        """Apply a strength boost to a fact, clamped to [0, 1]."""
+        self._conn.execute(
+            """UPDATE facts
+               SET strength = MAX(0.0, MIN(1.0, strength + ?)),
+                   last_access_at = CURRENT_TIMESTAMP
+               WHERE fact_id = ?""",
+            (boost, fact_id),
+        )
+
+    # ── stats ──────────────────────────────────────────────────────────
+
     def stats(self) -> dict:
         with self._lock:
             counts = self._conn.execute("SELECT COUNT(*) as n FROM facts").fetchone()
@@ -275,11 +368,24 @@ class FactsLayer:
             cats = self._conn.execute(
                 "SELECT category, COUNT(*) as n FROM facts GROUP BY category"
             ).fetchall()
+            active = self._conn.execute(
+                "SELECT COUNT(*) as n FROM facts WHERE strength > ?", (decay.ACTIVE_THRESHOLD,)
+            ).fetchone()["n"]
+            dormant = self._conn.execute(
+                "SELECT COUNT(*) as n FROM facts WHERE strength > ? AND strength <= ?",
+                (decay.DORMANT_THRESHOLD, decay.ACTIVE_THRESHOLD),
+            ).fetchone()["n"]
+            cleared = self._conn.execute(
+                "SELECT COUNT(*) as n FROM facts WHERE strength <= ?", (decay.DORMANT_THRESHOLD,)
+            ).fetchone()["n"]
             return {
                 "total_facts": counts["n"],
                 "total_entities": ents["n"],
                 "by_category": {r["category"]: r["n"] for r in cats},
                 "hrr_enabled": self._hrr_available,
+                "active_facts": int(active),
+                "dormant_facts": int(dormant),
+                "cleared_facts": int(cleared),
             }
 
     @staticmethod
@@ -329,27 +435,36 @@ class FactsLayer:
             (hrr.phases_to_bytes(vector), fact_id),
         )
 
-    def probe(self, entity: str, limit: int = 10) -> list[dict]:
-        """Find facts mentioning a single entity."""
+    def probe(self, entity: str, limit: int = 10, include_cleared: bool = False) -> list[dict]:
+        """Find facts mentioning a single entity.
+
+        Excludes cleared facts (strength <= DORMANT_THRESHOLD) unless include_cleared=True.
+        """
         with self._lock:
+            cleared_clause = ""
+            params: list = [entity]
+            if not include_cleared:
+                cleared_clause = "AND (f.strength IS NULL OR f.strength > ?)"
+                params.append(decay.DORMANT_THRESHOLD)
+            params.append(limit)
             rows = self._conn.execute(
-                """
+                f"""
                 SELECT f.fact_id, f.content, f.category, f.tags, f.trust_score,
                        f.retrieval_count, f.helpful_count, f.created_at, f.updated_at,
                        f.source, f.notion_page_id
                 FROM facts f
                 JOIN fact_entities fe ON fe.fact_id = f.fact_id
                 JOIN entities e ON e.entity_id = fe.entity_id
-                WHERE e.name LIKE ?
+                WHERE e.name LIKE ? {cleared_clause}
                 ORDER BY f.trust_score DESC, f.retrieval_count DESC
                 LIMIT ?
                 """,
-                (entity, limit),
+                params,
             ).fetchall()
             if rows:
                 return [dict(r) for r in rows]
             # Fallback to FTS
-            return self.search(entity, limit=limit)
+            return self.search(entity, limit=limit, include_cleared=include_cleared)
 
     def entities_for_fact(self, fact_id: int) -> list[str]:
         """Return all entity names linked to a fact."""
