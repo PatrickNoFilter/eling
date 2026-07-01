@@ -160,6 +160,11 @@ eling/
 - [Migration Guide](docs/MIGRATION.md)
 - [Hooks Reference](docs/HOOKS.md)
 
+## 🤝 Credits
+
+- **HRR phase encoding + facts layer** — adapted from [holographic plugin](https://github.com/dusterbloom) by dusterbloom (Hermes PR #2351, MIT)
+- **FTS5 retrieval** — inspired by Nous Research's [context-mode](https://github.com/NousResearch/context-mode)
+
 ## 📜 License
 
 MIT © 2026 PatrickNoFilter
