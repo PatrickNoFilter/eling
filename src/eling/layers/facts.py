@@ -83,6 +83,28 @@ _RE_DOUBLE_QUOTE = re.compile(r'"([^"]+)"')
 _RE_SINGLE_QUOTE = re.compile(r"'([^']+)'")
 _RE_WIKI_LINK = re.compile(r'\[\[([^\]]+)\]\]')
 
+# ── contradiction / consistency ──
+CONTRADICTION_THRESHOLD = 0.3
+"""Jaccard similarity below this (with overlapping entities) → flag as contradiction."""
+
+
+def _tag_has(tags: str, flag: str) -> bool:
+    """Check if a comma-separated tags string contains *flag*."""
+    return flag in tags.split(",")
+
+
+def _tag_add(tags: str, flag: str) -> str:
+    """Append *flag* to a comma-separated tags string if not already present."""
+    if _tag_has(tags, flag):
+        return tags
+    return (tags + "," + flag) if tags else flag
+
+
+def _tag_remove(tags: str, flag: str) -> str:
+    """Remove *flag* from a comma-separated tags string."""
+    parts = [t for t in tags.split(",") if t and t != flag]
+    return ",".join(parts)
+
 
 def _clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return max(lo, min(hi, v))
@@ -156,8 +178,12 @@ class FactsLayer:
             self._compute_hrr_vector(fact_id, content)
             self._conn.commit()
 
+            self._conn.commit()
+
             # Self-wiring graph: edges between co-occurring entities
             self.self_wire_graph(fact_id)
+            # Post-write contradiction check
+            self.detect_contradictions(fact_id)
 
             return int(fact_id)
 
@@ -399,6 +425,10 @@ class FactsLayer:
                 "active_facts": int(active),
                 "dormant_facts": int(dormant),
                 "cleared_facts": int(cleared),
+                "pending_contradictions": int(self._conn.execute(
+                    "SELECT COUNT(*) as n FROM facts WHERE tags LIKE ?",
+                    (f"%{self.CONTRADICTION_FLAG}%",),
+                ).fetchone()["n"]),
             }
 
     @staticmethod
@@ -575,6 +605,148 @@ class FactsLayer:
                 (eid, eid, eid, limit),
             ).fetchall()
             return [dict(r) for r in rows]
+
+    # ── contradiction / consistency (v5) ─────────────────────────────
+
+    CONTRADICTION_FLAG = "contradiction_pending"
+
+    def detect_contradictions(
+        self, fact_id: int, similarity_threshold: float = CONTRADICTION_THRESHOLD
+    ) -> list[dict]:
+        """Find existing facts sharing entities with *fact_id* but low content similarity.
+
+        Flags both sides with *contradiction_pending* tag.
+        Returns list of dicts: ``{contradictor_id, content, similarity}``.
+        """
+        with self._lock:
+            entities = self.entities_for_fact(fact_id)
+            if not entities:
+                return []
+
+            new_row = self._conn.execute(
+                "SELECT content, tags FROM facts WHERE fact_id = ?", (fact_id,)
+            ).fetchone()
+            if not new_row:
+                return []
+            new_content = new_row["content"]
+            new_tokens = self._tokenize(new_content)
+
+            # Find other facts sharing at least one entity
+            placeholders = ",".join("?" for _ in entities)
+            others = self._conn.execute(
+                f"""SELECT DISTINCT f.fact_id, f.content, f.tags
+                    FROM facts f
+                    JOIN fact_entities fe ON fe.fact_id = f.fact_id
+                    JOIN entities e ON e.entity_id = fe.entity_id
+                    WHERE e.name IN ({placeholders})
+                      AND f.fact_id != ?""",
+                (*entities, fact_id),
+            ).fetchall()
+
+            hits: list[dict] = []
+            for row in others:
+                if _tag_has(row["tags"], self.CONTRADICTION_FLAG):
+                    continue  # already flagged
+                other_tokens = self._tokenize(row["content"])
+                sim = self._jaccard(new_tokens, other_tokens)
+                if sim < similarity_threshold:
+                    hits.append(
+                        {
+                            "contradictor_id": int(row["fact_id"]),
+                            "content": row["content"],
+                            "similarity": round(sim, 4),
+                        }
+                    )
+
+            if not hits:
+                return []
+
+            # Flag both sides
+            new_tags = _tag_add(new_row["tags"], self.CONTRADICTION_FLAG)
+            self._conn.execute(
+                "UPDATE facts SET tags = ? WHERE fact_id = ?",
+                (new_tags, fact_id),
+            )
+            for h in hits:
+                old_tags = self._conn.execute(
+                    "SELECT tags FROM facts WHERE fact_id = ?",
+                    (h["contradictor_id"],),
+                ).fetchone()["tags"]
+                updated = _tag_add(old_tags, self.CONTRADICTION_FLAG)
+                self._conn.execute(
+                    "UPDATE facts SET tags = ? WHERE fact_id = ?",
+                    (updated, h["contradictor_id"]),
+                )
+            self._conn.commit()
+            return hits
+
+    def resolve_contradictions(self, fact_id: int) -> int:
+        """Remove *contradiction_pending* tag from *fact_id* and all facts it contradicts.
+
+        Returns the number of facts un-flagged (including *fact_id*).
+        """
+        with self._lock:
+            count = 0
+            # Unflag this fact
+            row = self._conn.execute(
+                "SELECT tags FROM facts WHERE fact_id = ?", (fact_id,)
+            ).fetchone()
+            if row and _tag_has(row["tags"], self.CONTRADICTION_FLAG):
+                new_tags = _tag_remove(row["tags"], self.CONTRADICTION_FLAG)
+                self._conn.execute(
+                    "UPDATE facts SET tags = ? WHERE fact_id = ?",
+                    (new_tags, fact_id),
+                )
+                count += 1
+
+            # Find and unflag contradictors (facts sharing entities)
+            entities = self.entities_for_fact(fact_id)
+            if entities:
+                placeholders = ",".join("?" for _ in entities)
+                others = self._conn.execute(
+                    f"""SELECT f.fact_id, f.tags
+                        FROM facts f
+                        JOIN fact_entities fe ON fe.fact_id = f.fact_id
+                        JOIN entities e ON e.entity_id = fe.entity_id
+                        WHERE e.name IN ({placeholders})
+                          AND f.fact_id != ?""",
+                    (*entities, fact_id),
+                ).fetchall()
+                for row in others:
+                    if _tag_has(row["tags"], self.CONTRADICTION_FLAG):
+                        new_tags = _tag_remove(row["tags"], self.CONTRADICTION_FLAG)
+                        self._conn.execute(
+                            "UPDATE facts SET tags = ? WHERE fact_id = ?",
+                            (new_tags, int(row["fact_id"])),
+                        )
+                        count += 1
+
+            self._conn.commit()
+            return count
+
+    def detect_contradictions_for_unflagged(self, limit: int = 20) -> list[dict]:
+        """Periodic sweep: check recently-added unflagged facts for contradictions.
+
+        Iterates the *limit* most-recent facts with entities but without the
+        *contradiction_pending* flag.  Returns combined list of hits.
+        """
+        with self._lock:
+            candidates = self._conn.execute(
+                f"""SELECT f.fact_id
+                    FROM facts f
+                    WHERE f.tags NOT LIKE ?
+                      AND f.fact_id IN (
+                          SELECT DISTINCT fe.fact_id FROM fact_entities fe
+                      )
+                    ORDER BY f.fact_id DESC
+                    LIMIT ?""",
+                (f"%{self.CONTRADICTION_FLAG}%", limit),
+            ).fetchall()
+            all_hits: list[dict] = []
+            for (fid,) in candidates:
+                hits = self.detect_contradictions(int(fid))
+                all_hits.extend(hits)
+            return all_hits
 
     def flush(self):
         """Flush pending writes to disk (WAL checkpoint)."""
