@@ -50,6 +50,14 @@ CREATE INDEX IF NOT EXISTS idx_facts_category ON facts(category);
 CREATE INDEX IF NOT EXISTS idx_facts_source   ON facts(source);
 CREATE INDEX IF NOT EXISTS idx_entities_name  ON entities(name);
 
+CREATE TABLE IF NOT EXISTS entity_graph (
+    entity_a_id INTEGER NOT NULL REFERENCES entities(entity_id),
+    entity_b_id INTEGER NOT NULL REFERENCES entities(entity_id),
+    weight      REAL DEFAULT 1.0,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (entity_a_id, entity_b_id)
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS facts_fts
     USING fts5(content, tags, content=facts, content_rowid=fact_id);
 
@@ -73,6 +81,7 @@ _UNHELPFUL_DELTA = -0.10
 _RE_CAPITALIZED = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b')
 _RE_DOUBLE_QUOTE = re.compile(r'"([^"]+)"')
 _RE_SINGLE_QUOTE = re.compile(r"'([^']+)'")
+_RE_WIKI_LINK = re.compile(r'\[\[([^\]]+)\]\]')
 
 
 def _clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
@@ -146,6 +155,10 @@ class FactsLayer:
                 self._conn.execute("INSERT OR IGNORE INTO fact_entities VALUES (?, ?)", (fact_id, eid))
             self._compute_hrr_vector(fact_id, content)
             self._conn.commit()
+
+            # Self-wiring graph: edges between co-occurring entities
+            self.self_wire_graph(fact_id)
+
             return int(fact_id)
 
     def remove(self, fact_id: int) -> bool:
@@ -406,6 +419,8 @@ class FactsLayer:
             if n and n.lower() not in seen:
                 seen.add(n.lower())
                 out.append(n)
+        for m in _RE_WIKI_LINK.finditer(text):
+            _add(m.group(1))
         for m in _RE_CAPITALIZED.finditer(text):
             _add(m.group(1))
         for m in _RE_DOUBLE_QUOTE.finditer(text):
@@ -507,6 +522,59 @@ class FactsLayer:
 
     def close(self):
         self._conn.close()
+
+    # ── self-wiring graph (v5) ──────────────────────────────────────
+
+    def self_wire_graph(self, fact_id: int) -> int:
+        """Create/strengthen edges between all entities co-occurring in *fact_id*.
+
+        Every pair of entities gets its edge weight incremented by 1.
+        Returns the number of edges upserted.
+        """
+        with self._lock:
+            ents = self._conn.execute(
+                "SELECT entity_id FROM fact_entities WHERE fact_id = ?",
+                (fact_id,),
+            ).fetchall()
+            ids = [r["entity_id"] for r in ents]
+            count = 0
+            for i in range(len(ids)):
+                for j in range(i + 1, len(ids)):
+                    a, b = (ids[i], ids[j]) if ids[i] < ids[j] else (ids[j], ids[i])
+                    self._conn.execute(
+                        """INSERT INTO entity_graph (entity_a_id, entity_b_id, weight, updated_at)
+                           VALUES (?, ?, 1.0, CURRENT_TIMESTAMP)
+                           ON CONFLICT(entity_a_id, entity_b_id) DO UPDATE SET
+                               weight = weight + 1,
+                               updated_at = CURRENT_TIMESTAMP""",
+                        (a, b),
+                    )
+                    count += 1
+            self._conn.commit()
+            return count
+
+    def entity_neighbors(self, name: str, limit: int = 10) -> list[dict]:
+        """Return top-*limit* entities most strongly connected to *name* via co-occurrence."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT entity_id FROM entities WHERE name LIKE ?", (name,)
+            ).fetchone()
+            if not row:
+                return []
+            eid = row["entity_id"]
+            rows = self._conn.execute(
+                """SELECT e.name AS neighbor, eg.weight, eg.updated_at
+                    FROM entity_graph eg
+                    JOIN entities e ON e.entity_id = CASE
+                        WHEN eg.entity_a_id = ? THEN eg.entity_b_id
+                        ELSE eg.entity_a_id
+                    END
+                    WHERE eg.entity_a_id = ? OR eg.entity_b_id = ?
+                    ORDER BY eg.weight DESC
+                    LIMIT ?""",
+                (eid, eid, eid, limit),
+            ).fetchall()
+            return [dict(r) for r in rows]
 
     def flush(self):
         """Flush pending writes to disk (WAL checkpoint)."""
