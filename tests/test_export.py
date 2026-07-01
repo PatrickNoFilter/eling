@@ -14,7 +14,7 @@ from eling.brain import Brain
 @pytest.fixture
 def brain():
     tmp = Path(tempfile.mkdtemp())
-    b = Brain(home=tmp)
+    b = Brain(home=tmp, notion_api_key="")  # disable notion to avoid env NOTION_API_KEY
     b.remember("Python is a high-level language", layer="facts", category="code")
     b.remember("JavaScript runs in the browser", layer="facts", category="code")
     b.remember("FastAPI is a modern Python web framework", layer="kb", category="code")

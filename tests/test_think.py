@@ -9,11 +9,11 @@ from eling.brain import Brain
 
 @pytest.fixture
 def brain():
-    """A fresh brain with a known facts.db."""
+    """A fresh brain with a known facts.db, notion disabled."""
     import tempfile
     from pathlib import Path
     tmp = Path(tempfile.mkdtemp())
-    b = Brain(home=tmp)
+    b = Brain(home=tmp, notion_api_key="")  # disable notion — env NOTION_API_KEY may be set
     # Seed with controlled facts
     b.remember("Python is a high-level programming language", layer="facts", category="code")
     b.remember("Python was created by Guido van Rossum", layer="facts", category="code")
@@ -104,6 +104,6 @@ class TestThinkMCPTools:
         assert "entities" in props
         assert "limit" in props
 
-    def test_eight_tools_total(self):
+    def test_nine_tools_total(self):
         from eling.mcp_server import TOOLS
-        assert len(TOOLS) == 8  # was 7, now 8 with eling_think
+        assert len(TOOLS) == 9  # was 8, now 9 with eling_export
