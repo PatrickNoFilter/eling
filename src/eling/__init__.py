@@ -3,7 +3,7 @@
 5-layer architecture: builtin / facts / kb / code / notion
 """
 
-__version__ = "0.1.3"
+__version__ = "0.2.0"
 __all__ = ["Brain", "HookRegistry", "ALL_HOOKS", "register_default_hooks",
            "remember", "recall", "reason", "resolve_config", "set_config_key",
            "get_config", "describe_config"]

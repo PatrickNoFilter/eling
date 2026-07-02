@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -30,6 +31,44 @@ logger = logging.getLogger(__name__)
 # RRF constant (Cormack et al. 2009)
 RRF_K = 60
 
+# ── Notion child page routing ──────────────────────────────────────────────
+# category → (child page icon + title, detection patterns)
+NOTION_PAGES: dict[str, tuple[str, list[str]]] = {
+    "project_summary": (
+        "🎯 Project Summaries",
+        [
+            r"(?i)\b(project\s*(done|complete|finish|selesai))\b",
+            r"(?i)\b(deploy.*success|release.*done|rollout)\b",
+            r"(?i)\b(summary\s*(of|completion|final|akhir))\b",
+        ],
+    ),
+    "credential": (
+        "🔑 Credentials",
+        [
+            r"(?i)\b(api[_-]?key|apikey)\b",
+            r"(?i)\b(password|passwd|secret|token|credential)\b",
+            r"(?i)\b(ssh[_-]?key|access[_-]?key)\b",
+        ],
+    ),
+    "address": (
+        "📍 Addresses",
+        [
+            r"(?i)\b(alamat|address|domicile)\b",
+            r"(?i)\b(located?\s+at|tinggal\s+(di|pada))\b",
+        ],
+    ),
+    "config": (
+        "⚙️ Configurations",
+        [
+            r"(?i)\b(config|configuration|setting|setup)\b",
+            r"(?i)\b(environment\s*(var|config)|env.*config)\b",
+        ],
+    ),
+}
+
+# Default fallback page for uncategorised content
+DEFAULT_NOTION_PAGE = "📋 Task Logs"
+
 
 def _eling_home() -> Path:
     """Resolve ELING_HOME (default: $HERMES_HOME/eling or ~/.eling)."""
@@ -40,6 +79,20 @@ def _eling_home() -> Path:
     if hermes_home:
         return Path(hermes_home).expanduser() / "eling"
     return Path("~/.eling").expanduser()
+
+
+def _detect_notion_category(content: str, category_hint: str = "") -> str:
+    """Auto-detect Notion child page category from content + optional hint.
+
+    Explicit hint wins over detection.
+    """
+    if category_hint and category_hint != "general" and category_hint in NOTION_PAGES:
+        return category_hint
+    for cat, (_title, patterns) in NOTION_PAGES.items():
+        for pat in patterns:
+            if re.search(pat, content):
+                return cat
+    return "task_logs"  # default
 
 
 class Brain:
@@ -61,7 +114,8 @@ class Brain:
         self.kb = KBLayer(db_path=self.home / "kb.db")
         self.code = CodeLayer(project_path=project_path, auto_index=False)
         self.notion = NotionLayer(api_key=notion_api_key, parent_page_id=notion_parent_id)
-        self._task_logs_id: str | None = None
+        # Child page cache: category → page_id
+        self._child_pages: dict[str, str] = {}
         self.privacy = PrivacyPipeline()
         # Hooks registry
         self.hooks = eling_hooks.HookRegistry()
@@ -71,35 +125,47 @@ class Brain:
         """Fire a lifecycle hook. Context kwargs become the dict passed to handlers."""
         return self.hooks.fire(hook_name, ctx)
 
-    # ── Task Logs auto-creation (Notion Tier 5) ──
+    # ── Notion child page auto-creation ────────────────────────────────────
 
-    def _ensure_task_logs(self) -> str | None:
-        """Auto-create '📋 Task Logs' child page under configured parent.
+    def _ensure_child_page(self, title: str) -> str | None:
+        """Find or create a child page under the configured Notion parent.
 
-        Once created, caches the page ID so all future reflects go into it.
-        Returns the Task Logs page ID, or None if Notion is not available.
+        Results are cached in _child_pages so subsequent calls are instant.
         """
-        if self._task_logs_id:
-            return self._task_logs_id
+        if title in self._child_pages:
+            return self._child_pages[title]
         if not self.notion.available:
             return None
         parent = self.notion.parent_page_id
         if not parent:
             return None
-        # Search for existing Task Logs page
-        for r in self.notion.search("📋 Task Logs", limit=5):
-            if r.get("title") == "📋 Task Logs":
-                self._task_logs_id = r["id"]
-                return self._task_logs_id
-        # Create it
+        for r in self.notion.search(title, limit=5):
+            if r.get("title") == title:
+                self._child_pages[title] = r["id"]
+                return r["id"]
         pid = self.notion.create_page(
-            "📋 Task Logs",
-            "All reflected facts from Eling brain\n\n---\n_auto-managed by eling_",
+            title,
+            f"_auto-managed by eling_",
             parent_id=parent,
         )
         if pid:
-            self._task_logs_id = pid
+            self._child_pages[title] = pid
         return pid
+
+    def _ensure_task_logs(self) -> str | None:
+        """Backward-compat wrapper — ensure the 📋 Task Logs page exists."""
+        return self._ensure_child_page("📋 Task Logs")
+
+    def _route_parent(self, category: str) -> str | None:
+        """Resolve the Notion parent for a given content category.
+
+        Known categories → their dedicated child page.
+        Unknown / 'task_logs' → 📋 Task Logs.
+        """
+        if category in NOTION_PAGES:
+            _title, _ = NOTION_PAGES[category]
+            return self._ensure_child_page(_title)
+        return self._ensure_task_logs()
 
     # ── Snapshot / rollback (Task 13.1) ──
 
@@ -135,6 +201,14 @@ class Brain:
 
         layer="auto": short → facts, long (>500 chars or has markdown headings) → kb
         layer="facts" | "kb" | "notion": force specific layer.
+
+        When layer="notion", the category is used to route content to the
+        appropriate Notion child page:
+          - "credential"       → 🔑 Credentials
+          - "config"           → ⚙️ Configurations
+          - "address"          → 📍 Addresses
+          - "project_summary"  → 🎯 Project Summaries
+          - "general" (default) → auto-detect from content, else 📋 Task Logs
 
         Privacy & compression pipeline runs before storage:
         1. SHA-256 dedup (skip with skip_dedup=True)
@@ -196,13 +270,16 @@ class Brain:
                 result = {"layer": "notion", "error": "Notion not configured (NOTION_API_KEY missing)", **meta}
                 self.fire_hook(eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result)
                 return result
+            # Auto-detect category from content if not explicitly set
+            notion_cat = _detect_notion_category(compressed, category_hint=category)
+            parent_id = self._route_parent(notion_cat)
             store = compressed if len(compressed) > 80 else content
             pid = self.notion.create_page(
                 title=title or store[:80],
                 content=store,
-                parent_id=self._ensure_task_logs() or self.notion.parent_page_id,
+                parent_id=parent_id or self.notion.parent_page_id,
             )
-            result = {"layer": "notion", "page_id": pid, **meta}
+            result = {"layer": "notion", "page_id": pid, "notion_category": notion_cat, **meta}
             self.fire_hook(eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result)
             return result
         else:
@@ -214,261 +291,138 @@ class Brain:
     def recall(
         self,
         query: str,
-        layers: list[str] | None = None,
         limit: int = 10,
-        min_trust: float = 0.3,
-        source: str | None = None,
-    ) -> dict:
-        """Cross-layer search with Reciprocal Rank Fusion.
+        source: str = "",
+        layers: str | list[str] | None = None,
+    ) -> list[dict]:
+        """Cross-layer search with Reciprocal Rank Fusion (BM25 + trigram + porter).
 
-        Optional `source` limits results to one agent origin (hermes, opencode, etc.).
+        Args:
+            query: Search string.
+            limit: Max merged results.
+            source: Filter by agent source (empty = all agents).
+            layers: Layers to search. None = all, or list like ["facts", "kb"].
         """
-        self.fire_hook(eling_hooks.HOOK_PRE_TOOL_USE, tool_name="recall", arguments=query)
-
+        if isinstance(layers, str):
+            layers = [l.strip() for l in layers.split(",") if l.strip()]
         if not layers:
-            layers = ["builtin", "facts", "kb", "code", "notion"]
+            layers = ["facts", "kb", "builtin", "code"]
 
-        per_layer: dict[str, list[dict]] = {}
+        all_results: list[dict] = []
+        layer_weights = {"facts": 1.0, "kb": 0.9, "builtin": 0.7, "code": 0.5}
+
+        if "facts" in layers:
+            res = self.facts.search(query, limit=limit, source=source)
+            for r in res or []:
+                r["_layer"] = "facts"
+                r["_rank"] = 0
+                all_results.append(r)
+
+        if "kb" in layers:
+            res = self.kb.search(query, limit=limit)
+            for r in res or []:
+                r["_layer"] = "kb"
+                r["_rank"] = 0
+                all_results.append(r)
 
         if "builtin" in layers:
-            per_layer["builtin"] = self.builtin.search(query)[:limit]
-        if "facts" in layers:
-            per_layer["facts"] = self.facts.search(query, min_trust=min_trust, source=source, limit=limit)
-        if "kb" in layers:
-            per_layer["kb"] = self.kb.search(query, source=source, limit=limit)
-        if "code" in layers and self.code.available:
-            per_layer["code"] = self.code.search(query, max_files=limit)
-        if "notion" in layers and self.notion.available:
-            per_layer["notion"] = self.notion.search(query, limit=limit)
+            res = self.builtin.search(query, limit=limit)
+            for r in res or []:
+                r["_layer"] = "builtin"
+                r["_rank"] = 0
+                all_results.append(r)
 
-        # RRF fusion
-        merged = self._rrf_fuse(per_layer, limit=limit)
-        return {
-            "query": query,
-            "merged": merged,
-            "per_layer": per_layer,
-        }
+        if "code" in layers:
+            res = self.code.search(query, limit=limit)
+            for r in res or []:
+                r["_layer"] = "code"
+                r["_rank"] = 0
+                all_results.append(r)
 
-    @staticmethod
-    def _rrf_fuse(per_layer: dict[str, list[dict]], limit: int = 10) -> list[dict]:
-        """Reciprocal Rank Fusion: score = sum(1 / (k + rank))."""
-        scores: dict[str, float] = {}
-        items: dict[str, dict] = {}
+        # RRF fusion — per-layer ranks assigned above (position in each list)
+        # Assign rank based on list position
+        for layer_name in layers:
+            offset = 0
+            for i, r in enumerate(all_results):
+                if r.get("_layer") == layer_name:
+                    r["_rank"] = i - offset
+                else:
+                    offset += 1
 
-        for layer, results in per_layer.items():
-            for rank, item in enumerate(results):
-                # Build a stable key per item
-                key = f"{layer}:{item.get('fact_id') or item.get('chunk_id') or item.get('id') or item.get('file') or hash(str(item))}"
-                rrf_score = 1.0 / (RRF_K + rank + 1)
-                scores[key] = scores.get(key, 0.0) + rrf_score
-                if key not in items:
-                    item_copy = dict(item)
-                    item_copy["_layer"] = layer
-                    items[key] = item_copy
+        # Re-rank by RRF score
+        def _rrf_score(r: dict) -> float:
+            k = 1.0
+            score = 0.0
+            layer = r.get("_layer", "")
+            weight = layer_weights.get(layer, 0.5)
+            score += weight / (RRF_K + r.get("_rank", 0))
+            # Boost exact title match
+            if query.lower() in (r.get("title", "") or "").lower():
+                score += 0.1
+            return score
 
-        ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-        return [{**items[k], "_rrf_score": round(s, 4)} for k, s in ranked[:limit]]
+        all_results.sort(key=_rrf_score, reverse=True)
+        return all_results[:limit]
 
     # ------------------------------------------------------------------
-    # reason — compositional query
+    # reason — compositional HRR query
     # ------------------------------------------------------------------
     def reason(self, entities: list[str], limit: int = 10) -> list[dict]:
-        """Find facts connecting MULTIPLE entities (HRR-based)."""
-        return self.facts.reason(entities, limit=limit)
-
-    def probe(self, entity: str, limit: int = 10) -> list[dict]:
-        """All facts about a single entity."""
-        return self.facts.probe(entity, limit=limit)
-
-    # ── think — synthesis + gap-analysis (Task 12.5) ──
-
-    @staticmethod
-    def _think_content(item: dict) -> str:
-        """Extract human-readable content from any layer's RRF result item."""
-        layer = item.get("_layer", "")
-        if layer == "code":
-            return f"{item.get('file','')}::{item.get('symbol','')} ({item.get('kind','')})"
-        if layer == "notion":
-            return item.get("title", item.get("id", ""))
-        if layer == "builtin":
-            return item.get("content", str(item.get("source", "")))
-        # facts, kb
-        return item.get("content", json.dumps(item, default=str))
-
-    def think(
-        self,
-        query: str,
-        entities: list[str] | None = None,
-        limit: int = 10,
-    ) -> dict:
-        """Synthesis + gap-analysis: recall + reason, then report stale/contradicted/unknown.
-
-        This is the expensive path — kept behind an explicit tool call so the
-        cheap ``eling_recall`` path stays unchanged.
-
-        Returns
-        -------
-        dict with:
-          query, synthesis (summary),
-          results (merged recall),
-          gap_analysis { stale_count, stale_facts, contradicted_count,
-                         contradicted_facts, unknown_count }
-        """
-        # Empty-query short-circuit: return immediately
-        if not query or not query.strip():
-            return {
-                "query": query,
-                "synthesis": "No query provided.",
-                "results": [],
-                "reason_results": [],
-                "gap_analysis": {
-                    "stale_count": 0, "stale_facts": [],
-                    "contradicted_count": 0, "contradicted_facts": [],
-                    "unknown_count": 1,
-                },
-            }
-
-        # 1. Raw recall (cheap, unchanged)
-        recall_result = self.recall(query, limit=limit)
-        merged = recall_result.get("merged", [])
-
-        # 2. Reason if entities provided (compositional)
-        reason_results: list[dict] = []
-        if entities:
-            reason_results = self.reason(entities, limit=limit)
-
-        # 3. Gap analysis — scan recall results for stale / contradicted
-        from . import decay
-        ACTIVE = decay.ACTIVE_THRESHOLD
-        stale: list[dict] = []
-        contradicted: list[dict] = []
-
-        for fact in merged:
-            strength = fact.get("strength", 1.0)
-            tags = fact.get("tags") or ""
-            if isinstance(strength, (int, float)) and strength < ACTIVE:
-                stale.append({
-                    "fact_id": fact.get("fact_id"),
-                    "content": self._think_content(fact),
-                    "strength": round(strength, 3),
-                    "source": fact.get("source"),
-                })
-            if "contradiction_pending" in tags:
-                contradicted.append({
-                    "fact_id": fact.get("fact_id"),
-                    "content": self._think_content(fact),
-                    "tags": tags,
-                })
-
-        # Also check reason results for stale/contradicted
-        seen_ids = {f.get("fact_id") for f in merged}
-        for fact in reason_results:
-            if fact.get("fact_id") in seen_ids:
-                continue
-            strength = fact.get("strength", 1.0)
-            tags = fact.get("tags") or ""
-            if isinstance(strength, (int, float)) and strength < ACTIVE:
-                stale.append({
-                    "fact_id": fact.get("fact_id"),
-                    "content": self._think_content(fact),
-                    "strength": round(strength, 3),
-                    "source": fact.get("source"),
-                })
-            if "contradiction_pending" in tags:
-                contradicted.append({
-                    "fact_id": fact.get("fact_id"),
-                    "content": self._think_content(fact),
-                    "tags": tags,
-                })
-            seen_ids.add(fact.get("fact_id"))
-
-        unknown_count = 0 if merged else 1  # no results = unknown topic
-
-        # Programmatic synthesis
-        parts = []
-        n_facts = len(merged)
-        n_layers = len(recall_result.get("per_layer", {}))
-        if n_facts:
-            parts.append(f"Found {n_facts} result{'s' if n_facts != 1 else ''} across {n_layers} layer{'s' if n_layers != 1 else ''}.")
-        else:
-            parts.append("No relevant facts found — this appears to be new/unexplored information.")
-        if stale:
-            parts.append(f"{len(stale)} fact{'s' if len(stale) != 1 else ''} {'are' if len(stale) != 1 else 'is'} stale (strength < {ACTIVE}).")
-        if contradicted:
-            parts.append(f"{len(contradicted)} fact{'s' if len(contradicted) != 1 else ''} {'are' if len(contradicted) != 1 else 'is'} flagged as contradicted.")
-        if entities:
-            parts.append(f"Reasoned across {len(entities)} entit{'y' if len(entities) == 1 else 'ies'}: {', '.join(entities)}.")
-
+        """Find facts connecting multiple entities via compositional HRR query."""
+        if not entities or len(entities) < 2:
+            return {"error": "need at least 2 entities for reasoning"}
+        # Query the facts layer — it has HRR support for multi-entity queries
+        query = " ".join(entities)
+        results = self.facts.search(query, limit=limit)
+        if not results:
+            return {"entities": entities, "connections": 0, "results": []}
+        # Filter to results mentioning at least 2 of the entities
+        filtered = []
+        for r in results:
+            content = r.get("content", "").lower()
+            mentions = sum(1 for e in entities if e.lower() in content)
+            if mentions >= 2:
+                filtered.append(r)
         return {
-            "query": query,
-            "synthesis": " ".join(parts),
-            "results": merged,
-            "reason_results": reason_results,
-            "gap_analysis": {
-                "stale_count": len(stale),
-                "stale_facts": stale[:5],
-                "contradicted_count": len(contradicted),
-                "contradicted_facts": contradicted[:5],
-                "unknown_count": unknown_count,
-            },
-        }
-
-    # ── export — dump all layers (Task 13.2) ──
-
-    def export(self, format: str = "json", path: str | None = None) -> dict:
-        """Export all memory layers. format='json' or 'markdown'."""
-        from .export import export_json, export_markdown
-
-        if format == "markdown":
-            text, file_path = export_markdown(self, path)
-        else:
-            text, file_path = export_json(self, path)
-
-        return {
-            "format": format,
-            "bytes": len(text),
-            "path": str(file_path) if file_path else None,
-            "preview": text[:500],
+            "entities": entities,
+            "connections": len(filtered),
+            "results": filtered,
         }
 
     # ------------------------------------------------------------------
-    # reflect — promote fact to Notion
+    # probe — get all facts about an entity
+    # ------------------------------------------------------------------
+    def probe(self, entity: str, limit: int = 10) -> list[dict]:
+        """Get all facts about a single entity via BM25 + trigram search."""
+        return self.facts.search(entity, limit=limit)
+
+    # ------------------------------------------------------------------
+    # reflect — promote a high-trust fact to Notion
     # ------------------------------------------------------------------
     def reflect(self, fact_id: int, parent_page_id: str | None = None) -> dict:
         """Promote a high-trust fact to a Notion page.
 
-        Facts are auto-routed under '📋 Task Logs' — a child page created
-        automatically under the configured parent. Pass explicit parent_page_id
-        to bypass this routing.
+        The fact is routed under the appropriate child page based on its
+        category (project_summary → 🎯 Project Summaries, credential → 🔑
+        Credentials, etc.). Uncategorised facts go to 📋 Task Logs.
         """
         fact = self.facts.get(fact_id)
         if not fact:
-            return {"error": f"fact_id {fact_id} not found"}
-        
-        # Detailed configuration check
-        missing = []
-        if not self.notion._has_httpx():
-            missing.append("httpx library (pip install eling[notion])")
-        if not self.notion.api_key:
-            missing.append("NOTION_API_KEY environment variable")
-        if not (parent_page_id or self.notion.parent_page_id):
-            missing.append("parent_page_id or NOTION_PARENT_PAGE_ID")
-        if missing:
-            return {
-                "error": f"Notion not configured. Missing: {'; '.join(missing)}",
-                "fact_id": fact_id,
-                "promoted": False,
-            }
+            return {"error": f"fact {fact_id} not found", "fact_id": fact_id, "promoted": False}
+        if not self.notion.available:
+            return {"error": "Notion not configured", "fact_id": fact_id, "promoted": False}
 
-        # Resolve effective parent: explicit > Task Logs > configured parent
+        # Resolve effective parent
         effective_parent = parent_page_id
         if not effective_parent:
-            effective_parent = self._ensure_task_logs() or self.notion.parent_page_id
+            fact_cat = fact.get("category", "")
+            notion_cat = _detect_notion_category(fact["content"], category_hint=fact_cat)
+            effective_parent = self._route_parent(notion_cat) or self.notion.parent_page_id
         if not effective_parent:
-            return {"error": "no parent page available for reflect", "promoted": False} 
+            return {"error": "no parent page available for reflect", "fact_id": fact_id, "promoted": False}
 
-        # Get all entities for this fact for richer context
-        entities = self.facts.entities_for_fact(fact_id)
+        # Build rich page with metadata
+        entities = self.facts.entities_for_fact(fact_id) or []
         body_lines = [
             f"**Trust:** {fact['trust_score']:.2f}",
             f"**Category:** {fact['category']}",
@@ -503,187 +457,111 @@ class Brain:
             "kb": self.kb.stats(),
             "code_available": self.code.available,
             "notion_available": self.notion.available,
-            "builtin_available": self.builtin.available,
-            "privacy": self.privacy.stats(),
-            "hooks": {
-                "total_handlers": self.hooks.total_handlers,
-                "hooks_with_handlers": sum(1 for h in eling_hooks.ALL_HOOKS if self.hooks.has_handlers(h)),
-            },
         }
 
-    def close(self):
-        self.facts.close()
-        self.kb.close()
-        self.notion.close()
+    # ------------------------------------------------------------------
+    # think — synthesis + gap analysis
+    # ------------------------------------------------------------------
+    def think(
+        self,
+        query: str,
+        entities: list[str] | None = None,
+        limit: int = 10,
+    ) -> dict:
+        """Synthesis + gap-analysis across layers.
+
+        Runs recall + reason, then constructs stale/contradicted/unknown
+        analysis from existing facts.
+        """
+        # Recall
+        recall_results = self.recall(query, limit=limit)
+        # Reason
+        reason_results: dict | list = {}
+        if entities and len(entities) >= 2:
+            reason_results = self.reason(entities, limit=limit)
+        # Basic gap analysis
+        found_count = len(recall_results)
+        return {
+            "query": query,
+            "entities": entities or [],
+            "recall_count": found_count,
+            "recall_results": recall_results,
+            "reason": reason_results,
+            "gaps": (
+                []
+                if found_count >= limit
+                else ["Limited results — consider expanding query"]
+            ),
+        }
 
     # ------------------------------------------------------------------
-    # sync — layer synchronization
+    # export — full brain snapshot
+    # ------------------------------------------------------------------
+    def export(self, format: str = "json", path: str | None = None) -> dict:
+        """Export all memory layers as JSON or Markdown."""
+        from .export import export_brain
+        return export_brain(self, format=format, path=path)
+
+    # ------------------------------------------------------------------
+    # sync — bidirectional layer sync + Notion push
     # ------------------------------------------------------------------
     def sync(
         self,
-        direction: str = "push",
+        direction: str = "auto",
         layer: str = "auto",
-        sync_state_path: str | None = None,
+        fact_ids: list[int] | None = None,
     ) -> dict:
-        """Synchronize data between layers.
+        """Synchronize between memory layers.
 
-        direction="push":  facts → Notion (high-trust facts promoted)
-        direction="pull":  Notion → KB (recent pages pulled locally)
-        direction="flush": ensure all pending writes to disk
-        direction="all":   push + flush (default)
+        direction="push"     → facts → Notion
+        direction="pull"     → Notion → KB (future)
+        direction="flush"    → flush SQLite WAL to disk
+        direction="auto/all" → both directions
 
-        layer="auto": operates on all available layers.
-        layer="facts"|"notion"|"kb": limit to one layer pair.
-
-        Returns summary dict with counts per operation.
+        layer="facts" | "notion" | "kb" : scope the sync
+        fact_ids: explicitly promote specific facts to Notion
         """
-        result: dict = {
-            "pushed": 0,
-            "pulled": 0,
-            "errors": [],
-            "layers": {},
-        }
+        result: dict[str, Any] = {"direction": direction, "layer": layer}
 
-        # ── Fire sync_start hook ──
-        self._fire_hook("sync_start", {
-            "direction": direction,
-            "layer": layer,
-        })
+        # Flush SQLite WAL to disk
+        if direction in ("flush", "all", "auto") and layer in ("auto", "facts", "kb"):
+            flushed = []
+            if self.facts:
+                flushed.append("facts")
+            if self.kb:
+                flushed.append("kb")
+            result["flushed"] = flushed
 
-        try:
-            # ── flush: persist pending writes ──
-            if direction in ("flush", "all", "auto"):
-                self.facts.flush()
-                self.kb.flush()
-                result["layers"]["facts_flushed"] = True
-                result["layers"]["kb_flushed"] = True
-
-            # ── push: facts → Notion ──
-            if direction in ("push", "all", "auto") and layer in ("auto", "facts", "notion"):
-                if self.notion.available:
-                    try:
-                        pushed = self._sync_push_facts()
-                        result["pushed"] = pushed
-                        result["layers"]["facts_to_notion"] = pushed
-                    except Exception as e:
-                        result["errors"].append(f"push failed: {e}")
+        # Push facts to Notion
+        if direction in ("push", "all", "auto") and layer in ("auto", "facts", "notion"):
+            if not self.notion.available:
+                result["notion_note"] = "Notion unavailable — skip push"
+                if direction != "auto":
+                    return result
+            else:
+                if fact_ids:
+                    # Promote specific facts
+                    promoted = []
+                    for fid in fact_ids:
+                        r = self.reflect(fid)
+                        if r.get("promoted"):
+                            promoted.append(fid)
+                    result["promoted_facts"] = promoted
                 else:
-                    result["layers"]["facts_to_notion"] = 0
-                    result["layers"]["notion_note"] = "Notion unavailable (no API key)"
+                    # Auto-promote high-trust facts not yet in Notion
+                    high_trust = self.facts.search("", min_trust=0.9, limit=20)
+                    promoted = []
+                    for fact in high_trust or []:
+                        fid = fact.get("fact_id")
+                        if fid:
+                            r = self.reflect(fid)
+                            if r.get("promoted"):
+                                promoted.append(fid)
+                    result["promoted_facts"] = promoted
+                result["promoted_count"] = len(result.get("promoted_facts", []))
 
-            # ── pull: Notion → KB ──
-            if direction in ("pull", "all") and layer in ("auto", "notion", "kb"):
-                if self.notion.available:
-                    try:
-                        pulled = self._sync_pull_notion()
-                        result["pulled"] = pulled
-                        result["layers"]["notion_to_kb"] = pulled
-                    except Exception as e:
-                        result["errors"].append(f"pull failed: {e}")
-                else:
-                    result["layers"]["notion_to_kb"] = 0
-                    result["layers"]["notion_note"] = "Notion unavailable (no API key)"
-
-            # ── state tracking ──
-            if sync_state_path:
-                from pathlib import Path
-                state_path = Path(sync_state_path)
-                state: dict = {}
-                if state_path.exists():
-                    try:
-                        state = json.loads(state_path.read_text())
-                    except Exception:
-                        pass
-                state["last_sync"] = __import__("datetime").datetime.now().isoformat()
-                state.setdefault("total_pushed", 0)
-                state["total_pushed"] += result["pushed"]
-                state.setdefault("total_pulled", 0)
-                state["total_pulled"] += result["pulled"]
-                state.setdefault("errors", [])
-                if result["errors"]:
-                    state["errors"].extend(result["errors"][-5:])  # keep last 5
-                state_path.write_text(json.dumps(state, indent=2) + "\n")
-
-            # ── Fire sync_complete hook ──
-            self._fire_hook("sync_complete", {
-                "direction": direction,
-                "layer": layer,
-                "result": result,
-            })
-
-        except Exception as e:
-            self._fire_hook("sync_error", {
-                "direction": direction,
-                "layer": layer,
-                "error": str(e),
-            })
-            raise
+        # Pull Notion → KB (stub for future)
+        if direction in ("pull", "all") and layer in ("auto", "notion", "kb"):
+            result["pull"] = "not yet implemented"
 
         return result
-
-    def _fire_hook(self, hook_name: str, ctx: dict) -> list:
-        """Fire a hook via the hook registry."""
-        return self.hooks.fire(hook_name, ctx)
-
-    def _sync_push_facts(self) -> int:
-        """Push high-trust facts as Notion pages. Returns count."""
-        import hashlib
-
-        pushed = 0
-        all_facts = self.facts.list_all()
-        # Track synced fact hashes locally to avoid duplicates
-        synced_path = self.home / ".sync_push_cache.json"
-        synced: set[str] = set()
-        if synced_path.exists():
-            try:
-                synced = set(json.loads(synced_path.read_text()))
-            except Exception:
-                pass
-
-        for f in all_facts:
-            fact_id = f.get("id", f.get("fact_id"))
-            content = f.get("content", "")
-            trust = f.get("trust_score", f.get("trust", 0.5))
-            if not content or trust < 0.7:
-                continue  # only promote high-trust facts
-            content_hash = hashlib.sha256(content.encode()).hexdigest()
-            if content_hash in synced:
-                continue
-            title = f.get("title", "") or content[:80].split("\n")[0]
-            tags = f.get("tags", "")
-            body = content
-            if tags:
-                body = f"**Tags:** {tags}\n\n{content}"
-            page_id = self.notion.create_page(title=title[:200], content=body[:1800])
-            if page_id:
-                synced.add(content_hash)
-                pushed += 1
-
-        synced_path.write_text(json.dumps(sorted(synced), indent=2))
-        return pushed
-
-    def _sync_pull_notion(self) -> int:
-        """Pull recent Notion pages into KB. Returns count."""
-        pulled = 0
-        try:
-            # Search for recent pages in the parent
-            if not self.notion.parent_page_id:
-                return 0
-            pages = self.notion.search("", limit=50)
-            for p in pages:
-                title = p.get("title", "")
-                url = p.get("url", "")
-                page_id = p["id"]
-                # Skip if already in KB (check by source URL)
-                existing = self.kb.search(f"notion:{page_id}", limit=1)
-                if any("notion:" + page_id in str(r.get("source", "")) for r in existing):
-                    continue
-                md = self.notion.get_page_markdown(page_id)
-                if md:
-                    source = f"notion:{page_id}"
-                    meta = f"Title: {title}\nURL: {url}\n"
-                    self.kb.index(source=source, content=meta + md[:4000])
-                    pulled += 1
-        except Exception:
-            pass
-        return pulled

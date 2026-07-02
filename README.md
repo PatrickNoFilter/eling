@@ -130,10 +130,32 @@ Two ways to add notes to Notion:
 
 | Method | Usage | Route |
 |--------|-------|-------|
-| `brain.reflect(fact_id)` / `eling_reflect` | Promote a high-trust fact to Notion | → 📋 Task Logs |
-| `brain.remember("text", layer="notion")` / `eling_remember` with `layer=notion` | Store content directly as a Notion page | → 📋 Task Logs |
+| `brain.reflect(fact_id)` / `eling_reflect` | Promote a high-trust fact to Notion | → auto-routes by category |
+| `brain.remember("text", layer="notion")` / `eling_remember` with `layer=notion` | Store content directly as a Notion page | → auto-routes by category |
 
-All child pages under 📋 Task Logs are full Notion pages — you can edit, move, share, or reference them normally.
+### Auto-routing by category
+
+Content is automatically detected and routed to the right child page:
+
+| Category | Triggers | Child page |
+|----------|----------|-----------|
+| `project_summary` | "project done/complete/selesai", "deploy success", "summary completion" | 🎯 Project Summaries |
+| `credential` | "api_key", "password", "secret", "token", "credential" | 🔑 Credentials |
+| `address` | "alamat", "address", "domicile", "tinggal di" | 📍 Addresses |
+| `config` | "config", "setup", "setting", "environment" | ⚙️ Configurations |
+| *(uncategorised)* | Everything else | 📋 Task Logs |
+
+Example:
+```python
+# Auto-routes to 🎯 Project Summaries
+b.remember("Project done, deployed to production", layer="notion")
+# Auto-routes to 🔑 Credentials
+b.remember("DATABASE_URL = postgres://...", layer="notion")
+# Auto-routes to 📋 Task Logs (no pattern match)
+b.remember("General note", layer="notion")
+```
+
+All child pages under these category pages are full Notion pages — you can edit, move, share, or reference them normally.
 
 Or pass them explicitly in code:
 ```python
