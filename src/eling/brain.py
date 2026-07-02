@@ -105,6 +105,7 @@ class Brain:
         notion_parent_id: str | None = None,
         project_path: str | Path | None = None,
         hrr_dim: int = 1024,
+        adapter: str | None = None,
     ):
         self.home = Path(home).expanduser() if home else _eling_home()
         self.home.mkdir(parents=True, exist_ok=True)
@@ -120,6 +121,8 @@ class Brain:
         # Hooks registry
         self.hooks = eling_hooks.HookRegistry()
         eling_hooks.register_default_hooks(self)
+        # Adapter for verify-on-stop (hermes | opencode | openclaw | auto)
+        self._adapter: str = adapter or "auto"
 
     @property
     def _task_logs_id(self) -> str | None:
@@ -493,6 +496,42 @@ class Brain:
                 "contradicted_facts": contradicted[:5],
                 "unknown_count": unknown_count,
             },
+        }
+
+    # ── verify — check verification-on-stop status ──
+
+    def verify(self, status: str = "", command: str = "", output: str = "") -> dict:
+        """Query or record verification-on-stop status.
+
+        When called with no args, returns the current verification status from
+        the ledger (including a nudge message if code edits need verification).
+
+        When called with ``status`` set to ``"passed"``, ``"failed"``, or
+        ``"skipped"``, records the verification event in the ledger.
+
+        This is a **conditional** feature — it only activates when the host
+        agent does NOT have built-in verify-on-stop (auto-detected from env
+        or ``ELING_ADAPTER`` config). When running under Hermes, this is a
+        no-op that returns ``{"host_has_verify": True}``.
+        """
+        from . import verify_on_stop as vos
+
+        if vos.host_has_verify_on_stop(adapter=self._adapter):
+            return {"host_has_verify": True, "active": False}
+
+        if status:
+            vos.record_verification(status=status, command=command, output=output)
+            return {
+                "host_has_verify": False,
+                "active": True,
+                "recorded": True,
+                "status": status,
+            }
+
+        return {
+            "host_has_verify": False,
+            "active": True,
+            **vos.verify_status(),
         }
 
     # ── export — dump all layers (Task 13.2) ──

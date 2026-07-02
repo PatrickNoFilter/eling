@@ -1,16 +1,21 @@
 """Eling — unified second brain for AI agents.
 
 5-layer architecture: builtin / facts / kb / code / notion
+Features: HRR reasoning, gap analysis, Notion auto-sync, verify-on-stop.
 """
 
-__version__ = "0.2.1"
-__all__ = ["Brain", "HookRegistry", "ALL_HOOKS", "register_default_hooks",
-           "remember", "recall", "reason", "resolve_config", "set_config_key",
-           "get_config", "describe_config"]
+__version__ = "0.2.2"
+__all__ = [
+    "Brain", "HookRegistry", "ALL_HOOKS", "register_default_hooks",
+    "remember", "recall", "reason", "resolve_config", "set_config_key",
+    "get_config", "describe_config",
+    "verify_on_stop", "detect_host_agent", "host_has_verify_on_stop",
+]
 
 from .brain import Brain
 from .hooks import HookRegistry, ALL_HOOKS, register_default_hooks
 from .config import resolve_config, set_config_key, get_config, describe_config
+from . import verify_on_stop
 
 _default_brain: Brain | None = None
 

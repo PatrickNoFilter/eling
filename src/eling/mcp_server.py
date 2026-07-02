@@ -229,6 +229,38 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "eling_verify",
+        "description": "Check or record verification-on-stop status. "
+        "When host agent (Hermes) already has verify-on-stop, returns "
+        "{host_has_verify: true, active: false}. "
+        "When host agent lacks verification (OpenCode, etc.), returns "
+        "current status or records a verification event. "
+        "Call with no args to query status; pass status='passed'/'failed'/'skipped' "
+        "with optional command and output to record a verification event.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["", "passed", "failed", "skipped"],
+                    "default": "",
+                    "description": "Verification result. Empty = query mode. Set to 'passed'/'failed'/'skipped' to record.",
+                },
+                "command": {
+                    "type": "string",
+                    "default": "",
+                    "description": "The command that was run (e.g. 'pytest')",
+                },
+                "output": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Command output (truncated to 500 chars)",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 
@@ -313,6 +345,11 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             fmt = args.pop("format", "json")
             path = args.pop("path", None) or None
             return ok(brain.export(format=fmt, path=path))
+        elif tool_name == "eling_verify":
+            status = args.pop("status", "")
+            command = args.pop("command", "")
+            output = args.pop("output", "")
+            return ok(brain.verify(status=status, command=command, output=output))
         else:
             return _error(rid, -32601, f"unknown tool: {tool_name}")
     except Exception as e:

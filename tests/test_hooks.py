@@ -127,8 +127,8 @@ class TestHookRegistry:
 # ============================================================================
 
 class TestAllHooks:
-    def test_exactly_15_hooks(self):
-        assert len(ALL_HOOKS) == 15
+    def test_exactly_16_hooks(self):
+        assert len(ALL_HOOKS) == 16  # was 15, now 16 with verify_request
 
     def test_all_hooks_are_strings(self):
         for h in ALL_HOOKS:
@@ -138,7 +138,8 @@ class TestAllHooks:
         required = {
             "session_start", "pre_user_message", "post_user_message",
             "pre_tool_use", "post_tool_use", "post_assistant_message",
-            "decision_made", "file_edit", "error_occurred",
+            "decision_made", "file_edit", "verify_request",
+            "error_occurred",
             "compaction", "session_end", "idle_30min",
             "sync_start", "sync_complete", "sync_error",
         }
@@ -157,7 +158,7 @@ class TestBuiltinHandlers:
 
     def test_default_hooks_are_registered(self, brain):
         """Brain.__init__ registers all default hooks."""
-        assert brain.hooks.total_handlers == 15
+        assert brain.hooks.total_handlers == 16  # 15 + verify_request
         for hook in ALL_HOOKS:
             assert brain.hooks.has_handlers(hook), f"Missing handler for {hook}"
 
@@ -343,12 +344,12 @@ class TestBrainStatsHooks:
         brain = Brain(home=tmp)
         s = brain.stats()
         assert "hooks" in s
-        assert s["hooks"]["total_handlers"] == 15
-        assert s["hooks"]["hooks_with_handlers"] == 15
+        assert s["hooks"]["total_handlers"] == 16  # 15 + verify_request
+        assert s["hooks"]["hooks_with_handlers"] == 16
 
     def test_stats_reflects_custom_hook(self):
         tmp = Path(tempfile.mkdtemp())
         brain = Brain(home=tmp)
         brain.hooks.register(HOOK_SESSION_START, lambda n, c: None)
         s = brain.stats()
-        assert s["hooks"]["total_handlers"] == 16
+        assert s["hooks"]["total_handlers"] == 17  # 16 base + 1 custom

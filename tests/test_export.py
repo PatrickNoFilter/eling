@@ -72,7 +72,7 @@ class TestExportMCP:
 
     def test_nine_tools_total(self):
         from eling.mcp_server import TOOLS
-        assert len(TOOLS) == 9  # was 8, now 9 with eling_export
+        assert len(TOOLS) == 10  # eling_remember..eling_verify
 
     def test_export_covers_all_layers(self, brain):
         """Full JSON export covers facts, entity_graph, kb, code, notion, builtin."""

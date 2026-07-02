@@ -2,7 +2,7 @@
 
 # 🧠 Eling
 
-**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 9 MCP tools**
+**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 10 MCP tools, conditional verify-on-stop**
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -40,6 +40,7 @@ All accessible via **9 MCP tools** from a single stdio server:
 | `eling_stats` | Show per-layer statistics |
 | `eling_think` | Synthesis + gap analysis across layers |
 | `eling_export` | Full brain export as JSON or Markdown |
+| `eling_verify` | Query/record verification status (conditional) |
 
 ## 🚀 Quick Start
 
@@ -173,6 +174,52 @@ print(result)  # {"layer": "notion", "page_id": "...", ...}
 ```
 
 > **Note**: `eling_reflect` and `remember(layer="notion")` check availability at call time and return a clear error if any config is missing — no silent failures.
+
+## 🛡️ Verify-on-Stop (Conditional)
+
+Eling provides **verify-on-stop** nudges for AI agents that lack built-in
+verification (e.g., OpenCode, OpenClaw, Cursor, Windsurf). When running under
+Hermes, this feature automatically **skips** — because Hermes already has its
+own `agent/verification_stop.py`.
+
+### How it works
+
+1. **Auto-detection** — Eling detects the host agent from environment variables
+   (`HERMES_SESSION_SOURCE` → Hermes, `OPENCODE_HOME` → OpenCode, etc.)
+2. **File edit tracking** — When code files are edited via hooks or MCP tools,
+   eling records them in a verification ledger
+3. **Verification nudge** — If code was edited but no passing tests/verification
+   was recorded, eling produces a `[System: ...]` nudge message
+4. **Recording** — Agents can call `eling_verify` MCP tool to record verification
+   results (`passed`, `failed`, `skipped`)
+
+### Usage via MCP
+
+```json
+// Query current status
+{ "method": "tools/call", "params": { "name": "eling_verify", "arguments": {} } }
+
+// Record a passing verification
+{ "method": "tools/call", "params": {
+    "name": "eling_verify",
+    "arguments": { "status": "passed", "command": "pytest", "output": "364 passed" }
+} }
+```
+
+### Config
+
+| Key | Default | Env | Description |
+|-----|---------|-----|-------------|
+| `verify_on_stop` | `true` | `ELING_VERIFY_ON_STOP` | Enable nudges for non-Hermes agents |
+| `verify_on_stop_max_attempts` | `2` | `ELING_VERIFY_MAX_ATTEMPTS` | Max nudges per session |
+| `adapter` | `hermes` | `ELING_ADAPTER` | Force adapter type |
+
+```yaml
+plugins:
+  eling:
+    adapter: auto       # auto-detect from env
+    verify_on_stop: true
+```
 
 ## 🏗️ Architecture
 

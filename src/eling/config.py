@@ -28,6 +28,8 @@ DEFAULTS: dict[str, Any] = {
     "auto_sync_turns": True,
     "schema_pack": "default",
     "adapter": "hermes",
+    "verify_on_stop": True,
+    "verify_on_stop_max_attempts": 2,
 }
 
 ENV_MAP: dict[str, str] = {
@@ -41,6 +43,8 @@ ENV_MAP: dict[str, str] = {
     "auto_sync_turns": "ELING_AUTO_SYNC_TURNS",
     "schema_pack": "ELING_SCHEMA_PACK",
     "adapter": "ELING_ADAPTER",
+    "verify_on_stop": "ELING_VERIFY_ON_STOP",
+    "verify_on_stop_max_attempts": "ELING_VERIFY_MAX_ATTEMPTS",
 }
 
 TYPE_MAP: dict[str, type] = {
@@ -53,6 +57,8 @@ TYPE_MAP: dict[str, type] = {
     "auto_sync_turns": bool,
     "schema_pack": str,
     "adapter": str,
+    "verify_on_stop": bool,
+    "verify_on_stop_max_attempts": int,
 }
 
 # ── Schema packs ──────────────────────────────────────────────────────────────
@@ -268,4 +274,6 @@ def describe_config() -> dict[str, dict]:
         "auto_sync_turns": {"type": "bool", "default": True, "env": "ELING_AUTO_SYNC_TURNS", "description": "Auto-store user/assistant messages"},
         "schema_pack": {"type": "str", "default": "default", "env": "ELING_SCHEMA_PACK", "description": "Category schema pack: default | coding | research"},
         "adapter": {"type": "str", "default": "hermes", "env": "ELING_ADAPTER", "description": "Harness adapter: hermes | claude_cli | opencode | openclaw | openclaude"},
+        "verify_on_stop": {"type": "bool", "default": True, "env": "ELING_VERIFY_ON_STOP", "description": "Enable verify-on-stop nudges for non-Hermes agents"},
+        "verify_on_stop_max_attempts": {"type": "int", "default": 2, "env": "ELING_VERIFY_MAX_ATTEMPTS", "description": "Max verification nudge retries per session"},
     }

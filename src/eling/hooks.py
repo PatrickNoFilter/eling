@@ -51,6 +51,9 @@ HOOK_COMPACTION = "compaction"
 HOOK_SESSION_END = "session_end"
 HOOK_IDLE_30MIN = "idle_30min"
 
+# ── Verify-on-stop hook ──
+HOOK_VERIFY_REQUEST = "verify_request"
+
 # ── Sync hooks ──
 HOOK_SYNC_START = "sync_start"
 HOOK_SYNC_COMPLETE = "sync_complete"
@@ -65,6 +68,7 @@ ALL_HOOKS = [
     HOOK_POST_ASSISTANT_MESSAGE,
     HOOK_DECISION_MADE,
     HOOK_FILE_EDIT,
+    HOOK_VERIFY_REQUEST,
     HOOK_ERROR_OCCURRED,
     HOOK_COMPACTION,
     HOOK_SESSION_END,
@@ -257,16 +261,35 @@ def _make_decision_made_handler(brain: "Brain") -> HookHandler:
 
 
 def _make_file_edit_handler(brain: "Brain") -> HookHandler:
-    """HOOK: file_edit — re-index file in codegraph layer."""
+    """HOOK: file_edit — re-index file in codegraph + track in verification ledger."""
     def handler(name: str, ctx: dict) -> dict:
         file_path = ctx.get("file_path", "")
-        if not file_path or not brain.code.available:
-            return {"reindexed": False}
-        try:
-            brain.code.reindex(file_path)
-            return {"reindexed": True, "file": file_path}
-        except Exception:
-            return {"reindexed": False}
+        if not file_path:
+            return {"reindexed": False, "verify_tracked": False}
+        result: dict = {}
+        # 1. Re-index in codegraph layer if available
+        if brain.code.available:
+            try:
+                brain.code.reindex(file_path)
+                result["reindexed"] = True
+            except Exception:
+                result["reindexed"] = False
+        else:
+            result["reindexed"] = False
+        # 2. Track in verification ledger
+        from . import verify_on_stop as vos
+        adapter = getattr(brain, "_adapter", "auto")
+        if not vos.host_has_verify_on_stop(adapter=adapter):
+            vos.record_edit(file_path)
+            result["verify_tracked"] = True
+            # Fire verify_request hook
+            brain.fire_hook(
+                HOOK_VERIFY_REQUEST,
+                changed_paths=list(vos._ledger.get("changed_paths", [])),
+            )
+        else:
+            result["verify_tracked"] = False
+        return result
     return handler
 
 
@@ -356,6 +379,29 @@ def _make_idle_30min_handler(brain: "Brain") -> HookHandler:
     return handler
 
 
+def _make_verify_request_handler(brain: "Brain") -> HookHandler:
+    """HOOK: verify_request — verification nudge for non-Hermes agents."""
+    def handler(name: str, ctx: dict) -> dict:
+        from . import verify_on_stop as vos
+
+        # Skip if host agent has its own verify-on-stop
+        adapter = getattr(brain, "_adapter", "auto")
+        if vos.host_has_verify_on_stop(adapter=adapter):
+            return {"nudge": None, "reason": "host has verify-on-stop"}
+
+        changed = ctx.get("changed_paths", [])
+        if not changed:
+            return {"nudge": None, "reason": "no changed paths"}
+
+        nudge = vos.build_verify_nudge()
+        return {
+            "nudge": nudge,
+            "changed_paths_count": len(changed),
+            "needs_verification": nudge is not None,
+        }
+    return handler
+
+
 def _make_noop_handler(brain: "Brain" = None) -> HookHandler:  # type: ignore[assignment]
     """Factory: no-op handler for hooks with no default logic."""
     def handler(name: str, ctx: dict) -> dict:
@@ -381,6 +427,7 @@ def register_default_hooks(brain: "Brain") -> HookRegistry:
         HOOK_POST_ASSISTANT_MESSAGE: _make_post_assistant_message_handler,
         HOOK_DECISION_MADE: _make_decision_made_handler,
         HOOK_FILE_EDIT: _make_file_edit_handler,
+        HOOK_VERIFY_REQUEST: _make_verify_request_handler,
         HOOK_ERROR_OCCURRED: _make_error_occurred_handler,
         HOOK_COMPACTION: _make_compaction_handler,
         HOOK_SESSION_END: _make_session_end_handler,
