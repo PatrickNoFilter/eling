@@ -59,8 +59,9 @@ class Brain:
         self.builtin = BuiltinLayer()
         self.facts = FactsLayer(db_path=self.home / "facts.db", hrr_dim=hrr_dim)
         self.kb = KBLayer(db_path=self.home / "kb.db")
-        self.code = CodeLayer(project_path=project_path)
+        self.code = CodeLayer(project_path=project_path, auto_index=False)
         self.notion = NotionLayer(api_key=notion_api_key, parent_page_id=notion_parent_id)
+        self._task_logs_id: str | None = None
         self.privacy = PrivacyPipeline()
         # Hooks registry
         self.hooks = eling_hooks.HookRegistry()
@@ -69,6 +70,36 @@ class Brain:
     def fire_hook(self, hook_name: str, **ctx: Any) -> list[Any]:
         """Fire a lifecycle hook. Context kwargs become the dict passed to handlers."""
         return self.hooks.fire(hook_name, ctx)
+
+    # ── Task Logs auto-creation (Notion Tier 5) ──
+
+    def _ensure_task_logs(self) -> str | None:
+        """Auto-create '📋 Task Logs' child page under configured parent.
+
+        Once created, caches the page ID so all future reflects go into it.
+        Returns the Task Logs page ID, or None if Notion is not available.
+        """
+        if self._task_logs_id:
+            return self._task_logs_id
+        if not self.notion.available:
+            return None
+        parent = self.notion.parent_page_id
+        if not parent:
+            return None
+        # Search for existing Task Logs page
+        for r in self.notion.search("📋 Task Logs", limit=5):
+            if r.get("title") == "📋 Task Logs":
+                self._task_logs_id = r["id"]
+                return self._task_logs_id
+        # Create it
+        pid = self.notion.create_page(
+            "📋 Task Logs",
+            "All reflected facts from Eling brain\n\n---\n_auto-managed by eling_",
+            parent_id=parent,
+        )
+        if pid:
+            self._task_logs_id = pid
+        return pid
 
     # ── Snapshot / rollback (Task 13.1) ──
 
@@ -400,7 +431,12 @@ class Brain:
     # reflect — promote fact to Notion
     # ------------------------------------------------------------------
     def reflect(self, fact_id: int, parent_page_id: str | None = None) -> dict:
-        """Promote a high-trust fact to a Notion page."""
+        """Promote a high-trust fact to a Notion page.
+
+        Facts are auto-routed under '📋 Task Logs' — a child page created
+        automatically under the configured parent. Pass explicit parent_page_id
+        to bypass this routing.
+        """
         fact = self.facts.get(fact_id)
         if not fact:
             return {"error": f"fact_id {fact_id} not found"}
@@ -420,6 +456,13 @@ class Brain:
                 "promoted": False,
             }
 
+        # Resolve effective parent: explicit > Task Logs > configured parent
+        effective_parent = parent_page_id
+        if not effective_parent:
+            effective_parent = self._ensure_task_logs() or self.notion.parent_page_id
+        if not effective_parent:
+            return {"error": "no parent page available for reflect", "promoted": False} 
+
         # Get all entities for this fact for richer context
         entities = self.facts.entities_for_fact(fact_id)
         body_lines = [
@@ -438,7 +481,7 @@ class Brain:
         page_id = self.notion.create_page(
             title=f"💡 {fact['content'][:60]}",
             content="\n".join(body_lines),
-            parent_id=parent_page_id,
+            parent_id=effective_parent,
         )
         return {
             "fact_id": fact_id,
