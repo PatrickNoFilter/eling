@@ -197,7 +197,11 @@ class Brain:
                 self.fire_hook(eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result)
                 return result
             store = compressed if len(compressed) > 80 else content
-            pid = self.notion.create_page(title=title or store[:80], content=store)
+            pid = self.notion.create_page(
+                title=title or store[:80],
+                content=store,
+                parent_id=self._ensure_task_logs() or self.notion.parent_page_id,
+            )
             result = {"layer": "notion", "page_id": pid, **meta}
             self.fire_hook(eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result)
             return result

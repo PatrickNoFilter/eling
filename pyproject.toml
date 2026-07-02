@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eling"
-version = "0.1.2"
+version = "0.1.3"
 description = "Unified second brain for AI agents — 5-tier memory, HRR reasoning, 9 MCP tools"
 readme = "README.md"
 license = {text = "MIT"}

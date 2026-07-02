@@ -113,6 +113,28 @@ export NOTION_API_KEY="ntn_..."
 export NOTION_PARENT_PAGE_ID="38f7b66e-c7e0-813f-85b0-d37cef59c1f7"
 ```
 
+### Note-taking behavior
+
+Once configured, eling auto-creates a **📋 Task Logs** child page under your parent on first use:
+
+```
+📋 Hermes Vault (parent page — your configured root)
+  ├── 📋 Task Logs        ← auto-created by eling
+  │   ├── 💡 Eling test ← child pages from eling_reflect / remember(layer="notion")
+  │   └── 💡 Another note
+  ├── 🔑 API Keys...
+  └── ...
+```
+
+Two ways to add notes to Notion:
+
+| Method | Usage | Route |
+|--------|-------|-------|
+| `brain.reflect(fact_id)` / `eling_reflect` | Promote a high-trust fact to Notion | → 📋 Task Logs |
+| `brain.remember("text", layer="notion")` / `eling_remember` with `layer=notion` | Store content directly as a Notion page | → 📋 Task Logs |
+
+All child pages under 📋 Task Logs are full Notion pages — you can edit, move, share, or reference them normally.
+
 Or pass them explicitly in code:
 ```python
 from eling.brain import Brain
@@ -122,9 +144,13 @@ b = Brain(
 )
 result = b.reflect(fact_id=1)
 print(result)  # {"page_id": "...", "promoted": True}
+
+# Or store directly as a note
+result = b.remember("Quick note for Notion", layer="notion")
+print(result)  # {"layer": "notion", "page_id": "...", ...}
 ```
 
-> **Note**: `eling_reflect` checks availability at call time and returns a clear error message if any config is missing — no silent failures.
+> **Note**: `eling_reflect` and `remember(layer="notion")` check availability at call time and return a clear error if any config is missing — no silent failures.
 
 ## 🏗️ Architecture
 
