@@ -262,7 +262,11 @@ TOOLS = [
         "When host agent lacks verification (OpenCode, etc.), returns "
         "current status or records a verification event. "
         "Call with no args to query status; pass status='passed'/'failed'/'skipped' "
-        "with optional command and output to record a verification event.",
+        "with optional command and output to record a verification event.\n\n"
+        "IMPORTANT: If you edited files before calling this, pass them in "
+        "changed_files so eling can track what needs verification. "
+        "Without changed_files, eling has no knowledge of file edits "
+        "from MCP agents.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -281,6 +285,11 @@ TOOLS = [
                     "type": "string",
                     "default": "",
                     "description": "Command output (truncated to 500 chars)",
+                },
+                "changed_files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Files edited in this turn. Pass these so eling knows verification is needed.",
                 },
                 "spec_check": {
                     "type": "boolean",
@@ -405,7 +414,9 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             command = args.pop("command", "")
             output = args.pop("output", "")
             spec_check = args.pop("spec_check", False)
-            return ok(brain.verify(status=status, command=command, output=output, spec_check=spec_check))
+            changed_files = args.pop("changed_files", None)
+            return ok(brain.verify(status=status, command=command, output=output,
+                                   spec_check=spec_check, changed_files=changed_files))
         elif tool_name == "eling_verify_spec":
             changed_files = args.pop("changed_files", None)
             from .spec_kit import SpecKitVerifier

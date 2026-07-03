@@ -506,7 +506,7 @@ class Brain:
     # ── verify — check verification-on-stop status ──
 
     def verify(self, status: str = "", command: str = "", output: str = "",
-               spec_check: bool = False) -> dict:
+               spec_check: bool = False, changed_files: list[str] | None = None) -> dict:
         """Query or record verification-on-stop status.
 
         When called with no args, returns the current verification status from
@@ -514,6 +514,10 @@ class Brain:
 
         When called with ``status`` set to ``"passed"``, ``"failed"``, or
         ``"skipped"``, records the verification event in the ledger.
+
+        Pass ``changed_files`` to tell eling which files were edited (required
+        for MCP-based agents like OpenCode that edit files outside eling).
+        Edits are recorded in the ledger before checking status.
 
         Set ``spec_check=True`` to also run spec-kit conformance verification.
         Spec-kit results are returned in the ``"spec_kit"`` key and appended
@@ -528,6 +532,13 @@ class Brain:
 
         if vos.host_has_verify_on_stop(adapter=self._adapter):
             return {"host_has_verify": True, "active": False}
+
+        # Record file edits from MCP agent (OpenCode, etc.) that edits files
+        # outside eling — this is the primary way edits enter the ledger.
+        if changed_files:
+            for fp in changed_files:
+                if fp and isinstance(fp, str):
+                    vos.record_edit(fp)
 
         if status:
             vos.record_verification(status=status, command=command, output=output)
