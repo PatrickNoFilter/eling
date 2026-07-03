@@ -221,6 +221,69 @@ Synchronize data between layers (facts→Notion, flush to disk after writes).
 
 ---
 
+#### `eling_link_stats`
+
+Zettelkasten fact link graph statistics.
+
+**Parameters:** none
+
+**Response:**
+```json
+{
+  "total_links": 42,
+  "linked_facts": 18,
+  "avg_links_per_fact": 2.33
+}
+```
+
+---
+
+#### `eling_linked_facts`
+
+Get facts linked to a given fact_id (Zettelkasten-style), ordered by link weight.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `fact_id` | integer | **required** | Fact ID to get linked facts for |
+| `limit` | integer | `10` | Max results |
+
+**Response:**
+```json
+[
+  {
+    "fact_id": 5,
+    "content": "HRR dim should match numpy float32 stride",
+    "category": "general",
+    "trust_score": 0.85,
+    "weight": 0.42
+  }
+]
+```
+
+---
+
+#### `eling_evolve`
+
+Trigger a memory evolution pass: scan all facts for near-duplicate pairs and merge them.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `threshold` | float | `0.65` | Jaccard similarity threshold for merge |
+
+**Response:**
+```json
+{
+  "merged": 3,
+  "candidates_checked": 120
+}
+```
+
+---
+
 #### `eling_stats`
 
 Get statistics about all memory layers.
@@ -274,6 +337,9 @@ eling <command> [options]
 | `reflect` | Promote to Notion | `eling reflect 17` |
 | `verify` | Query verification status | `eling verify` |
 | `verify-spec` | Run spec-kit conformance check | `eling verify-spec --changed-files src/main.py` |
+| `link-stats` | Zettelkasten link graph stats | `eling link-stats` |
+| `linked-facts` | Get linked facts for fact_id | `eling linked-facts 1` |
+| `evolve` | Merge near-duplicate facts | `eling evolve --threshold 0.7` |
 | `sync` | Sync layers | `eling sync --direction push` |
 | `stats` | Show brain stats | `eling stats` |
 | `mcp` | Run MCP server | `eling mcp` |

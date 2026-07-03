@@ -2,7 +2,7 @@
 
 # 🧠 Eling
 
-**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 11 MCP tools, spec-kit verification, conditional verify-on-stop**
+**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 14 MCP tools, Zettelkasten linking, memory evolution, spec-kit verification, conditional verify-on-stop**
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -27,7 +27,7 @@ Eling is a **unified second brain** for AI agents. It merges 5 memory tiers into
 📌 Tier 1: BUILTIN   — Hermes MEMORY.md / USER.md
 ```
 
-All accessible via **11 MCP tools** from a single stdio server:
+All accessible via **14 MCP tools** from a single stdio server:
 
 | Tool | Purpose |
 |------|---------|
@@ -42,6 +42,9 @@ All accessible via **11 MCP tools** from a single stdio server:
 | `eling_export` | Full brain export as JSON or Markdown |
 | `eling_verify` | Query/record verification status with optional spec-kit check |
 | `eling_verify_spec` | Run spec-kit conformance verification against project specs |
+| **`eling_link_stats`** | **Zettelkasten link graph statistics** |
+| **`eling_linked_facts`** | **Get facts linked to a given fact_id** |
+| **`eling_evolve`** | **Trigger memory evolution (merge near-duplicates)** |
 
 ## 🚀 Quick Start
 
@@ -93,6 +96,9 @@ python3 -m eling reason     ["X", "Y"]
 python3 -m eling reflect    1                 # promote fact_id 1 to Notion
 python3 -m eling verify                        # query verification status
 python3 -m eling verify-spec                   # run spec-kit conformance
+python3 -m eling link-stats                    # Zettelkasten link graph stats
+python3 -m eling linked-facts 1                # facts linked to fact_id 1
+python3 -m eling evolve                        # merge near-duplicate facts
 python3 -m eling stats
 python3 -m eling export     --format markdown
 python3 -m eling sync       --direction push   # facts → Notion
@@ -256,18 +262,18 @@ plugins:
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (11 tools)
-├── brain.py          — Orchestrator: routing + RRF fusion + sync
+├── mcp_server.py     — JSON-RPC stdio server (14 tools)
+├── brain.py          — Orchestrator: routing + RRF fusion + sync + linking
 ├── config.py         — Layered config: env → json → defaults
-├── hooks.py          — 15 lifecycle hooks + HookRegistry
+├── hooks.py          — 15 lifecycle hooks + HookRegistry + evolution
 ├── verify_on_stop.py — Verification ledger + nudge builder + spec-kit wiring
 ├── spec_kit.py       — Spec-kit artifact parser + coverage analyzer
 ├── privacy.py        — PII/secret stripping (19 patterns)
 ├── compress.py       — SHA-256 dedup + length compression
-├── cli.py            — CLI client for all 11 operations
+├── cli.py            — CLI client for all 14 operations
 └── layers/
     ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
-    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + trust scoring
+    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + trust + linking + evolution
     ├── hrr.py        — Holographic Reduced Representations (optional numpy)
     ├── code.py       — Tier 3: CodeLayer wrapper
     ├── code_index.py — Pure-Python AST+regex code indexer

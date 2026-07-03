@@ -352,6 +352,9 @@ def _make_idle_30min_handler(brain: "Brain") -> HookHandler:
         # Periodic contradiction sweep: check recent un-flagged facts
         contradictions = brain.facts.detect_contradictions_for_unflagged(limit=20)
 
+        # Memory evolution pass: merge near-duplicates
+        evolution = brain.facts.evolve()
+
         promoted = 0
         if not brain.notion.available:
             return {
@@ -375,6 +378,7 @@ def _make_idle_30min_handler(brain: "Brain") -> HookHandler:
             "promoted": promoted,
             "decay": decay_result,
             "contradictions": len(contradictions),
+            "evolved": evolution.get("merged", 0),
         }
     return handler
 

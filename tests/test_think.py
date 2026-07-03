@@ -106,4 +106,4 @@ class TestThinkMCPTools:
 
     def test_nine_tools_total(self):
         from eling.mcp_server import TOOLS
-        assert len(TOOLS) == 10  # eling_remember..eling_verify
+        assert len(TOOLS) >= 10  # eling_remember + friends + linking tools

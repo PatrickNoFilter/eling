@@ -58,6 +58,15 @@ CREATE TABLE IF NOT EXISTS entity_graph (
     PRIMARY KEY (entity_a_id, entity_b_id)
 );
 
+CREATE TABLE IF NOT EXISTS fact_links (
+    fact_id_a   INTEGER NOT NULL REFERENCES facts(fact_id) ON DELETE CASCADE,
+    fact_id_b   INTEGER NOT NULL REFERENCES facts(fact_id) ON DELETE CASCADE,
+    weight      REAL DEFAULT 1.0,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (fact_id_a, fact_id_b)
+);
+
 CREATE VIRTUAL TABLE IF NOT EXISTS facts_fts
     USING fts5(content, tags, content=facts, content_rowid=fact_id);
 
@@ -184,6 +193,8 @@ class FactsLayer:
             self.self_wire_graph(fact_id)
             # Post-write contradiction check
             self.detect_contradictions(fact_id)
+            # Zettelkasten memory linking: connect to related facts
+            self.create_links(fact_id)
 
             return int(fact_id)
 
@@ -747,6 +758,221 @@ class FactsLayer:
                 hits = self.detect_contradictions(int(fid))
                 all_hits.extend(hits)
             return all_hits
+
+    # ── Zettelkasten memory linking (A-MEM) ──────────────────────────
+    # A-MEM: Agentic Memory for LLM Agents (Xu et al., 2025).
+    # https://github.com/agiresearch/A-mem
+
+    LINK_THRESHOLD = 0.25
+    """Minimum Jaccard similarity to create a fact link."""
+
+    EVOLVE_MERGE_THRESHOLD = 0.65
+    """Jaccard similarity above which two facts are merged during evolution."""
+
+    def create_links(self, fact_id: int, limit: int = 20) -> list[dict]:
+        """Scan existing facts for semantic similarity and create bidirectional links.
+
+        Uses BM25 candidate retrieval + Jaccard reranking to find related
+        facts, then upserts bidirectional links weighted by similarity.
+
+        This implements Zettelkasten-style automatic linking:
+        every new memory is connected to existing related memories.
+
+        Returns list of created links: ``[{fact_id, content, weight}]``.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT content, tags FROM facts WHERE fact_id = ?", (fact_id,)
+            ).fetchone()
+            if not row:
+                return []
+            content = row["content"]
+            tokens = self._tokenize(content)
+
+            # Get BM25 candidates (exclude self)
+            candidates = self._fts_candidates(content, category=None, source=None, min_trust=0.0, limit=limit)
+            links: list[dict] = []
+
+            for c in candidates:
+                cid = c["fact_id"]
+                if cid == fact_id:
+                    continue
+                other_tokens = self._tokenize(c["content"])
+                sim = self._jaccard(tokens, other_tokens)
+                if sim >= self.LINK_THRESHOLD:
+                    a, b = (fact_id, cid) if fact_id < cid else (cid, fact_id)
+                    self._conn.execute(
+                        """INSERT INTO fact_links (fact_id_a, fact_id_b, weight, updated_at)
+                           VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                           ON CONFLICT(fact_id_a, fact_id_b) DO UPDATE SET
+                               weight = MAX(weight, ?),
+                               updated_at = CURRENT_TIMESTAMP""",
+                        (a, b, round(sim, 4), round(sim, 4)),
+                    )
+                    links.append({
+                        "fact_id": cid,
+                        "content": c["content"][:120],
+                        "weight": round(sim, 4),
+                    })
+
+            self._conn.commit()
+            return links
+
+    def linked_facts(self, fact_id: int, limit: int = 10) -> list[dict]:
+        """Return facts linked to *fact_id*, ordered by link weight.
+
+        Returns list of ``{fact_id, content, category, trust_score, weight}``.
+        """
+        with self._lock:
+            rows = self._conn.execute(
+                """SELECT f.fact_id, f.content, f.category, f.trust_score, fl.weight
+                    FROM fact_links fl
+                    JOIN facts f ON f.fact_id = CASE
+                        WHEN fl.fact_id_a = ? THEN fl.fact_id_b
+                        ELSE fl.fact_id_a
+                    END
+                    WHERE fl.fact_id_a = ? OR fl.fact_id_b = ?
+                    ORDER BY fl.weight DESC, fl.updated_at DESC
+                    LIMIT ?""",
+                (fact_id, fact_id, fact_id, limit),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def link_stats(self) -> dict:
+        """Return statistics about the fact link graph."""
+        with self._lock:
+            total = self._conn.execute("SELECT COUNT(*) as n FROM fact_links").fetchone()["n"]
+            if total == 0:
+                return {"total_links": 0, "linked_facts": 0, "avg_links_per_fact": 0.0}
+            linked = self._conn.execute(
+                "SELECT COUNT(DISTINCT fact_id_a) + COUNT(DISTINCT fact_id_b) as n FROM fact_links"
+            ).fetchone()["n"]
+            return {
+                "total_links": int(total),
+                "linked_facts": int(linked),
+                "avg_links_per_fact": round(total / max(linked, 1), 2),
+            }
+
+    def evolve(self, threshold: float | None = None) -> dict:
+        """Memory evolution pass: merge near-duplicate facts.
+
+        Scans all facts for pairs with Jaccard similarity >= threshold.
+        When a pair is found, the fact with lower ID is kept and the other
+        is merged into it (content combined, trust averaged, entities merged).
+        The lower-ID fact's links are preserved.
+
+        Returns dict with counts of merges performed.
+        """
+        t = self.EVOLVE_MERGE_THRESHOLD if threshold is None else threshold
+        with self._lock:
+            all_facts = self._conn.execute(
+                "SELECT fact_id, content, trust_score, tags, category, source FROM facts "
+                "ORDER BY fact_id"
+            ).fetchall()
+            if len(all_facts) < 2:
+                return {"merged": 0, "candidates_checked": 0}
+
+            merged = 0
+            checked = 0
+            skip_ids: set[int] = set()
+
+            for i in range(len(all_facts)):
+                fa = all_facts[i]
+                if int(fa["fact_id"]) in skip_ids:
+                    continue
+                fa_tokens = self._tokenize(fa["content"])
+
+                for j in range(i + 1, len(all_facts)):
+                    fb = all_facts[j]
+                    if int(fb["fact_id"]) in skip_ids:
+                        continue
+                    fb_tokens = self._tokenize(fb["content"])
+                    sim = self._jaccard(fa_tokens, fb_tokens)
+                    checked += 1
+
+                    if sim >= t:
+                        # Merge fb into fa (keep older/lower ID)
+                        keep_id = int(fa["fact_id"])
+                        merge_id = int(fb["fact_id"])
+
+                        # Combine content (append, deduplicate)
+                        new_content = fa["content"]
+                        fb_content = fb["content"]
+                        if fb_content not in new_content and fa["content"] not in fb_content:
+                            new_content = fa["content"] + "\n\n---\n\n" + fb_content
+                        elif len(fb_content) > len(fa["content"]):
+                            new_content = fb_content  # keep the longer one
+
+                        # Average trust
+                        new_trust = (fa["trust_score"] + fb["trust_score"]) / 2.0
+
+                        # Merge tags
+                        all_tags = set()
+                        for t in fa["tags"].split(","):
+                            if t.strip():
+                                all_tags.add(t.strip())
+                        for t in fb["tags"].split(","):
+                            if t.strip():
+                                all_tags.add(t.strip())
+                        new_tags = ",".join(sorted(all_tags))
+
+                        # Transfer entity links from merge_id to keep_id
+                        existing_ents = set(
+                            r["entity_id"] for r in self._conn.execute(
+                                "SELECT entity_id FROM fact_entities WHERE fact_id = ?",
+                                (keep_id,),
+                            ).fetchall()
+                        )
+                        merge_ents = self._conn.execute(
+                            "SELECT entity_id FROM fact_entities WHERE fact_id = ?",
+                            (merge_id,),
+                        ).fetchall()
+                        for (eid,) in merge_ents:
+                            if eid not in existing_ents:
+                                self._conn.execute(
+                                    "INSERT OR IGNORE INTO fact_entities VALUES (?, ?)",
+                                    (keep_id, eid),
+                                )
+
+                        # Transfer fact_links from merge_id to keep_id
+                        merge_links = self._conn.execute(
+                            """SELECT fact_id_a, fact_id_b, weight
+                                FROM fact_links
+                                WHERE fact_id_a = ? OR fact_id_b = ?""",
+                            (merge_id, merge_id),
+                        ).fetchall()
+                        for link_row in merge_links:
+                            other_id = link_row["fact_id_a"] if link_row["fact_id_b"] == merge_id else link_row["fact_id_b"]
+                            if other_id == keep_id:
+                                continue  # already linked
+                            a, b = (keep_id, other_id) if keep_id < other_id else (other_id, keep_id)
+                            self._conn.execute(
+                                """INSERT INTO fact_links (fact_id_a, fact_id_b, weight, updated_at)
+                                   VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+                                   ON CONFLICT(fact_id_a, fact_id_b) DO UPDATE SET
+                                       weight = MAX(weight, ?),
+                                       updated_at = CURRENT_TIMESTAMP""",
+                                (a, b, link_row["weight"], link_row["weight"]),
+                            )
+
+                        # Update keep fact
+                        self._conn.execute(
+                            "UPDATE facts SET content = ?, trust_score = ?, tags = ?, "
+                            "updated_at = CURRENT_TIMESTAMP WHERE fact_id = ?",
+                            (new_content, new_trust, new_tags, keep_id),
+                        )
+
+                        # Recompute HRR vector for the merged fact
+                        self._compute_hrr_vector(keep_id, new_content)
+
+                        # Delete the merged fact (cascades to fact_entities, fact_links)
+                        self._conn.execute("DELETE FROM facts WHERE fact_id = ?", (merge_id,))
+
+                        skip_ids.add(merge_id)
+                        merged += 1
+
+            self._conn.commit()
+            return {"merged": merged, "candidates_checked": checked}
 
     def flush(self):
         """Flush pending writes to disk (WAL checkpoint)."""

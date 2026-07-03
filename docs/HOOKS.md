@@ -199,9 +199,9 @@ brain.fire_hook("decision_made", {
 | | |
 |---|---|
 | **Fires** | 30 minutes of inactivity |
-| **Default action** | Promote high-trust (≥0.9) facts to Notion pages |
+| **Default action** | Snapshot → apply decay → contradiction sweep → **memory evolution** (merge near-duplicates) → promote high-trust (≥0.9) facts to Notion |
 | **Context** | `{notion_parent_id?: str}` |
-| **Returns** | `{promoted: int}` |
+| **Returns** | `{snapshot, promoted, decay, contradictions, evolved}` |
 
 ---
 

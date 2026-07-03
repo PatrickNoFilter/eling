@@ -320,6 +320,49 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "eling_link_stats",
+        "description": "Statistics about the Zettelkasten fact link graph: "
+        "total links, linked fact count, average links per fact.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "eling_linked_facts",
+        "description": "Return facts linked to a given fact_id, ordered by link weight. "
+        "Uses Zettelkasten-style automatic linking (A-MEM).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fact_id": {
+                    "type": "integer",
+                    "description": "Fact ID to get linked facts for",
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Max links to return",
+                },
+            },
+            "required": ["fact_id"],
+        },
+    },
+    {
+        "name": "eling_evolve",
+        "description": "Trigger a memory evolution pass: scan all facts for near-duplicate "
+        "pairs (Jaccard similarity >= threshold) and merge them — combines content, "
+        "averages trust, merges entities and fact links. Returns merge count.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "threshold": {
+                    "type": "number",
+                    "default": 0.65,
+                    "description": "Jaccard similarity threshold for merge (default 0.65)",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 
@@ -368,7 +411,7 @@ def _handle_initialize(rid: int | str | None, params: dict) -> dict:
         "result": {
             "protocolVersion": "2024-11-05",
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": "eling", "version": "0.2.0"},
+            "serverInfo": {"name": "eling", "version": "0.3.0"},
         },
     }
 
@@ -424,6 +467,13 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             v = SpecKitVerifier(project_path) if project_path else SpecKitVerifier()
             result = v.verify(changed_files=changed_files)
             return ok(result)
+        elif tool_name == "eling_link_stats":
+            return ok(brain.link_stats())
+        elif tool_name == "eling_linked_facts":
+            return ok(brain.linked_facts(**args))
+        elif tool_name == "eling_evolve":
+            threshold = args.pop("threshold", None)
+            return ok(brain.evolve(threshold=threshold))
         else:
             return _error(rid, -32601, f"unknown tool: {tool_name}")
     except Exception as e:

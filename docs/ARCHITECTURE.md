@@ -1,10 +1,10 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for Hermes Agent. Five memory layers, one MCP server, zero external dependencies.
+> **Eling** — Unified second brain for Hermes Agent. Five memory layers, one MCP server, zero external dependencies. v0.3.0 adds Zettelkasten memory linking + evolution (A-MEM).
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (11 tools)
+├── mcp_server.py     — JSON-RPC stdio server (14 tools)
 ├── brain.py          — Orchestrator: routing + RRF fusion + sync
 ├── config.py         — Layered config: env → json → defaults
 ├── hooks.py          — 15 lifecycle hooks + HookRegistry
@@ -15,7 +15,7 @@ eling/
 ├── cli.py            — `eling` CLI (remember/recall/reason/verify/verify-spec/stats/mcp/config/sync)
 └── layers/
     ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
-    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + Trust scoring
+    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + Trust + Zettelkasten links + evolution
     ├── hrr.py        — Holographic Reduced Representations (numpy)
     ├── code.py       — Tier 3: CodeLayer wrapper
     ├── code_index.py — Pure-Python AST+regex code indexer
@@ -57,6 +57,27 @@ SQLite-backed fact store with:
 - **Trust scoring** — facts have `trust_score` (0.0–1.0), decays over time, boosted by user corrections
 
 Use `brain.reason(entities)` to find facts connecting multiple entities via HRR unbinding.
+
+#### Zettelkasten Memory Linking (v0.3.0)
+
+Every new fact is automatically linked to semantically similar existing facts:
+
+1. BM25 retrieves candidate facts (up to 20)
+2. Jaccard similarity reranks candidates on token overlap
+3. Bidirectional `fact_links` table edges created when Jaccard ≥ `LINK_THRESHOLD` (0.25)
+4. Links are weighted by similarity score and updated (take max weight)
+
+Inspired by A-MEM (Xu et al., 2025): *"Agentic Memory for LLM Agents"*.
+
+#### Memory Evolution (v0.3.0)
+
+A periodic maintenance pass that merges near-duplicate facts:
+
+1. Scans all fact pairs for Jaccard similarity ≥ `EVOLVE_MERGE_THRESHOLD` (0.65)
+2. Merges: content combined (longer wins or concatenated), trust averaged, entities unioned
+3. Transfers `fact_links` from the deleted fact to the survivor
+4. Recomputes HRR vector for the merged fact
+5. Runs automatically on `idle_30min` hook; also available via `eling_evolve` MCP tool
 
 ### Tier 3 — Code
 Pure-Python code intelligence with **zero external dependencies**:
@@ -224,6 +245,9 @@ Sync state persisted to `~/.eling/sync_state.json` (tracks last sync time, count
 | `eling_export` | format, path | `{format, bytes, preview}` |
 | `eling_verify` | status, command, output, **spec_check** | `{active, changed_paths, nudge, spec_kit}` |
 | `eling_verify_spec` | changed_files[] | `{detected, coverage, requirements, nudge}` |
+| `eling_link_stats` | — | `{total_links, linked_facts, avg_links_per_fact}` |
+| `eling_linked_facts` | fact_id, limit | `[{fact_id, content, weight}]` |
+| `eling_evolve` | threshold | `{merged}` |
 
 ---
 

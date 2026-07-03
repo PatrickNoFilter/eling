@@ -38,7 +38,16 @@ def main():
     p_reflect = sub.add_parser("reflect", help="Promote fact_id to Notion")
     p_reflect.add_argument("fact_id", type=int)
 
+    sub.add_parser("link-stats", help="Zettelkasten link graph statistics")
     sub.add_parser("stats", help="Show brain stats")
+
+    p_linked = sub.add_parser("linked-facts", help="Get facts linked to a fact_id")
+    p_linked.add_argument("fact_id", type=int)
+    p_linked.add_argument("--limit", type=int, default=10)
+
+    p_evolve = sub.add_parser("evolve", help="Merge near-duplicate facts (memory evolution)")
+    p_evolve.add_argument("--threshold", type=float, default=None,
+                          help="Jaccard similarity threshold (default: 0.65)")
 
     p_mcp = sub.add_parser("mcp", help="Run MCP server (stdio)")
     p_mcp.add_argument("--transport", default="stdio")
@@ -107,6 +116,12 @@ def main():
             out = brain.reason(args.entities, limit=args.limit)
         elif args.cmd == "reflect":
             out = brain.reflect(args.fact_id)
+        elif args.cmd == "link-stats":
+            out = brain.link_stats()
+        elif args.cmd == "linked-facts":
+            out = brain.linked_facts(args.fact_id, limit=args.limit)
+        elif args.cmd == "evolve":
+            out = brain.evolve(threshold=args.threshold)
         elif args.cmd == "stats":
             out = brain.stats()
         print(json.dumps(out, indent=2, default=str))

@@ -670,6 +670,24 @@ class Brain:
             },
         }
 
+    # ── memory linking — Zettelkasten connections (v0.3.0) ──
+
+    def link_stats(self) -> dict:
+        """Statistics about the Zettelkasten fact link graph."""
+        return self.facts.link_stats()
+
+    def linked_facts(self, fact_id: int, limit: int = 10) -> list[dict]:
+        """Return facts linked to *fact_id* by Zettelkasten linking."""
+        return self.facts.linked_facts(fact_id, limit=limit)
+
+    def evolve(self, threshold: float | None = None) -> dict:
+        """Memory evolution: merge near-duplicate facts.
+
+        Scans all facts for pairs with high Jaccard similarity and merges
+        them — preserves content, averages trust, merges entities and links.
+        """
+        return self.facts.evolve(threshold=threshold)
+
     def close(self):
         self.facts.close()
         self.kb.close()
