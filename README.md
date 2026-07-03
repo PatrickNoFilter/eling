@@ -291,6 +291,7 @@ eling/
 ## 🤝 Credits
 
 - **HRR phase encoding + facts layer** — adapted from [holographic plugin](https://github.com/dusterbloom) by dusterbloom (Hermes PR #2351, MIT)
+- **Spec-kit integration** — spec-driven development artifacts ([spec-kit](https://github.com/github/spec-kit) by GitHub, [MIT](https://github.com/github/spec-kit?tab=MIT-1-ov-file#readme))
 
 ## 📜 License
 
