@@ -56,9 +56,22 @@ python3 -m eling.mcp_server
 
 # Or use the CLI
 python3 -m eling --help
+
+# If using OpenCode, install the lifecycle plugin:
+eling-install-opencode
 ```
 
-## 🔌 Hermes Integration
+## 🔌 Agent Integration
+
+| Agent | Integration | Status |
+|-------|-------------|--------|
+| **Hermes** | MCP server + Memory Provider + Plugin | ✅ Tested |
+| **OpenCode** | MCP server + Lifecycle Plugin | ✅ Tested |
+| **Others** (OpenClaw, Cursor, Windsurf, Claude Code) | MCP server only | ⚠️ MCP only |
+
+Non-tested agents connect exclusively via the stdio MCP server (`python3 -m eling.mcp_server`) — any MCP-compatible host can use all 14 tools.
+
+### Hermes
 
 Eling plugs into Hermes Agent at 3 levels:
 
@@ -84,6 +97,36 @@ plugins:
     - eling
   eling:
     home: /root/.eling
+```
+
+### OpenCode
+
+Eling provides an **OpenCode lifecycle plugin** that auto-writes session memory:
+
+```bash
+# After installing eling, run this to install the plugin:
+eling-install-opencode
+
+# Or:
+python3 -m eling install-opencode
+```
+
+This copies `eling-memory.js` to OpenCode's plugin directory and registers it in `opencode.jsonc`. The plugin hooks into:
+
+- **`chat.message`** — stores user prompts as facts
+- **`tool.execute.after`** — stores tool observations as facts
+- **`event` (session.idle / session.compacted)** — pushes high-trust facts to Notion
+
+The eling MCP server should also be configured in OpenCode (`opencode.jsonc`):
+
+```jsonc
+"mcp": {
+  "eling": {
+    "type": "local",
+    "command": ["python3", "-m", "eling.mcp_server"],
+    "enabled": true
+  }
+}
 ```
 
 ## 📋 CLI Commands
