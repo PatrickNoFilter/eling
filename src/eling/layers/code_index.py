@@ -67,7 +67,7 @@ _CODE_EXTS = {
 _SKIP_DIRS = {
     "__pycache__", ".git", ".venv", "node_modules", "target",
     "build", "dist", ".egg-info", ".tox", ".mypy_cache",
-    ".pytest_cache", ".ruff_cache",
+    ".pytest_cache", ".ruff_cache", ".hermes",
 }
 
 # File size limit (bytes) — skip files larger than this

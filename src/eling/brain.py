@@ -123,6 +123,11 @@ class Brain:
         eling_hooks.register_default_hooks(self)
         # Adapter for verify-on-stop (hermes | opencode | openclaw | auto)
         self._adapter: str = adapter or "auto"
+        # Project path (used by verify-on-stop → spec-kit)
+        self._project_path: Path | None = Path(project_path).expanduser().resolve() if project_path else None
+        if self._project_path:
+            from . import verify_on_stop as vos
+            vos.set_project_path(self._project_path)
 
     @property
     def _task_logs_id(self) -> str | None:
@@ -500,7 +505,8 @@ class Brain:
 
     # ── verify — check verification-on-stop status ──
 
-    def verify(self, status: str = "", command: str = "", output: str = "") -> dict:
+    def verify(self, status: str = "", command: str = "", output: str = "",
+               spec_check: bool = False) -> dict:
         """Query or record verification-on-stop status.
 
         When called with no args, returns the current verification status from
@@ -508,6 +514,10 @@ class Brain:
 
         When called with ``status`` set to ``"passed"``, ``"failed"``, or
         ``"skipped"``, records the verification event in the ledger.
+
+        Set ``spec_check=True`` to also run spec-kit conformance verification.
+        Spec-kit results are returned in the ``"spec_kit"`` key and appended
+        to the nudge message when requirements are uncovered.
 
         This is a **conditional** feature — it only activates when the host
         agent does NOT have built-in verify-on-stop (auto-detected from env
@@ -528,10 +538,24 @@ class Brain:
                 "status": status,
             }
 
+        result = vos.verify_status()
+
+        # Spec-kit check (on demand or always when project path is set)
+        if spec_check or result.get("needs_verification"):
+            sk_result = vos._spec_kit_check()
+            result["spec_kit"] = sk_result
+            if sk_result.get("detected") and sk_result.get("nudge"):
+                sk_nudge = sk_result["nudge"]
+                existing = result.get("nudge") or ""
+                if existing:
+                    result["nudge"] = existing + "\n" + sk_nudge
+                else:
+                    result["nudge"] = sk_nudge
+
         return {
             "host_has_verify": False,
             "active": True,
-            **vos.verify_status(),
+            **result,
         }
 
     # ── export — dump all layers (Task 13.2) ──

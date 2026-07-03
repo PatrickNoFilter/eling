@@ -28,6 +28,31 @@ def _get_brain() -> Brain:
     return _brain
 
 
+def _resolve_adapter(client_name: str) -> str:
+    """Map MCP client name to eling adapter string.
+
+    Uses the actual MCP client that connected (from initialize handshake),
+    which is more reliable than environment variable heuristics.
+    """
+    name = (client_name or "").lower().strip()
+    if "opencode" in name:
+        return "opencode"
+    if "openclaw" in name:
+        return "openclaw"
+    if "openclaude" in name:
+        return "openclaude"
+    if "hermes" in name:
+        return "hermes"
+    if "cursor" in name:
+        return "cursor"
+    if "windsurf" in name:
+        return "windsurf"
+    # Claude Code (Anthropic's official MCP client)
+    if "claude code" in name or name in ("claude",):
+        return "claude_cli"
+    return "auto"
+
+
 # ── Tool definitions ──────────────────────────────────────────────────────────
 
 TOOLS = [
@@ -257,6 +282,31 @@ TOOLS = [
                     "default": "",
                     "description": "Command output (truncated to 500 chars)",
                 },
+                "spec_check": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Also run spec-kit conformance verification",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "eling_verify_spec",
+        "description": "Run spec-kit conformance verification. "
+        "Detects spec-kit artifacts (specs/<feature>/spec.md, plan.md, tasks.md) "
+        "and checks whether the current code implementation covers each "
+        "spec requirement. Returns coverage stats, uncovered requirements, "
+        "and a nudge message. "
+        "Use this to verify that code changes match the project specification.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "changed_files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of changed file paths to check coverage against",
+                },
             },
             "required": [],
         },
@@ -298,6 +348,11 @@ def _handle_initialize(rid: int | str | None, params: dict) -> dict:
     client_name = client_info.get("name", "unknown")
     client_version = client_info.get("version", "?")
     logger.info("MCP client connected: %s %s", client_name, client_version)
+    # Detect adapter from the actual MCP client that connected
+    brain = _get_brain()
+    detected = _resolve_adapter(client_name)
+    brain._adapter = detected
+    logger.info("eling adapter set to %r (from client name %r)", detected, client_name)
     return {
         "jsonrpc": "2.0",
         "id": rid,
@@ -349,7 +404,15 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             status = args.pop("status", "")
             command = args.pop("command", "")
             output = args.pop("output", "")
-            return ok(brain.verify(status=status, command=command, output=output))
+            spec_check = args.pop("spec_check", False)
+            return ok(brain.verify(status=status, command=command, output=output, spec_check=spec_check))
+        elif tool_name == "eling_verify_spec":
+            changed_files = args.pop("changed_files", None)
+            from .spec_kit import SpecKitVerifier
+            project_path = getattr(brain, "_project_path", None)
+            v = SpecKitVerifier(project_path) if project_path else SpecKitVerifier()
+            result = v.verify(changed_files=changed_files)
+            return ok(result)
         else:
             return _error(rid, -32601, f"unknown tool: {tool_name}")
     except Exception as e:

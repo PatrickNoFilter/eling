@@ -42,17 +42,21 @@ class CodeLayer:
 
     @property
     def available(self) -> bool:
-        self._init_index()
-        return self._index.available or True  # always available (may be empty)
+        # Don't trigger lazy init — just report current state
+        if not self._initialized:
+            return True  # always available (may be empty)
+        return self._index.available or True
 
     @property
     def symbol_count(self) -> int:
-        self._init_index()
+        if not self._initialized:
+            return 0
         return self._index.symbol_count
 
     @property
     def file_count(self) -> int:
-        self._init_index()
+        if not self._initialized:
+            return 0
         return self._index.file_count
 
     def search(self, query: str, max_files: int = 12) -> list[dict]:

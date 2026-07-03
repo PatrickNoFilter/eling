@@ -5,8 +5,9 @@ verify-on-stop, eling fills the gap:
 
 1. Tracks file edits via hooks or explicit MCP calls
 2. Detects whether the host agent already has built-in verification (skip)
-3. Produces a verification nudge message when code was edited but not verified
-4. Exposes status via MCP tool so any agent can query it
+3. Runs spec-kit conformance check (if spec-kit artifacts exist)
+4. Produces a verification nudge message when code was edited but not verified
+5. Exposes status via MCP tool so any agent can query it
 
 Detection logic:
   - ELING_ADAPTER=hermes → skip (Hermes has built-in verification)
@@ -293,7 +294,78 @@ def verify_status() -> dict[str, Any]:
         "attempts": _ledger["verify_attempts"],
         "needs_verification": bool(paths) and not _ledger["verified"],
         "nudge": build_verify_nudge(),
+        "spec_kit": _spec_kit_check(),
     }
+
+
+# ---------------------------------------------------------------------------
+# Spec-kit integration
+# ---------------------------------------------------------------------------
+
+_spec_kit_verifier: Any = None
+"""Lazily created SpecKitVerifier (init on first call to _spec_kit_check)."""
+
+_spec_kit_project_path: str | None = None
+
+
+def set_project_path(path: str | Path | None) -> None:
+    """Set the project path for spec-kit artifact discovery.
+
+    Call this once at session start so spec-kit artifacts can be loaded.
+    Pass ``None`` to disable spec-kit checking.
+    """
+    global _spec_kit_project_path, _spec_kit_verifier
+    _spec_kit_project_path = str(path) if path else None
+    _spec_kit_verifier = None  # force re-init on next check
+
+
+def _spec_kit_check() -> dict[str, Any]:
+    """Run spec-kit verification against the current changed paths.
+
+    Returns
+    -------
+    dict with detected, summary, nudge, and coverage stats.
+    Returns ``{"detected": False}`` when no spec-kit artifacts exist
+    or project path is not set.
+    """
+    global _spec_kit_verifier, _spec_kit_project_path
+
+    if not _spec_kit_project_path:
+        return {"detected": False, "reason": "no project path set"}
+
+    if _spec_kit_verifier is None:
+        from .spec_kit import SpecKitVerifier
+        _spec_kit_verifier = SpecKitVerifier(_spec_kit_project_path)
+
+    try:
+        changed = list({str(p) for p in _ledger.get("changed_paths", [])})
+        result = _spec_kit_verifier.verify(changed_files=changed)
+        return result
+    except Exception as e:
+        logger.debug("spec_kit check failed: %s", e)
+        return {"detected": False, "error": str(e)}
+
+
+def build_verify_nudge_spec_kit() -> str | None:
+    """Build a spec-kit verification nudge fragment, or None.
+
+    Returns a short string that can be appended to the main verify nudge,
+    or None when spec-kit is not relevant (not detected or all covered).
+    """
+    sk = _spec_kit_check()
+    if not sk.get("detected"):
+        return None
+    coverage = sk.get("coverage", {})
+    uncovered = coverage.get("uncovered", 0)
+    total = coverage.get("total", 0)
+    covered = coverage.get("covered", 0)
+    if uncovered == 0:
+        return None
+    return (
+        "\n\n[Spec-kit coverage: {}/{} requirements covered ({} uncovered).\n"
+        "Review the spec requirements flagged above and ensure the implementation "
+        "addresses each one.]"
+    ).format(covered, total, uncovered)
 
 
 __all__ = [
@@ -304,4 +376,7 @@ __all__ = [
     "reset_ledger",
     "build_verify_nudge",
     "verify_status",
+    "set_project_path",
+    "build_verify_nudge_spec_kit",
+    "_spec_kit_check",
 ]
