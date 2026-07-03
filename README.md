@@ -2,7 +2,7 @@
 
 # 🧠 Eling
 
-**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 10 MCP tools, conditional verify-on-stop**
+**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 11 MCP tools, spec-kit verification, conditional verify-on-stop**
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -27,7 +27,7 @@ Eling is a **unified second brain** for AI agents. It merges 5 memory tiers into
 📌 Tier 1: BUILTIN   — Hermes MEMORY.md / USER.md
 ```
 
-All accessible via **9 MCP tools** from a single stdio server:
+All accessible via **11 MCP tools** from a single stdio server:
 
 | Tool | Purpose |
 |------|---------|
@@ -40,7 +40,8 @@ All accessible via **9 MCP tools** from a single stdio server:
 | `eling_stats` | Show per-layer statistics |
 | `eling_think` | Synthesis + gap analysis across layers |
 | `eling_export` | Full brain export as JSON or Markdown |
-| `eling_verify` | Query/record verification status (conditional) |
+| `eling_verify` | Query/record verification status with optional spec-kit check |
+| `eling_verify_spec` | Run spec-kit conformance verification against project specs |
 
 ## 🚀 Quick Start
 
@@ -90,6 +91,8 @@ python3 -m eling recall     "what did I learn about X"
 python3 -m eling probe      "X"
 python3 -m eling reason     ["X", "Y"]
 python3 -m eling reflect    1                 # promote fact_id 1 to Notion
+python3 -m eling verify                        # query verification status
+python3 -m eling verify-spec                   # run spec-kit conformance
 python3 -m eling stats
 python3 -m eling export     --format markdown
 python3 -m eling sync       --direction push   # facts → Notion
@@ -184,14 +187,30 @@ own `agent/verification_stop.py`.
 
 ### How it works
 
-1. **Auto-detection** — Eling detects the host agent from environment variables
-   (`HERMES_SESSION_SOURCE` → Hermes, `OPENCODE_HOME` → OpenCode, etc.)
+1. **Auto-detection** — Eling detects the host agent from the MCP client's
+   `initialize` handshake (`clientInfo.name`), which is more reliable than
+   environment variable heuristics (prevents false Hermes detection when
+   OpenCode runs under Hermes)
 2. **File edit tracking** — When code files are edited via hooks or MCP tools,
    eling records them in a verification ledger
-3. **Verification nudge** — If code was edited but no passing tests/verification
+3. **Spec-kit conformance** — If the project has spec-kit artifacts
+   (`specs/*/spec.md`), eling checks whether code changes cover each spec
+   requirement and includes gaps in the nudge
+4. **Verification nudge** — If code was edited but no passing tests/verification
    was recorded, eling produces a `[System: ...]` nudge message
-4. **Recording** — Agents can call `eling_verify` MCP tool to record verification
+5. **Recording** — Agents can call `eling_verify` MCP tool to record verification
    results (`passed`, `failed`, `skipped`)
+
+### Spec-kit Verification
+
+Projects using [spec-kit](https://github.com/github/spec-kit) (Spec-Driven
+Development) get automatic spec conformance checking:
+
+- Eling detects `specs/<feature>/spec.md`, `plan.md`, and `tasks.md` artifacts
+- Requirements are extracted from spec markdown and matched against code files
+- The `eling_verify_spec` tool returns coverage stats + uncovered requirements
+- The standard `eling_verify` tool includes spec-kit results when `spec_check=true`
+- Uncovered requirements are listed in the verification nudge for the agent to address
 
 ### Usage via MCP
 
@@ -203,6 +222,18 @@ own `agent/verification_stop.py`.
 { "method": "tools/call", "params": {
     "name": "eling_verify",
     "arguments": { "status": "passed", "command": "pytest", "output": "364 passed" }
+} }
+
+// Run spec-kit conformance check
+{ "method": "tools/call", "params": {
+    "name": "eling_verify_spec",
+    "arguments": { "changed_files": ["src/main.py"] }
+} }
+
+// Combine both: verify + spec-kit
+{ "method": "tools/call", "params": {
+    "name": "eling_verify",
+    "arguments": { "spec_check": true }
 } }
 ```
 
@@ -225,13 +256,15 @@ plugins:
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (9 tools)
+├── mcp_server.py     — JSON-RPC stdio server (11 tools)
 ├── brain.py          — Orchestrator: routing + RRF fusion + sync
 ├── config.py         — Layered config: env → json → defaults
 ├── hooks.py          — 15 lifecycle hooks + HookRegistry
+├── verify_on_stop.py — Verification ledger + nudge builder + spec-kit wiring
+├── spec_kit.py       — Spec-kit artifact parser + coverage analyzer
 ├── privacy.py        — PII/secret stripping (19 patterns)
 ├── compress.py       — SHA-256 dedup + length compression
-├── cli.py            — CLI client for all 9 operations
+├── cli.py            — CLI client for all 11 operations
 └── layers/
     ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
     ├── facts.py      — Tier 2: SQLite + HRR + BM25 + trust scoring
