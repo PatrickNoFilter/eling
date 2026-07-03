@@ -86,6 +86,11 @@ def main():
     p_sync.add_argument("--state-file", default="",
                         help="Path to sync state file")
 
+    # ── install-opencode subcommand ──
+    p_io = sub.add_parser("install-opencode", help="Install eling memory plugin into OpenCode")
+    p_io.add_argument("--dry-run", action="store_true",
+                      help="Show what would be done without making changes")
+
     args = parser.parse_args()
 
     if args.cmd == "mcp":
@@ -99,6 +104,10 @@ def main():
 
     if args.cmd == "sync":
         _run_sync(args)
+        return
+
+    if args.cmd == "install-opencode":
+        _run_install_opencode(args)
         return
 
     brain = Brain()
@@ -242,6 +251,123 @@ def _run_sync(args: argparse.Namespace) -> None:
             print(json.dumps(result, indent=2, default=str))
     finally:
         brain.close()
+
+
+def _run_install_opencode_cli() -> None:
+    """Console_scripts entry point: install eling plugin into OpenCode."""
+    p = argparse.ArgumentParser(prog="eling-install-opencode",
+                                description="Install eling memory plugin into OpenCode")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Show what would be done without making changes")
+    args = p.parse_args()
+    _run_install_opencode(args)
+
+
+def _run_install_opencode(args: argparse.Namespace) -> None:
+    """Install the eling memory plugin into OpenCode's plugin directory.
+
+    Detects OpenCode by checking OPENCODE_HOME env var, then
+    ~/.config/opencode/, then ~/.opencode/. Copies the bundled
+    eling-memory.js plugin and registers it in opencode.jsonc.
+    """
+    import json
+    import shutil
+    from pathlib import Path
+    from importlib.resources import files as pkg_files
+
+    # 1. Detect opencode config dir
+    oc_home = os.environ.get("OPENCODE_HOME")
+    if oc_home:
+        oc_dir = Path(oc_home)
+    else:
+        candidates = [
+            Path.home() / ".config" / "opencode",
+            Path.home() / ".opencode",
+        ]
+        oc_dir = None
+        for c in candidates:
+            if c.is_dir():
+                oc_dir = c
+                break
+        if oc_dir is None:
+            print("OpenCode config directory not found.", file=sys.stderr)
+            print("Checked: OPENCODE_HOME, ~/.config/opencode, ~/.opencode", file=sys.stderr)
+            print("Install OpenCode first, or set OPENCODE_HOME.", file=sys.stderr)
+            sys.exit(1)
+
+    plugins_dir = oc_dir / "plugins"
+    target = plugins_dir / "eling-memory.js"
+    config_file = oc_dir / "opencode.jsonc"
+
+    # 2. Locate the bundled plugin JS
+    try:
+        src = pkg_files("eling.opencode_plugin").joinpath("eling-memory.js")
+    except (ModuleNotFoundError, TypeError):
+        # Fallback for editable/dev installs
+        src = Path(__file__).parent / "opencode_plugin" / "eling-memory.js"
+
+    if not src.exists():
+        print(f"Plugin source not found at {src}", file=sys.stderr)
+        sys.exit(1)
+
+    if args.dry_run:
+        print(f"[dry-run] Would copy {src} → {target}")
+        print(f"[dry-run] Would register plugin in {config_file}")
+        return
+
+    # 3. Copy plugin
+    plugins_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(str(src), str(target))
+    print(f"Copied plugin: {src} → {target}")
+
+    # 4. Register in opencode.jsonc
+    rel_path = f"./plugins/eling-memory.js"
+    if config_file.exists():
+        raw = config_file.read_text(encoding="utf-8")
+        # Check if already registered
+        if rel_path in raw:
+            print(f"Plugin already registered in {config_file}")
+        else:
+            try:
+                # Parse JSONC (strip comments for simple cases)
+                lines = raw.splitlines()
+                clean_lines = []
+                for line in lines:
+                    stripped = line.strip()
+                    if stripped.startswith("//") or stripped.startswith("/*"):
+                        continue
+                    if "//" in stripped and not stripped.startswith("{"):
+                        idx = stripped.find("//")
+                        clean_lines.append(stripped[:idx])
+                    else:
+                        clean_lines.append(line)
+                cfg = json.loads("\n".join(clean_lines))
+            except json.JSONDecodeError:
+                print(f"Could not parse {config_file} — add plugin manually:", file=sys.stderr)
+                print(f'  "plugin": ["{rel_path}"]', file=sys.stderr)
+                return
+
+            plugins = cfg.get("plugin", [])
+            if rel_path not in plugins:
+                plugins.append(rel_path)
+                cfg["plugin"] = plugins
+                # Write back preserving .jsonc extension
+                config_file.write_text(
+                    json.dumps(cfg, indent=2) + "\n",
+                    encoding="utf-8",
+                )
+                print(f"Registered plugin in {config_file}")
+            else:
+                print(f"Plugin already registered in {config_file}")
+    else:
+        # Create config file
+        cfg = {
+            "plugin": [rel_path],
+        }
+        config_file.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+        print(f"Created {config_file} with plugin registration")
+
+    print("Done. Restart OpenCode to load the eling memory plugin.")
 
 
 if __name__ == "__main__":

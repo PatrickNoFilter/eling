@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eling"
-version = "0.3.0"
+version = "0.4.0"
 description = "Unified second brain for AI agents — 5-tier memory, HRR reasoning, 14 MCP tools, Zettelkasten linking, memory evolution"
 readme = "README.md"
 license = {text = "MIT"}
@@ -39,8 +39,14 @@ dev = [
     "pytest-cov>=4.0",
 ]
 
+[project.scripts]
+eling-install-opencode = "eling.cli:_run_install_opencode_cli"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+eling = ["opencode_plugin/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
