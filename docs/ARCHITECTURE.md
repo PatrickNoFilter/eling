@@ -4,13 +4,15 @@
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (5 tools)
+├── mcp_server.py     — JSON-RPC stdio server (11 tools)
 ├── brain.py          — Orchestrator: routing + RRF fusion + sync
 ├── config.py         — Layered config: env → json → defaults
 ├── hooks.py          — 15 lifecycle hooks + HookRegistry
+├── verify_on_stop.py — Verification ledger + nudge builder + spec-kit wiring
+├── spec_kit.py       — Spec-kit artifact parser + coverage analyzer
 ├── privacy.py        — PII/secret stripping (19 patterns)
 ├── compress.py       — SHA-256 dedup + length compression
-├── cli.py            — `eling` CLI (remember/recall/reason/stats/mcp/config/sync)
+├── cli.py            — `eling` CLI (remember/recall/reason/verify/verify-spec/stats/mcp/config/sync)
 └── layers/
     ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
     ├── facts.py      — Tier 2: SQLite + HRR + BM25 + Trust scoring
@@ -218,6 +220,48 @@ Sync state persisted to `~/.eling/sync_state.json` (tracks last sync time, count
 | `eling_reflect` | fact_id | `{page_id}` in Notion |
 | `eling_sync` | direction, layer | `{pushed, pulled, errors}` |
 | `eling_stats` | — | `{facts, kb, code, notion, privacy, hooks}` |
+| `eling_think` | query, entities[], limit | `{synthesis, results, gap_analysis}` |
+| `eling_export` | format, path | `{format, bytes, preview}` |
+| `eling_verify` | status, command, output, **spec_check** | `{active, changed_paths, nudge, spec_kit}` |
+| `eling_verify_spec` | changed_files[] | `{detected, coverage, requirements, nudge}` |
+
+---
+
+## 📐 Spec-kit Verification
+
+Eling integrates [spec-kit](https://github.com/github/spec-kit) (Spec-Driven
+Development) as a **code verification layer**. When a project has spec-kit
+artifacts under `specs/`, eling automatically:
+
+1. **Discovers** feature directories (`specs/*/`)
+2. **Parses** `spec.md` → extracts requirements, user stories, acceptance criteria
+3. **Parses** `plan.md` → implementation architecture sections
+4. **Parses** `tasks.md` → task breakdown with file references
+5. **Matches** requirements against code files via term overlap in file paths
+6. **Reports** coverage stats + uncovered requirements via MCP tool or verify nudge
+
+### Flow
+
+```
+spec-kit artifacts              eling
+┌─────────────────┐     ┌──────────────────┐
+│ specs/auth/     │     │ SpecKitVerifier  │
+│   spec.md       │────→│ .detect()        │
+│   plan.md       │────→│ .load()          │
+│   tasks.md      │────→│ .verify(files)   │
+└─────────────────┘     │                  │
+                        │ Coverage report  │──→ eling_verify_spec MCP tool
+code changes            │ + nudge message  │──→ eling_verify(spec_check=true)
+┌─────────────────┐     └──────────────────┘
+│ src/auth/       │
+│   login.py      │────→ term matching
+│   jwt.py        │
+└─────────────────┘
+```
+
+The `SpecKitVerifier` class in `spec_kit.py` is the core engine, used by both
+`verify_on_stop.py` (for automatic nudge) and `eling_verify_spec` (for explicit
+MCP tool queries).
 
 Each tool accepts an optional `source` parameter for multi-agent identity. When
 `source` is set during remember, the fact is tagged with that agent name. When

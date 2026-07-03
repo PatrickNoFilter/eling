@@ -146,6 +146,68 @@ Get all facts about a single entity (from facts layer).
 
 ---
 
+#### `eling_verify`
+
+Query verification-on-stop status or record a verification event. Active for
+agents without built-in verification (OpenCode, OpenClaw, Cursor, Windsurf);
+auto-skipped when the host has its own verify-on-stop (Hermes).
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `status` | string | `""` | `""` = query mode. `"passed"`, `"failed"`, `"skipped"` to record |
+| `command` | string | `""` | The command that was run (e.g. `"pytest"`) |
+| `output` | string | `""` | Command output (truncated to 500 chars) |
+| `spec_check` | boolean | `false` | Also run spec-kit conformance verification |
+
+**Response (query mode):**
+```json
+{
+  "active": true,
+  "changed_paths": ["src/main.py"],
+  "verified": false,
+  "needs_verification": true,
+  "nudge": "[System: You edited code...]",
+  "spec_kit": {
+    "detected": true,
+    "coverage": {"covered": 3, "uncovered": 2, "total": 5},
+    "requirements": [...]
+  }
+}
+```
+
+---
+
+#### `eling_verify_spec`
+
+Run spec-kit conformance verification. Detects spec-kit artifacts
+(`specs/<feature>/spec.md`, `plan.md`, `tasks.md`) and checks whether
+code files cover each spec requirement.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `changed_files` | string[] | `[]` | Files changed in this session (for targeted coverage) |
+
+**Response:**
+```json
+{
+  "detected": true,
+  "summary": "3/5 requirements covered (2 uncovered)",
+  "coverage": {"covered": 3, "uncovered": 2, "total": 5},
+  "features": ["auth", "payments"],
+  "requirements": [
+    {"text": "Login must validate email", "covered": true},
+    {"text": "Passwords must be hashed with bcrypt", "covered": false}
+  ],
+  "nudge": "[System: Spec-kit requirements pending verification..."
+}
+```
+
+---
+
 #### `eling_sync`
 
 Synchronize data between layers (facts→Notion, flush to disk after writes).
@@ -210,6 +272,8 @@ eling <command> [options]
 | `reason` | Connect entities | `eling reason pytest HRR facts` |
 | `probe` | Facts about entity | `eling probe pytest` |
 | `reflect` | Promote to Notion | `eling reflect 17` |
+| `verify` | Query verification status | `eling verify` |
+| `verify-spec` | Run spec-kit conformance check | `eling verify-spec --changed-files src/main.py` |
 | `sync` | Sync layers | `eling sync --direction push` |
 | `stats` | Show brain stats | `eling stats` |
 | `mcp` | Run MCP server | `eling mcp` |
