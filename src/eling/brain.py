@@ -106,12 +106,13 @@ class Brain:
         project_path: str | Path | None = None,
         hrr_dim: int = 1024,
         adapter: str | None = None,
+        embedding_model: str = "",
     ):
         self.home = Path(home).expanduser() if home else _eling_home()
         self.home.mkdir(parents=True, exist_ok=True)
         # Layers
         self.builtin = BuiltinLayer()
-        self.facts = FactsLayer(db_path=self.home / "facts.db", hrr_dim=hrr_dim)
+        self.facts = FactsLayer(db_path=self.home / "facts.db", hrr_dim=hrr_dim, embedding_model=embedding_model)
         self.kb = KBLayer(db_path=self.home / "kb.db")
         self.code = CodeLayer(project_path=project_path, auto_index=False)
         self.notion = NotionLayer(api_key=notion_api_key, parent_page_id=notion_parent_id)
@@ -188,9 +189,22 @@ class Brain:
         return snap_mod.create_snapshot(self.facts.db_path, reason=reason)
 
     def rollback(self, snapshot_id: str) -> dict:
-        """Rollback the facts database to a named snapshot."""
+        """Rollback the facts database to a named snapshot.
+
+        The current facts layer is closed and re-initialized from the
+        restored database so the in-memory state is consistent.
+        """
         from . import snapshot as snap_mod
-        return snap_mod.rollback(snapshot_id, self.facts.db_path)
+        result = snap_mod.rollback(snapshot_id, self.facts.db_path)
+        # Re-initialize facts layer from the restored DB
+        old = self.facts
+        old.close()
+        self.facts = FactsLayer(
+            db_path=old.db_path,
+            hrr_dim=old.hrr_dim,
+            embedding_model=old.embedding_model,
+        )
+        return result
 
     def list_snapshots(self) -> list[dict]:
         """List available snapshots."""

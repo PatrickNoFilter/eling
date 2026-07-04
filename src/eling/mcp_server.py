@@ -363,6 +363,45 @@ TOOLS = [
             "required": [],
         },
     },
+    {
+        "name": "eling_snapshot",
+        "description": "Create a named snapshot of the facts database. "
+        "Use this before destructive operations (decay, evolution, bulk edits) "
+        "so you can rollback if needed.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Why the snapshot is taken (e.g. 'pre_evolution')",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "eling_list_snapshots",
+        "description": "List all available snapshots, newest first. "
+        "Each snapshot has a snapshot_id you can pass to eling_rollback.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "eling_rollback",
+        "description": "Rollback the facts database to a named snapshot. "
+        "The current database is auto-snapshotted before the rollback so it can be undone. "
+        "Use list_snapshots to find the snapshot_id.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "snapshot_id": {
+                    "type": "string",
+                    "description": "Snapshot ID to restore (from ening_list_snapshots)",
+                },
+            },
+            "required": ["snapshot_id"],
+        },
+    },
 ]
 
 
@@ -411,7 +450,7 @@ def _handle_initialize(rid: int | str | None, params: dict) -> dict:
         "result": {
             "protocolVersion": "2024-11-05",
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": "eling", "version": "0.4.0"},
+            "serverInfo": {"name": "eling", "version": "0.5.0"},
         },
     }
 
@@ -474,6 +513,16 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
         elif tool_name == "eling_evolve":
             threshold = args.pop("threshold", None)
             return ok(brain.evolve(threshold=threshold))
+        elif tool_name == "eling_snapshot":
+            reason = args.pop("reason", "")
+            return ok(brain.snapshot(reason=reason))
+        elif tool_name == "eling_list_snapshots":
+            return ok({"snapshots": brain.list_snapshots()})
+        elif tool_name == "eling_rollback":
+            snapshot_id = args.pop("snapshot_id", "")
+            if not snapshot_id:
+                return _error(rid, -32000, "snapshot_id is required")
+            return ok(brain.rollback(snapshot_id))
         else:
             return _error(rid, -32601, f"unknown tool: {tool_name}")
     except Exception as e:

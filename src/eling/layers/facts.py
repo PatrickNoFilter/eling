@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import hrr
+from .embeddings import EmbeddingIndex
 from .. import decay
 
 _SCHEMA = """
@@ -130,11 +131,13 @@ class FactsLayer:
         fts_weight: float = 0.4,
         jaccard_weight: float = 0.3,
         hrr_weight: float = 0.3,
+        embedding_model: str = "",
     ):
         self.db_path = Path(db_path).expanduser()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self.default_trust = _clamp(default_trust)
         self.hrr_dim = hrr_dim
+        self.embedding_model = embedding_model
         self._hrr_available = hrr._HAS_NUMPY
 
         if hrr_weight > 0 and not self._hrr_available:
@@ -142,6 +145,14 @@ class FactsLayer:
         self.fts_weight = fts_weight
         self.jaccard_weight = jaccard_weight
         self.hrr_weight = hrr_weight
+
+        # Optional embedding index
+        self.embedding_index: EmbeddingIndex | None = None
+        if embedding_model:
+            try:
+                self.embedding_index = EmbeddingIndex(self.db_path, model_name=embedding_model)
+            except Exception as e:
+                logger.debug("Embedding index not available: %s", e)
 
         self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False, timeout=10.0)
         self._conn.row_factory = sqlite3.Row
@@ -185,6 +196,8 @@ class FactsLayer:
                 eid = self._resolve_entity(name)
                 self._conn.execute("INSERT OR IGNORE INTO fact_entities VALUES (?, ?)", (fact_id, eid))
             self._compute_hrr_vector(fact_id, content)
+            if self.embedding_index:
+                self.embedding_index.index_fact(fact_id, content)
             self._conn.commit()
 
             self._conn.commit()
@@ -205,6 +218,8 @@ class FactsLayer:
                 return False
             self._conn.execute("DELETE FROM fact_entities WHERE fact_id = ?", (fact_id,))
             self._conn.execute("DELETE FROM facts WHERE fact_id = ?", (fact_id,))
+            if self.embedding_index:
+                self.embedding_index.remove_fact(fact_id)
             self._conn.commit()
             return True
 
@@ -257,6 +272,11 @@ class FactsLayer:
                 if not candidates:
                     return []
             query_tokens = self._tokenize(query)
+            candidate_ids = [c["fact_id"] for c in candidates]
+            # Compute embedding scores for all candidates at once
+            emb_scores: dict[int, float] = {}
+            if self.embedding_index and self.embedding_index.available:
+                emb_scores = self.embedding_index.search(query, candidate_ids)
             scored = []
             for fact in candidates:
                 content_tokens = self._tokenize(fact["content"])
@@ -269,7 +289,8 @@ class FactsLayer:
                     hrr_sim = (hrr.similarity(query_vec, fact_vec) + 1.0) / 2.0
                 else:
                     hrr_sim = 0.5
-                relevance = self.fts_weight * fts_score + self.jaccard_weight * jaccard + self.hrr_weight * hrr_sim
+                emb_sim = emb_scores.get(fact["fact_id"], 0.5)
+                relevance = self.fts_weight * fts_score + self.jaccard_weight * jaccard + self.hrr_weight * hrr_sim + 0.1 * emb_sim
                 fact["score"] = relevance * fact["trust_score"]
                 fact.pop("hrr_vector", None)
                 scored.append(fact)
@@ -428,7 +449,7 @@ class FactsLayer:
             cleared = self._conn.execute(
                 "SELECT COUNT(*) as n FROM facts WHERE strength <= ?", (decay.DORMANT_THRESHOLD,)
             ).fetchone()["n"]
-            return {
+            result = {
                 "total_facts": counts["n"],
                 "total_entities": ents["n"],
                 "by_category": {r["category"]: r["n"] for r in cats},
@@ -441,6 +462,9 @@ class FactsLayer:
                     (f"%{self.CONTRADICTION_FLAG}%",),
                 ).fetchone()["n"]),
             }
+            if self.embedding_index:
+                result["embeddings"] = self.embedding_index.stats()
+            return result
 
     @staticmethod
     def _tokenize(text: str) -> set[str]:

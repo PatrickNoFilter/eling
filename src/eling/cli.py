@@ -49,6 +49,15 @@ def main():
     p_evolve.add_argument("--threshold", type=float, default=None,
                           help="Jaccard similarity threshold (default: 0.65)")
 
+    # ── snapshot / rollback ──
+    p_snap = sub.add_parser("snapshot", help="Create a named snapshot of the facts database")
+    p_snap.add_argument("--reason", default="", help="Why the snapshot is taken")
+
+    sub.add_parser("list-snapshots", help="List all available snapshots")
+
+    p_roll = sub.add_parser("rollback", help="Rollback facts database to a snapshot")
+    p_roll.add_argument("snapshot_id", help="Snapshot ID to restore (use list-snapshots to find it)")
+
     p_mcp = sub.add_parser("mcp", help="Run MCP server (stdio)")
     p_mcp.add_argument("--transport", default="stdio")
 
@@ -91,6 +100,15 @@ def main():
     p_io.add_argument("--dry-run", action="store_true",
                       help="Show what would be done without making changes")
 
+    # ── init-rules subcommand ──
+    p_rules = sub.add_parser("init-rules", help="Write steering rules for AI agents")
+    p_rules.add_argument("--project-dir", default=".",
+                         help="Project root directory (default: cwd)")
+    p_rules.add_argument("--agent", choices=["cursor", "claude_code", "opencode", "generic"], action="append",
+                         help="Target agent type (auto-detected if omitted)")
+    p_rules.add_argument("--dry-run", action="store_true",
+                         help="Show what would be done without making changes")
+
     args = parser.parse_args()
 
     if args.cmd == "mcp":
@@ -110,6 +128,10 @@ def main():
         _run_install_opencode(args)
         return
 
+    if args.cmd == "init-rules":
+        _run_init_rules(args)
+        return
+
     brain = Brain()
     try:
         if args.cmd == "remember":
@@ -125,6 +147,12 @@ def main():
             out = brain.reason(args.entities, limit=args.limit)
         elif args.cmd == "reflect":
             out = brain.reflect(args.fact_id)
+        elif args.cmd == "snapshot":
+            out = brain.snapshot(reason=args.reason)
+        elif args.cmd == "list-snapshots":
+            out = {"snapshots": brain.list_snapshots()}
+        elif args.cmd == "rollback":
+            out = brain.rollback(args.snapshot_id)
         elif args.cmd == "link-stats":
             out = brain.link_stats()
         elif args.cmd == "linked-facts":
@@ -368,6 +396,38 @@ def _run_install_opencode(args: argparse.Namespace) -> None:
         print(f"Created {config_file} with plugin registration")
 
     print("Done. Restart OpenCode to load the eling memory plugin.")
+
+
+def _run_init_rules(args: argparse.Namespace) -> None:
+    """Write steering rules for AI agents."""
+    from .rules import write_rules, detect_agent
+
+    project_dir = os.path.abspath(args.project_dir)
+    agents = args.agent or None  # None = auto-detect
+
+    if not os.path.isdir(project_dir):
+        print(f"Project directory not found: {project_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    if agents is None:
+        agents_sniffed = detect_agent(Path(project_dir))
+        print(f"Detected agents: {', '.join(agents_sniffed) if agents_sniffed else '(none)'}")
+        if not agents_sniffed:
+            agents = ["generic"]
+            print("No agent config detected — writing generic ELING_MEMORY.md")
+
+    if args.dry_run:
+        results = write_rules(project_dir, agents=agents, dry_run=True)
+        print("[dry-run] Would write:")
+        for r in results:
+            print(f"  [{r['agent']}] {r['action']}: {r['file']}")
+        return
+
+    results = write_rules(project_dir, agents=agents)
+    for r in results:
+        print(f"  [{r['agent']}] {r['action']}: {r['file']}")
+
+    print("Done. Restart your AI agent to load the steering rules.")
 
 
 if __name__ == "__main__":

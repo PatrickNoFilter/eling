@@ -70,6 +70,15 @@ def create_snapshot(
     if not src.is_file():
         raise FileNotFoundError(f"facts database not found: {src}")
 
+    # Flush WAL to main DB file for a consistent snapshot
+    import sqlite3
+    try:
+        tmp_conn = sqlite3.connect(str(src), timeout=5.0)
+        tmp_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        tmp_conn.close()
+    except Exception:
+        pass
+
     snap_dir = _snapshot_dir(src.parent)
     snap_id = _snapshot_id()
     dest = snap_dir / f"{snap_id}.db"
@@ -149,6 +158,15 @@ def rollback(
 
     # Atomically copy snapshot over current DB
     shutil.copy2(str(snap_db), str(src))
+
+    # Ensure the restored DB has a clean WAL
+    import sqlite3
+    try:
+        tmp_conn = sqlite3.connect(str(src), timeout=5.0)
+        tmp_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        tmp_conn.close()
+    except Exception:
+        pass
 
     if snap_meta.is_file():
         meta = json.loads(snap_meta.read_text(encoding="utf-8"))

@@ -139,12 +139,23 @@ python3 -m eling reason     ["X", "Y"]
 python3 -m eling reflect    1                 # promote fact_id 1 to Notion
 python3 -m eling verify                        # query verification status
 python3 -m eling verify-spec                   # run spec-kit conformance
-python3 -m eling link-stats                    # Zettelkasten link graph stats
+
+# Memory version control (v0.5.0)
+python3 -m eling snapshot  --reason "pre_evolution"  # snapshot facts DB
+python3 -m eling list-snapshots                       # list all snapshots
+python3 -m eling rollback  <snapshot_id>              # restore to snapshot
+
+# Zettelkasten linking + evolution
+python3 -m eling link-stats                    # link graph stats
 python3 -m eling linked-facts 1                # facts linked to fact_id 1
 python3 -m eling evolve                        # merge near-duplicate facts
 python3 -m eling stats
 python3 -m eling export     --format markdown
 python3 -m eling sync       --direction push   # facts → Notion
+
+# Agent integration
+python3 -m eling install-opencode              # install OpenCode lifecycle plugin
+python3 -m eling init-rules                    # write steering rules for AI agents
 ```
 
 ## 🌐 Notion Setup (Tier 5)
@@ -226,6 +237,59 @@ print(result)  # {"layer": "notion", "page_id": "...", ...}
 ```
 
 > **Note**: `eling_reflect` and `remember(layer="notion")` check availability at call time and return a clear error if any config is missing — no silent failures.
+
+## 🧠 Memory Version Control (v0.5.0)
+
+Eling provides Git-like snapshot and rollback for your facts database:
+
+```bash
+# Before destructive ops, create a snapshot
+python3 -m eling snapshot --reason "pre_evolution"
+
+# List available snapshots
+python3 -m eling list-snapshots
+
+# Rollback to a previous state (auto-backups current DB first)
+python3 -m eling rollback 20260703-120000-123
+```
+
+Snapshots are file-level copies managed via `snapshot.py`. Available as MCP tools: `eling_snapshot`, `eling_list_snapshots`, `eling_rollback`.
+
+## 🎯 Steering Rules (v0.5.0)
+
+Teach your AI agent **when** to use eling's MCP tools. Auto-detects Cursor, Claude Code, OpenCode, Kiro, and Gemini:
+
+```bash
+cd your-project
+python3 -m eling init-rules
+```
+
+This writes:
+- **Cursor**: `.cursor/rules/eling-memory-*.mdc`
+- **Claude Code**: `.claude/rules/eling-memory-*.md`
+- **OpenCode**: Appends to `AGENTS.md`
+- **Generic**: `ELING_MEMORY.md` in project root
+
+Rules cover: when to store/retrieve memories, session lifecycle, and memory hygiene.
+
+## 🔍 Vector Embeddings (v0.5.0)
+
+Optional semantic search via `sentence-transformers`:
+
+```bash
+pip install eling[embeddings]
+# or
+pip install eling[all]
+```
+
+Enable when creating a Brain or set `ELING_EMBEDDING_MODEL`:
+
+```python
+from eling.brain import Brain
+b = Brain(embedding_model="all-MiniLM-L6-v2")
+```
+
+Hybrid search ranking: BM25 + Jaccard + HRR + **cosine similarity** from embeddings. Stored in a separate `fact_embeddings` table.
 
 ## 🛡️ Verify-on-Stop (Conditional)
 
