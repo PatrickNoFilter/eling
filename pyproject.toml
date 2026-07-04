@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eling"
-version = "0.6.1"
+version = "0.6.2"
 description = "Lightweight memory, powerful retrieval — 5-tier memory, HRR reasoning, 22 MCP tools, temporal queries, per-fact versioning, vector search, Zettelkasten linking, memory evolution, spec-kit verification, conditional verify-on-stop"
 readme = "README.md"
 license = {text = "MIT"}
