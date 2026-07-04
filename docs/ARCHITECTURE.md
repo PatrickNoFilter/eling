@@ -1,10 +1,10 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Five memory layers, one MCP server, zero mandatory external dependencies. v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, and steering rules.
+> **Eling** — Unified second brain for AI agents. Five memory layers, one MCP server, zero mandatory external dependencies. v0.6.0 adds temporal queries, per-fact versioning, and Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, and steering rules.
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (17 tools)
+├── mcp_server.py     — JSON-RPC stdio server (22 tools)
 ├── brain.py          — Orchestrator: routing + RRF fusion + sync + snapshot
 ├── config.py         — Layered config: env → json → defaults
 ├── hooks.py          — 15 lifecycle hooks + HookRegistry
@@ -19,8 +19,8 @@ eling/
 │   └── eling-memory.js
 └── layers/
     ├── builtin.py    — Tier 1: MEMORY.md / USER.md loader
-    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + Embeddings + Trust + Zettelkasten
-    ├── embeddings.py — Optional vector embeddings (sentence-transformers)
+    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + Embeddings + Trust + Zettelkasten + Temporal + Versioning
+    ├── embeddings.py — Optional vector embeddings (Mistral API + sentence-transformers)
     ├── hrr.py        — Holographic Reduced Representations (numpy)
     ├── code.py       — Tier 3: CodeLayer wrapper
     ├── code_index.py — Pure-Python AST+regex code indexer
@@ -56,11 +56,13 @@ Reads Hermes `MEMORY.md` and `USER.md` files directly. Always available, no setu
 
 ### Tier 2 — Facts
 SQLite-backed fact store with:
-- **HRR** (Holographic Reduced Representations, `numpy`) — compositional vector binding for multi-entity reasoning
+- **HRR** (Holographic Reduced Representations, numpy) — compositional vector binding for multi-entity reasoning
 - **BM25** — FTS5 porter stemming full-text search
 - **Jaccard** — entity co-occurrence scoring
-- **Vector embeddings** (optional, v0.5.1) — `sentence-transformers` integration via `EmbeddingIndex` in `layers/embeddings.py`. Cosine similarity scores blended into hybrid ranking. Enable with `Brain(embedding_model="all-MiniLM-L6-v2")` or `pip install eling[embeddings]`
-- **Trust scoring** — facts have `trust_score` (0.0–1.0), decays over time, boosted by user corrections
+- **Vector embeddings** (optional, v0.5.1) — sentence-transformers or **Mistral API** integration via EmbeddingIndex in layers/embeddings.py. Cosine similarity scores blended into hybrid ranking. Enable with Brain(embedding_model="all-MiniLM-L6-v2") or set MISTRAL_API_KEY for the API-based provider.
+- **Trust scoring** — facts have trust_score (0.0-1.0), decays over time, boosted by user corrections
+- **Temporal search** (v0.6.0) — natural language time-range queries in English and Indonesian (search_temporal())
+- **Per-fact versioning** (v0.6.0) — append-only fact_versions table preserves history; versioned_update(), get_version_history(), undo_to_version()
 
 Hybrid search formula: `score = BM25 * 0.4 + Jaccard * 0.3 + HRR * 0.3 + Embedding * 0.1`
 
@@ -258,7 +260,12 @@ Sync state persisted to `~/.eling/sync_state.json` (tracks last sync time, count
 | `eling_evolve` | threshold | `{merged}` |
 | `eling_snapshot` | reason | `{snapshot_id, path, fact_count}` |
 | `eling_list_snapshots` | — | `{snapshots[]}` |
-| `eling_rollback` | snapshot_id | `{snapshot_id, fact_count, current_backup}` |
+|| `eling_rollback` | snapshot_id | `{snapshot_id, fact_count, current_backup}` |
+|| `eling_search_temporal` | query, category, since_days, source, limit | `[{fact_id, content, created_at, category, trust_score}]` |
+|| `eling_versioned_update` | fact_id, content, reason | `{fact_id, version_id, previous, new}` |
+|| `eling_get_version_history` | fact_id | `[{version_id, content, changed_at, reason}]` |
+|| `eling_undo_to_version` | fact_id, version_id | `{fact_id, version_id, restored_from}` |
+|| `eling_versioning_stats` | — | `{versioned_facts, total_versions, version_operations}` |
 
 ---
 

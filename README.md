@@ -2,7 +2,7 @@
 
 # 🧠 Eling
 
-**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 17 MCP tools, Zettelkasten linking, memory evolution, spec-kit verification, conditional verify-on-stop**
+**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 22 MCP tools, temporal queries, per-fact versioning, vector search, Zettelkasten linking, memory evolution, spec-kit verification, conditional verify-on-stop**
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -27,7 +27,7 @@ Eling is a **unified second brain** for AI agents. It merges 5 memory tiers into
 📌 Tier 1: BUILTIN   — Hermes MEMORY.md / USER.md
 ```
 
-All accessible via **17 MCP tools** from a single stdio server:
+All accessible via **22 MCP tools** from a single stdio server:
 
 | Tool | Purpose |
 |------|---------|
@@ -48,6 +48,11 @@ All accessible via **17 MCP tools** from a single stdio server:
 | `eling_snapshot` | Snapshot the facts database before destructive operations |
 | `eling_list_snapshots` | List all available snapshots |
 | `eling_rollback` | Rollback facts database to a named snapshot |
+| `eling_search_temporal` | Search facts by time range — "last 3 days", "kemarin" |
+| `eling_versioned_update` | Update a fact with append-only versioning |
+| `eling_get_version_history` | Get all versions of a fact |
+| `eling_undo_to_version` | Rollback a fact to a previous version |
+| `eling_versioning_stats` | Versioning statistics across the fact store |
 
 ## 🚀 Quick Start
 
@@ -72,7 +77,7 @@ eling-install-opencode
 | **OpenCode** | MCP server + Lifecycle Plugin | ✅ Tested |
 | **Others** (OpenClaw, Cursor, Windsurf, Claude Code) | MCP server only | ⚠️ MCP only |
 
-Non-tested agents connect exclusively via the stdio MCP server (`python3 -m eling.mcp_server`) — any MCP-compatible host can use all 17 tools.
+Non-tested agents connect exclusively via the stdio MCP server (`python3 -m eling.mcp_server`) — any MCP-compatible host can use all 22 tools.
 
 ### Hermes
 
@@ -159,6 +164,16 @@ python3 -m eling sync       --direction push   # facts → Notion
 # Agent integration
 python3 -m eling install-opencode              # install OpenCode lifecycle plugin
 python3 -m eling init-rules                    # write steering rules for AI agents
+
+# Temporal search (v0.6.0)
+python3 -m eling search-temporal "last 3 days" --category testing
+python3 -m eling search-temporal "kemarin"     # Indonesian language support
+
+# Per-fact versioning (v0.6.0)
+python3 -m eling versioned-update 1 "Updated content" --reason "correction"
+python3 -m eling version-history 1
+python3 -m eling undo-to-version 1 --version-id 0
+python3 -m eling versioning-stats
 ```
 
 ## 🌐 Notion Setup (Tier 5)
@@ -240,6 +255,69 @@ print(result)  # {"layer": "notion", "page_id": "...", ...}
 ```
 
 > **Note**: `eling_reflect` and `remember(layer="notion")` check availability at call time and return a clear error if any config is missing — no silent failures.
+
+## 🕒 Temporal Search & Per-Fact Versioning (v0.6.0)
+
+Eling v0.6.0 introduces **time-aware fact retrieval** and **append-only per-fact versioning** — never lose a piece of knowledge again.
+
+### Temporal Search
+
+Query facts by time range using natural language — English or Indonesian:
+
+```bash
+python3 -m eling search-temporal "last 3 days"
+python3 -m eling search-temporal "this week"
+python3 -m eling search-temporal "kemarin"        # Indonesian: yesterday
+python3 -m eling search-temporal "hari ini"       # today
+```
+
+**Supported patterns:**
+
+| Language | Examples |
+|----------|----------|
+| 🇬🇧 English | `today`, `yesterday`, `this week`, `last month`, `last 3 days`, `last 7 days`, `last 30 days` |
+| 🇮🇩 Indonesian | `hari ini`, `kemarin`, `minggu ini`, `bulan lalu`, `3 hari terakhir`, `7 hari terakhir`, `30 hari terakhir` |
+
+**Python API:**
+
+```python
+from eling.brain import Brain
+b = Brain()
+
+# Temporal search - English
+results = b.search_temporal("last 3 days", category="testing")
+
+# Indonesian
+results = b.search_temporal("kemarin")
+
+# All facts in a time window
+results = b.search_temporal("", since_days=7)
+```
+
+### Per-Fact Versioning
+
+Every fact update is **append-only** — old versions are preserved in a `fact_versions` table:
+
+```python
+# Update a fact — previous content is versioned
+result = b.versioned_update(1, "Newer content", reason="corrected typo")
+# → {"fact_id": 1, "version_id": 2, "previous": "Old content", "new": "Newer content"}
+
+# Get version history
+history = b.get_version_history(1)
+# → [{"version_id": 0, "content": "Original...", "changed_at": "...", "reason": "initial"},
+#     {"version_id": 1, "content": "Updated...", "changed_at": "...", "reason": "corrected typo"}]
+
+# Undo to a specific version (also versioned!)
+result = b.undo_to_version(1, version_id=0)
+# → {"fact_id": 1, "version_id": 3, "restored_from": 0}
+
+# Versioning stats
+stats = b.versioning_stats()
+# → {"versioned_facts": 42, "total_versions": 156, "version_operations": 114}
+```
+
+**Available as MCP tools:** `eling_versioned_update`, `eling_get_version_history`, `eling_undo_to_version`, `eling_versioning_stats`.
 
 ## 🧠 Memory Version Control (v0.5.1)
 
@@ -372,7 +450,7 @@ plugins:
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (17 tools)
+├── mcp_server.py     — JSON-RPC stdio server (22 tools)
 ├── brain.py          — Orchestrator: routing + RRF fusion + sync + linking
 ├── config.py         — Layered config: env → json → defaults
 ├── hooks.py          — 15 lifecycle hooks + HookRegistry + evolution
@@ -380,7 +458,7 @@ eling/
 ├── spec_kit.py       — Spec-kit artifact parser + coverage analyzer
 ├── privacy.py        — PII/secret stripping (19 patterns)
 ├── compress.py       — SHA-256 dedup + length compression
-├── cli.py            — CLI client for all 17 operations
+├── cli.py            — CLI client for all 22 operations
 └── layers/
     ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
     ├── facts.py      — Tier 2: SQLite + HRR + BM25 + trust + linking + evolution

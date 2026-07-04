@@ -670,7 +670,7 @@ class Brain:
     # stats
     # ------------------------------------------------------------------
     def stats(self) -> dict:
-        return {
+        result = {
             "home": str(self.home),
             "facts": self.facts.stats(),
             "kb": self.kb.stats(),
@@ -683,6 +683,8 @@ class Brain:
                 "hooks_with_handlers": sum(1 for h in eling_hooks.ALL_HOOKS if self.hooks.has_handlers(h)),
             },
         }
+        result["facts"]["versioning"] = self.facts.versioning_stats()
+        return result
 
     # ── memory linking — Zettelkasten connections (v0.3.0) ──
 
@@ -701,6 +703,81 @@ class Brain:
         them — preserves content, averages trust, merges entities and links.
         """
         return self.facts.evolve(threshold=threshold)
+
+    # ── Temporal Queries (Memvid-inspired) ────────────────────────────
+
+    def search_temporal(
+        self,
+        query: str,
+        time_start: str | None = None,
+        time_end: str | None = None,
+        category: str | None = None,
+        source: str | None = None,
+        min_trust: float = 0.3,
+        limit: int = 10,
+        include_cleared: bool = False,
+    ) -> dict:
+        """Cross-layer search with temporal filtering.
+
+        When time_start is None but the query has temporal intent (e.g.
+        "yesterday", "last week", "2026-07-01"), the time range is extracted
+        automatically from the query.
+
+        Supports same layers and RRF fusion as recall().
+        """
+        # Auto-detect temporal intent from query
+        parsed_start = time_start
+        parsed_end = time_end
+        if not time_start and not time_end:
+            if self.facts.has_temporal_intent(query):
+                parsed_start, parsed_end = self.facts.parse_time_query(query)
+
+        per_layer: dict[str, list[dict]] = {}
+        layers = ["facts"]
+
+        # Use search_temporal on facts layer
+        per_layer["facts"] = self.facts.search_temporal(
+            query,
+            time_start=parsed_start,
+            time_end=parsed_end,
+            category=category,
+            source=source,
+            min_trust=min_trust,
+            limit=limit,
+            include_cleared=include_cleared,
+        )
+
+        # Other layers (non-temporal) as-is
+        if "kb" in (["kb"] if not category else []):
+            per_layer["kb"] = self.kb.search(query, source=source, limit=limit)
+        if "notion" in (["notion"] if not category else []) and self.notion.available:
+            per_layer["notion"] = self.notion.search(query, limit=limit)
+
+        merged = self._rrf_fuse(per_layer, limit=limit)
+        return {
+            "query": query,
+            "temporal_range": {"start": parsed_start, "end": parsed_end},
+            "merged": merged,
+            "per_layer": per_layer,
+        }
+
+    # ── Per-Fact Versioning (Memvid-inspired) ─────────────────────────
+
+    def versioned_update(self, fact_id: int, new_content: str, reason: str = "") -> dict | None:
+        """Update a fact with version tracking."""
+        return self.facts.versioned_update(fact_id, new_content, reason=reason)
+
+    def get_version_history(self, fact_id: int, limit: int = 20) -> list[dict]:
+        """Return all version records for a fact."""
+        return self.facts.get_version_history(fact_id, limit=limit)
+
+    def undo_to_version(self, fact_id: int, version_id: int) -> dict | None:
+        """Rollback a fact to a previous version."""
+        return self.facts.undo_to_version(fact_id, version_id)
+
+    def versioning_stats(self) -> dict:
+        """Return versioning statistics."""
+        return self.facts.versioning_stats()
 
     def close(self):
         self.facts.close()

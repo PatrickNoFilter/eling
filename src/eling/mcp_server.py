@@ -409,6 +409,70 @@ TOOLS = [
             "required": ["snapshot_id"],
         },
     },
+    # ── Temporal search (Memvid-inspired) ──
+    {
+        "name": "eling_search_temporal",
+        "description": "Cross-layer search with temporal filtering. "
+        "Auto-detects temporal intent in natural language queries (e.g. 'yesterday', 'last week', '2026-07-01'). "
+        "Pass explicit time_start/time_end in ISO format to override auto-detection.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "Search query (may include temporal keywords)"},
+                "time_start": {"type": "string", "description": "ISO start date filter (optional; overrides auto-detect)"},
+                "time_end": {"type": "string", "description": "ISO end date filter (optional)"},
+                "category": {"type": "string", "description": "Fact category filter"},
+                "source": {"type": "string", "description": "Source filter"},
+                "limit": {"type": "integer", "default": 10},
+            },
+            "required": ["query"],
+        },
+    },
+    # ── Per-fact versioning (Memvid-inspired) ──
+    {
+        "name": "eling_versioned_update",
+        "description": "Update a fact with full version tracking (append-only). "
+        "Creates a new version snapshot before applying the update.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fact_id": {"type": "integer", "description": "Fact ID to update"},
+                "new_content": {"type": "string", "description": "New content for the fact"},
+                "reason": {"type": "string", "description": "Reason for the update"},
+            },
+            "required": ["fact_id", "new_content"],
+        },
+    },
+    {
+        "name": "eling_get_version_history",
+        "description": "Return all version records for a fact, newest first.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fact_id": {"type": "integer", "description": "Fact ID"},
+                "limit": {"type": "integer", "default": 20},
+            },
+            "required": ["fact_id"],
+        },
+    },
+    {
+        "name": "eling_undo_to_version",
+        "description": "Rollback a fact to a previous version. "
+        "The current state is saved as a checkpoint before rollback.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "fact_id": {"type": "integer", "description": "Fact ID"},
+                "version_id": {"type": "integer", "description": "Version ID to restore"},
+            },
+            "required": ["fact_id", "version_id"],
+        },
+    },
+    {
+        "name": "eling_versioning_stats",
+        "description": "Return versioning statistics (total versions, versioned facts, etc.).",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
 ]
 
 
@@ -533,6 +597,26 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             if not snapshot_id:
                 return _error(rid, -32000, "snapshot_id is required")
             return ok(brain.rollback(snapshot_id))
+        elif tool_name == "eling_search_temporal":
+            query = args.pop("query", "")
+            if not query:
+                return _error(rid, -32000, "query is required")
+            return ok(brain.search_temporal(
+                query=query,
+                time_start=args.pop("time_start", None),
+                time_end=args.pop("time_end", None),
+                category=args.pop("category", None),
+                source=args.pop("source", None),
+                limit=args.pop("limit", 10),
+            ))
+        elif tool_name == "eling_versioned_update":
+            return ok(brain.versioned_update(**args))
+        elif tool_name == "eling_get_version_history":
+            return ok(brain.get_version_history(**args))
+        elif tool_name == "eling_undo_to_version":
+            return ok(brain.undo_to_version(**args))
+        elif tool_name == "eling_versioning_stats":
+            return ok(brain.versioning_stats())
         else:
             return _error(rid, -32601, f"unknown tool: {tool_name}")
     except Exception as e:

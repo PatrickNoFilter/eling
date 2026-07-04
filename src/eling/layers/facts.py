@@ -97,6 +97,56 @@ _RE_DOUBLE_QUOTE = re.compile(r'"([^"]+)"')
 _RE_SINGLE_QUOTE = re.compile(r"'([^']+)'")
 _RE_WIKI_LINK = re.compile(r'\[\[([^\]]+)\]\]')
 
+# ── Temporal / Date parsing ───────────────────────────────────────────────
+_RELATIVE_PATTERNS: list[tuple[re.Pattern, str, int]] = [
+    (re.compile(r"(?i)\b(lately|recently|baru[- ]?baru ini)\b"), "day", -7),
+    (re.compile(r"(?i)\b(yesterday|kemarin)\b"), "day", -1),
+    (re.compile(r"(?i)\b(today|hari ini|sekarang)\b"), "day", 0),
+    (re.compile(r"(?i)\b(this\s+week|minggu ini)\b"), "week", 0),
+    (re.compile(r"(?i)\b(last\s+week|minggu lalu)\b"), "week", -1),
+    (re.compile(r"(?i)\b(this\s+month|bulan ini)\b"), "month", 0),
+    (re.compile(r"(?i)\b(last\s+month|bulan lalu)\b"), "month", -1),
+    (re.compile(r"(?i)\b(tomor?row|besok)\b"), "day", 1),
+    (re.compile(r"(?i)\b(this\s+(year|quarter))\b"), "year", 0),
+    (re.compile(r"(?i)\b(last\s+(year|quarter|3\s*months))\b"), "year", -1),
+    # Numbered relative: "last X days/weeks/months"
+    (re.compile(r"(?i)(?:last|past|previous)\s+(\d+)\s*(days?|hours?|h|minutes?|menit|jam)\b"), "num", 0),
+    (re.compile(r"(?i)(?:next|coming)\s+(\d+)\s*(days?|hours?|h|minutes?|menit|jam)\b"), "num", 1),
+]
+"""Patterns for relative time expressions. Each entry: (pattern, unit, offset_direction)."""
+
+_ABSOLUTE_DATE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    (re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b"), "iso"),
+    (re.compile(r"\b(\d{1,2})[/](\d{1,2})[/](\d{4})\b"), "us"),
+    (re.compile(r"\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})\b", re.I), "named"),
+]
+"""Absolute date patterns: ISO 8601, US-style, named-month."""
+
+_TEMPORAL_INTENT_KEYWORDS = frozenset(
+    "yesterday today tomorrow kemarin besok lately recently "
+    "this week last week this month last month this year last year "
+    "last past previous next coming since from after before "
+    "between range 202 2025 2026 2027 2028 2029 2030".split()
+)
+
+_VERSIONING_SCHEMA = """
+CREATE TABLE IF NOT EXISTS fact_versions (
+    version_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+    fact_id     INTEGER NOT NULL REFERENCES facts(fact_id) ON DELETE CASCADE,
+    content     TEXT NOT NULL,
+    category    TEXT DEFAULT 'general',
+    tags        TEXT DEFAULT '',
+    trust_score REAL DEFAULT 0.5,
+    source      TEXT DEFAULT 'facts',
+    action      TEXT DEFAULT 'created',
+    reason      TEXT DEFAULT '',
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_fact_versions_fact_id ON fact_versions(fact_id);
+CREATE INDEX IF NOT EXISTS idx_fact_versions_created_at ON fact_versions(created_at);
+"""
+
 # ── contradiction / consistency ──
 CONTRADICTION_THRESHOLD = 0.3
 """Jaccard similarity below this (with overlapping entities) → flag as contradiction."""
@@ -166,6 +216,7 @@ class FactsLayer:
         except sqlite3.OperationalError:
             pass
         self._conn.executescript(_SCHEMA)
+        self._conn.executescript(_VERSIONING_SCHEMA)
         # Migration: add strength + last_access_at columns (v4 forgetting engine)
         # NOTE: SQLite ALTER TABLE only allows constant default values, not
         # CURRENT_TIMESTAMP, so last_access_at starts as NULL.
@@ -192,6 +243,12 @@ class FactsLayer:
                 )
                 self._conn.commit()
                 fact_id = cur.lastrowid
+                # Track initial version
+                self._conn.execute(
+                    "INSERT INTO fact_versions (fact_id, content, category, tags, trust_score, source, action) "
+                    "VALUES (?, ?, ?, ?, ?, ?, 'created')",
+                    (fact_id, content, category, tags, self.default_trust, source),
+                )
             except sqlite3.IntegrityError:
                 row = self._conn.execute("SELECT fact_id FROM facts WHERE content = ?", (content,)).fetchone()
                 return int(row["fact_id"])
@@ -1027,6 +1084,349 @@ class FactsLayer:
 
             self._conn.commit()
             return {"merged": merged, "candidates_checked": checked}
+
+    # ── Temporal Queries (Memvid-inspired) ────────────────────────────
+
+    @staticmethod
+    def parse_time_query(query: str) -> tuple[str | None, str | None]:
+        """Parse a natural language time query into (start_date, end_date) ISO strings.
+
+        Handles English + Indonesian temporal expressions.
+        Returns (None, None) when no temporal info is detected.
+        """
+        from datetime import datetime, timedelta
+
+        now = datetime.utcnow()
+        start: datetime | None = None
+        end: datetime | None = None
+
+        for pattern, unit, direction in _RELATIVE_PATTERNS:
+            m = pattern.search(query)
+            if not m:
+                continue
+
+            if unit == "num":
+                num = int(m.group(1))
+                unit_str = m.group(2).lower()
+                if unit_str in ("minutes", "menit"):
+                    delta = timedelta(minutes=num)
+                elif unit_str in ("hours", "h", "jam"):
+                    delta = timedelta(hours=num)
+                else:
+                    delta = timedelta(days=num)
+                if direction < 0:  # last/past
+                    start = now - delta
+                    end = now
+                else:  # next/coming
+                    start = now
+                    end = now + delta
+                break
+            elif unit == "day":
+                start = now + timedelta(days=direction)
+                end = start + timedelta(days=1)
+            elif unit == "week":
+                # Monday of the week
+                week_start = now - timedelta(days=now.weekday())
+                start = week_start + timedelta(weeks=direction)
+                end = start + timedelta(weeks=1)
+            elif unit == "month":
+                month_start = now.replace(day=1)
+                # Approximate months
+                month = month_start.month + direction
+                year = month_start.year
+                while month < 1:
+                    month += 12
+                    year -= 1
+                while month > 12:
+                    month -= 12
+                    year += 1
+                start = month_start.replace(year=year, month=month)
+                # End = first day of next month
+                if month == 12:
+                    end = start.replace(year=year + 1, month=1)
+                else:
+                    end = start.replace(month=month + 1)
+            elif unit == "year":
+                year_val = now.year + direction
+                start = now.replace(year=year_val, month=1, day=1)
+                end = now.replace(year=year_val + 1, month=1, day=1)
+            break
+
+        # Check for absolute date patterns
+        if start is None and end is None:
+            for pattern, kind in _ABSOLUTE_DATE_PATTERNS:
+                m = pattern.search(query)
+                if m:
+                    if kind == "iso":
+                        start = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                        end = start + timedelta(days=1)
+                    elif kind == "us":
+                        start = datetime(int(m.group(3)), int(m.group(1)), int(m.group(2)))
+                        end = start + timedelta(days=1)
+                    elif kind == "named":
+                        months = {
+                            "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+                            "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+                        }
+                        start = datetime(int(m.group(3)), months[m.group(2).lower()[:3]], int(m.group(1)))
+                        end = start + timedelta(days=1)
+                    break
+
+        return (
+            start.isoformat() if start else None,
+            end.isoformat() if end else None,
+        )
+
+    @staticmethod
+    def has_temporal_intent(query: str) -> bool:
+        """Check if a search query has temporal filtering intent."""
+        tokens = set(query.lower().split())
+        if tokens & _TEMPORAL_INTENT_KEYWORDS:
+            return True
+        # Check date patterns
+        for pattern, _kind in _ABSOLUTE_DATE_PATTERNS:
+            if pattern.search(query):
+                return True
+        return False
+
+    def search_temporal(
+        self,
+        query: str,
+        time_start: str | None = None,
+        time_end: str | None = None,
+        category: str | None = None,
+        source: str | None = None,
+        min_trust: float = 0.3,
+        limit: int = 10,
+        include_cleared: bool = False,
+    ) -> list[dict]:
+        """Search with optional time-window filter.
+
+        When time_start is set, filters facts where created_at falls within
+        [time_start, time_end). When time_end is omitted, defaults to now.
+        """
+        if not time_start and not time_end:
+            return self.search(query, category=category, source=source,
+                               min_trust=min_trust, limit=limit, include_cleared=include_cleared)
+
+        with self._lock:
+            query = query.strip()
+            if not query:
+                return []
+
+            candidates = self._fts_candidates(query, category, source, min_trust, limit * 3)
+            if not candidates:
+                return []
+
+            if not include_cleared:
+                candidates = [c for c in candidates if c.get("strength", 1.0) > decay.DORMANT_THRESHOLD]
+                if not candidates:
+                    return []
+
+            # Apply time filter
+            filtered = []
+            for c in candidates:
+                created = c.get("created_at", "")
+                if not created:
+                    continue
+                if time_start and str(created) < str(time_start):
+                    continue
+                if time_end and str(created) >= str(time_end):
+                    continue
+                filtered.append(c)
+            candidates = filtered
+
+            if not candidates:
+                return []
+
+            query_tokens = self._tokenize(query)
+            candidate_ids = [c["fact_id"] for c in candidates]
+
+            emb_scores: dict[int, float] = {}
+            if self.embedding_index and self.embedding_index.available:
+                emb_scores = self.embedding_index.search(query, candidate_ids)
+
+            scored = []
+            for fact in candidates:
+                content_tokens = self._tokenize(fact["content"])
+                tag_tokens = self._tokenize(fact.get("tags") or "")
+                jaccard = self._jaccard(query_tokens, content_tokens | tag_tokens)
+                fts_score = fact.get("fts_rank", 0.0)
+                if self.hrr_weight > 0 and fact.get("hrr_vector"):
+                    fact_vec = hrr.bytes_to_phases(fact["hrr_vector"])
+                    query_vec = hrr.encode_text(query, self.hrr_dim)
+                    hrr_sim = (hrr.similarity(query_vec, fact_vec) + 1.0) / 2.0
+                else:
+                    hrr_sim = 0.5
+                emb_sim = emb_scores.get(fact["fact_id"], 0.5)
+                relevance = (
+                    self.fts_weight * fts_score
+                    + self.jaccard_weight * jaccard
+                    + self.hrr_weight * hrr_sim
+                    + 0.1 * emb_sim
+                )
+                fact["score"] = relevance * fact["trust_score"]
+                fact.pop("hrr_vector", None)
+                scored.append(fact)
+
+            scored.sort(key=lambda x: x["score"], reverse=True)
+            results = scored[:limit]
+            for fact in results:
+                self._boost_strength(fact["fact_id"], decay.READ_BOOST)
+            self._conn.commit()
+            return results
+
+    # ── Per-Fact Versioning (Memvid-inspired) ─────────────────────────
+
+    def versioned_update(
+        self,
+        fact_id: int,
+        new_content: str,
+        reason: str = "",
+    ) -> dict | None:
+        """Update a fact with full version tracking (append-only).
+
+        Creates a new version snapshot before applying the update.
+        """
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT content, category, tags, trust_score, source FROM facts WHERE fact_id = ?",
+                (fact_id,),
+            ).fetchone()
+            if not row:
+                return None
+
+            old_content = row["content"]
+            if old_content == new_content.strip():
+                return {"fact_id": fact_id, "changed": False, "message": "content unchanged"}
+
+            # Snapshot current state into versions table
+            self._conn.execute(
+                "INSERT INTO fact_versions (fact_id, content, category, tags, trust_score, source, action, reason) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'updated', ?)",
+                (fact_id, new_content.strip(), row["category"], row["tags"],
+                 row["trust_score"], row["source"], reason),
+            )
+
+            # Apply the update (may fail if new_content conflicts with another fact's UNIQUE content)
+            try:
+                self._conn.execute(
+                    "UPDATE facts SET content = ?, updated_at = CURRENT_TIMESTAMP WHERE fact_id = ?",
+                    (new_content.strip(), fact_id),
+                )
+            except sqlite3.IntegrityError:
+                logger.warning("versioned_update: content '%s' conflicts with existing fact UNIQUE constraint", new_content.strip()[:60])
+                return {
+                    "fact_id": fact_id,
+                    "changed": False,
+                    "error": "content conflicts with existing fact UNIQUE constraint",
+                    "detail": f"Another fact already has this exact content. Use a different wording or reference the existing fact.",
+                }
+
+            # Recompute HRR
+            self._compute_hrr_vector(fact_id, new_content.strip())
+
+            # Update embedding
+            if self.embedding_index:
+                self.embedding_index.index_fact(fact_id, new_content.strip())
+
+            self._conn.commit()
+
+            return {
+                "fact_id": fact_id,
+                "changed": True,
+                "old_content": old_content[:120],
+                "new_content": new_content.strip()[:120],
+                "reason": reason,
+            }
+
+    def get_version_history(self, fact_id: int, limit: int = 20) -> list[dict]:
+        """Return all version records for a fact, newest first."""
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT version_id, fact_id, content, action, reason, created_at "
+                "FROM fact_versions WHERE fact_id = ? "
+                "ORDER BY version_id DESC LIMIT ?",
+                (fact_id, limit),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def undo_to_version(self, fact_id: int, version_id: int) -> dict | None:
+        """Rollback a fact to a previous version.
+
+        The current state is saved as a new version (action='undo_checkpoint')
+        before the rollback, so undo itself is reversible.
+        """
+        with self._lock:
+            # Get current state
+            current = self._conn.execute(
+                "SELECT content, category, tags, trust_score, source FROM facts WHERE fact_id = ?",
+                (fact_id,),
+            ).fetchone()
+            if not current:
+                return None
+
+            # Get target version
+            target = self._conn.execute(
+                "SELECT content, category, tags, trust_score, source FROM fact_versions "
+                "WHERE version_id = ? AND fact_id = ?",
+                (version_id, fact_id),
+            ).fetchone()
+            if not target:
+                return None
+
+            # Save current state as checkpoint before rolling back
+            self._conn.execute(
+                "INSERT INTO fact_versions (fact_id, content, category, tags, trust_score, source, action, reason) "
+                "VALUES (?, ?, ?, ?, ?, ?, 'undo_checkpoint', ?)",
+                (fact_id, current["content"], current["category"], current["tags"],
+                 current["trust_score"], current["source"],
+                 f"undo_to_version_{version_id}"),
+            )
+
+            # Restore target version content to main table
+            self._conn.execute(
+                "UPDATE facts SET content = ?, category = ?, tags = ?, trust_score = ?, "
+                "updated_at = CURRENT_TIMESTAMP WHERE fact_id = ?",
+                (target["content"], target["category"], target["tags"],
+                 target["trust_score"], fact_id),
+            )
+
+            # Recompute HRR vector
+            self._compute_hrr_vector(fact_id, target["content"])
+
+            # Re-index embedding
+            if self.embedding_index:
+                self.embedding_index.index_fact(fact_id, target["content"])
+
+            self._conn.commit()
+
+            return {
+                "fact_id": fact_id,
+                "restored_content": target["content"][:120],
+                "from_version": version_id,
+                "checkpoint_saved": True,
+            }
+
+    def versioning_stats(self) -> dict:
+        """Return versioning statistics."""
+        with self._lock:
+            total = self._conn.execute("SELECT COUNT(*) as n FROM fact_versions").fetchone()["n"]
+            versioned_facts = self._conn.execute(
+                "SELECT COUNT(DISTINCT fact_id) as n FROM fact_versions"
+            ).fetchone()["n"]
+            actions = self._conn.execute(
+                "SELECT action, COUNT(*) as n FROM fact_versions GROUP BY action"
+            ).fetchall()
+            max_per_fact = self._conn.execute(
+                "SELECT fact_id, COUNT(*) as n FROM fact_versions GROUP BY fact_id ORDER BY n DESC LIMIT 1"
+            ).fetchone()
+            return {
+                "total_versions": int(total),
+                "versioned_facts": int(versioned_facts),
+                "actions": {r["action"]: int(r["n"]) for r in actions},
+                "max_versions_per_fact": int(max_per_fact["n"]) if max_per_fact else 0,
+            }
 
     def flush(self):
         """Flush pending writes to disk (WAL checkpoint)."""

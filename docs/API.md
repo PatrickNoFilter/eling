@@ -388,6 +388,136 @@ Get statistics about all memory layers.
 
 ---
 
+#### `eling_search_temporal`
+
+Search facts by time range using natural language (English or Indonesian).
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `query` | string | `""` | Time range expression like "last 3 days", "this week", "kemarin", "hari ini" |
+| `category` | string | `""` | Optional category filter |
+| `since_days` | integer | `0` | Override: search back N days (e.g., 7 = last 7 days) |
+| `source` | string | `""` | Filter by agent source |
+| `limit` | integer | `20` | Max results |
+
+**Supported patterns:**
+
+| Language | Examples |
+|----------|----------|
+| English | `today`, `yesterday`, `this week`, `last month`, `last 3 days`, `last 7 days`, `last 30 days` |
+| Indonesian | `hari ini`, `kemarin`, `minggu ini`, `bulan lalu`, `3 hari terakhir`, `7 hari terakhir`, `30 hari terakhir` |
+
+**Response:**
+```json
+[
+  {
+    "fact_id": 42,
+    "content": "Eling v0.6.0 released",
+    "category": "release",
+    "trust_score": 0.85,
+    "created_at": "2026-07-04T10:30:00"
+  }
+]
+```
+
+---
+
+#### `eling_versioned_update`
+
+Update a fact's content while preserving the previous version.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `fact_id` | integer | **required** | Fact ID to update |
+| `content` | string | **required** | New content |
+| `reason` | string | `""` | Why the update was made (e.g., "corrected typo") |
+
+**Response:**
+```json
+{
+  "fact_id": 42,
+  "version_id": 3,
+  "previous": "Original content...",
+  "new": "Updated content..."
+}
+```
+
+---
+
+#### `eling_get_version_history`
+
+Get all versions of a fact, from newest to oldest.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `fact_id` | integer | **required** | Fact ID to get history for |
+
+**Response:**
+```json
+[
+  {
+    "version_id": 2,
+    "content": "Latest content...",
+    "changed_at": "2026-07-04T12:00:00",
+    "reason": "corrected typo",
+    "embedding_dim": 1024
+  },
+  {
+    "version_id": 1,
+    "content": "Original content...",
+    "changed_at": "2026-07-04T10:00:00",
+    "reason": "initial"
+  }
+]
+```
+
+---
+
+#### `eling_undo_to_version`
+
+Rollback a fact to a previous version (also creates a new version entry).
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `fact_id` | integer | **required** | Fact ID to rollback |
+| `version_id` | integer | **required** | Version ID to restore |
+
+**Response:**
+```json
+{
+  "fact_id": 42,
+  "version_id": 5,
+  "restored_from": 2
+}
+```
+
+---
+
+#### `eling_versioning_stats`
+
+Get statistics about the versioning system across the fact store.
+
+**Parameters:** none
+
+**Response:**
+```json
+{
+  "versioned_facts": 42,
+  "total_versions": 156,
+  "version_operations": 114
+}
+```
+
+---
+
 ## CLI Reference
 
 ### Commands
@@ -417,6 +547,11 @@ eling <command> [options]
 | `config` | Manage config | `eling config get hrr_dim` |
 | `install-opencode` | Install OpenCode lifecycle plugin | `eling install-opencode` |
 | `init-rules` | Write steering rules for AI agents | `eling init-rules` |
+| `search-temporal` | Search facts by time range | `eling search-temporal "last 3 days" --category testing` |
+| `versioned-update` | Update fact with versioning | `eling versioned-update 1 "new text" --reason "correction"` |
+| `version-history` | Show version history of a fact | `eling version-history 1` |
+| `undo-to-version` | Rollback fact to a version | `eling undo-to-version 1 --version-id 0` |
+| `versioning-stats` | Versioning system statistics | `eling versioning-stats` |
 
 ### `eling remember`
 
@@ -517,7 +652,8 @@ Eling resolves configuration in this priority order:
 | `codegraph_enabled` | `ELING_CODEGRAPH_ENABLED` | `true` | bool | Enable Code layer |
 | `dedup_cache_size` | `ELING_DEDUP_CACHE_SIZE` | `1000` | int | SHA-256 dedup LRU cache size |
 | `auto_sync_turns` | `ELING_AUTO_SYNC_TURNS` | `true` | bool | Auto-sync every N turns |
-| `embedding_model` | `ELING_EMBEDDING_MODEL` | `""` | string | Sentence-transformer model name (e.g. `all-MiniLM-L6-v2`) |
+| `embedding_model` | `ELING_EMBEDDING_MODEL` | `""` | string | Model name for embeddings. For sentence-transformers: `all-MiniLM-L6-v2`. For Mistral API: uses `mistral-embed` (1024 dims) when provider is `mistral` |
+| `embedding_provider` | `ELING_EMBEDDING_PROVIDER` | `""` | string | Embedding provider: `""` (auto-detect), `sentence-transformers`, or `mistral` |
 
 ---
 
@@ -556,6 +692,16 @@ result = brain.sync(direction="all")
 snap = brain.snapshot(reason="pre_evolution")
 brain.rollback(snap["snapshot_id"])
 snapshots = brain.list_snapshots()
+
+# Temporal search (v0.6.0) - natural language time range
+results = brain.search_temporal("last 3 days", category="testing")
+results = brain.search_temporal("kemarin")  # Indonesian support
+
+# Per-fact versioning (v0.6.0) - append-only updates
+versioned = brain.versioned_update(1, "New content", reason="corrected typo")
+history = brain.get_version_history(1)
+undo = brain.undo_to_version(1, version_id=0)
+vstats = brain.versioning_stats()
 
 # Stats
 stats = brain.stats()
