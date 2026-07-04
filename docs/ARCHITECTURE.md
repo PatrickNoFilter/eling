@@ -107,12 +107,19 @@ FTS5 knowledge base ported from [context-mode](https://github.com/nousresearch/h
 - **Levenshtein** — single-character typo correction
 - **Window extraction** — snippet highlighting around matched terms
 
-### Tier 5 — Notion
-Direct httpx API client (replaces `awkoy/notion-mcp-server` subprocess):
+### Tier 5 — Notion (Online Memory)
+
+Notion is what makes eling **human-readable and recoverable**. High-trust facts are synced to your Notion vault as permanent, well-formatted pages — so a human can browse, edit, and share what the agent learned.
+
+**Technical stack:** Direct httpx API client (replaces `awkoy/notion-mcp-server` subprocess):
 - Token bucket rate limiter (3 req/s Notion limit)
 - Exponential backoff on 429/5xx
 - 5-minute idempotency cache for read ops
 - Response slimming (strips raw API fluff)
+
+**Vault structure:** The opinionated layout keeps the main page as a clean index of credential children, with all log entries auto-routed to a dedicated child page (never write to the main vault page directly).
+
+**Why Notion?** It's the only tier that survives local data loss. Even if your SQLite databases are wiped, the Notion vault retains curated facts and permanent project knowledge — a recoverable brain.
 
 ---
 

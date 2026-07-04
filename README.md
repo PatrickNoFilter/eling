@@ -19,17 +19,38 @@ HRR reasoning · 22 MCP tools · temporal queries · per-fact versioning · vect
 
 ## ✨ What is Eling?
 
-Eling is a **unified second brain** for AI agents. It merges 5 memory tiers into one MCP server — no external databases, no cloud services needed for local operation.
+Eling is a **lightweight, unified second brain** for AI agents. It merges 5 memory tiers into a single MCP server — no external databases, no cloud services needed for local operation (though it optionally syncs to Notion for human readability).
+
+Think of it as one memory stack that serves **both the agent and the human**:
 
 ```
-🧠 Tier 5: NOTION   — online brain, human-readable (optional)
-📚 Tier 4: KB       — FTS5 knowledge corpus
+🧠 Tier 5: NOTION   — online brain, persistent, human-readable (optional)
+📚 Tier 4: KB       — FTS5 knowledge corpus for long-form knowledge
 🕸️ Tier 3: CODE     — codegraph symbol intelligence
 💎 Tier 2: FACTS    — SQLite + HRR + BM25 hybrid with trust scoring
-📌 Tier 1: BUILTIN   — Hermes MEMORY.md / USER.md
+📌 Tier 1: BUILTIN   — Hermes MEMORY.md / USER.md (always-on prompt context)
 ```
 
-All accessible via **22 MCP tools** from a single stdio server:
+### How the tiers work together
+
+| Tier | What it stores | How it's queried | Persistence |
+|------|---------------|-------------------|-------------|
+| **🧠 Notion** | Permanent pages, project plans, vault entries | `eling_reflect` promotes facts; `eling_sync push` syncs | Cloud — human-viewable, survives everything |
+| **📚 KB** | Articles, docs, long-form knowledge chunks | FTS5 full-text search | Local SQLite — persistent |
+| **🕸️ Code** | Function symbols, imports, class hierarchies | Codegraph traversal | Local SQLite — auto-indexed |
+| **💎 Facts** | Short facts, preferences, observations | HRR + BM25 + trigram hybrid with trust scores | Local SQLite — append-only, versioned |
+| **📌 Builtin** | Agent identity, user profile, conventions | Always in prompt context (MEMORY.md / USER.md) | Hermes config files |
+
+### 🧠 Notion as Online Memory
+
+Tier 5 (Notion) is what makes eling **human-readable**. While tiers 1–4 live locally as SQLite databases, Tier 5 optionally syncs high-trust facts to your Notion vault as permanent, well-formatted pages:
+
+- **`eling_reflect <fact_id>`** — promote a high-trust fact to a Notion page
+- **`eling_sync --direction push`** — batch-sync all high-trust facts to Notion
+- **`eling_sync --direction pull`** — pull Notion pages back into the knowledge base
+- **`eling_sync --direction all`** — bidirectional sync
+
+This gives you a **recoverable brain**: even if your local SQLite databases are lost, your Notion vault retains the curated facts and permanent knowledge. The opinionated vault structure keeps the main page as a clean index of credential children, with all log entries auto-routed to a dedicated child page.
 
 | Tool | Purpose |
 |------|---------|
