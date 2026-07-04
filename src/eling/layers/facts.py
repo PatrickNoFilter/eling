@@ -313,8 +313,27 @@ class FactsLayer:
             self._conn.commit()
             return results
 
+    _FTS_SPECIAL = frozenset('^*"()+~:.-')
+
+    @staticmethod
+    def _sanitize_fts_query(query: str) -> str:
+        """Escape FTS5 special chars (dots, parens, colons etc.) so queries don't crash FTS5."""
+        import shlex
+        try:
+            tokens = shlex.split(query)
+        except ValueError:
+            tokens = [query]
+        out = []
+        for t in tokens:
+            if any(c in FactsLayer._FTS_SPECIAL for c in t):
+                out.append('"' + t.replace('"', '""') + '"')
+            else:
+                out.append(t)
+        return " ".join(out) or query
+
     def _fts_candidates(self, query: str, category: str | None, source: str | None, min_trust: float, limit: int) -> list[dict]:
-        params = [query, min_trust]
+        safe_query = self._sanitize_fts_query(query)
+        params = [safe_query, min_trust]
         filters = []
         if category:
             filters.append("f.category = ?")
