@@ -2,7 +2,7 @@
 
 # 🧠 Eling
 
-**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 14 MCP tools, Zettelkasten linking, memory evolution, spec-kit verification, conditional verify-on-stop**
+**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 17 MCP tools, Zettelkasten linking, memory evolution, spec-kit verification, conditional verify-on-stop**
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -27,7 +27,7 @@ Eling is a **unified second brain** for AI agents. It merges 5 memory tiers into
 📌 Tier 1: BUILTIN   — Hermes MEMORY.md / USER.md
 ```
 
-All accessible via **14 MCP tools** from a single stdio server:
+All accessible via **17 MCP tools** from a single stdio server:
 
 | Tool | Purpose |
 |------|---------|
@@ -42,9 +42,12 @@ All accessible via **14 MCP tools** from a single stdio server:
 | `eling_export` | Full brain export as JSON or Markdown |
 | `eling_verify` | Query/record verification status with optional spec-kit check |
 | `eling_verify_spec` | Run spec-kit conformance verification against project specs |
-| **`eling_link_stats`** | **Zettelkasten link graph statistics** |
-| **`eling_linked_facts`** | **Get facts linked to a given fact_id** |
-| **`eling_evolve`** | **Trigger memory evolution (merge near-duplicates)** |
+| `eling_link_stats` | Zettelkasten link graph statistics |
+| `eling_linked_facts` | Get facts linked to a given fact_id |
+| `eling_evolve` | Trigger memory evolution (merge near-duplicates) |
+| `eling_snapshot` | Snapshot the facts database before destructive operations |
+| `eling_list_snapshots` | List all available snapshots |
+| `eling_rollback` | Rollback facts database to a named snapshot |
 
 ## 🚀 Quick Start
 
@@ -69,7 +72,7 @@ eling-install-opencode
 | **OpenCode** | MCP server + Lifecycle Plugin | ✅ Tested |
 | **Others** (OpenClaw, Cursor, Windsurf, Claude Code) | MCP server only | ⚠️ MCP only |
 
-Non-tested agents connect exclusively via the stdio MCP server (`python3 -m eling.mcp_server`) — any MCP-compatible host can use all 14 tools.
+Non-tested agents connect exclusively via the stdio MCP server (`python3 -m eling.mcp_server`) — any MCP-compatible host can use all 17 tools.
 
 ### Hermes
 
@@ -140,7 +143,7 @@ python3 -m eling reflect    1                 # promote fact_id 1 to Notion
 python3 -m eling verify                        # query verification status
 python3 -m eling verify-spec                   # run spec-kit conformance
 
-# Memory version control (v0.5.0)
+# Memory version control (v0.5.1)
 python3 -m eling snapshot  --reason "pre_evolution"  # snapshot facts DB
 python3 -m eling list-snapshots                       # list all snapshots
 python3 -m eling rollback  <snapshot_id>              # restore to snapshot
@@ -238,7 +241,7 @@ print(result)  # {"layer": "notion", "page_id": "...", ...}
 
 > **Note**: `eling_reflect` and `remember(layer="notion")` check availability at call time and return a clear error if any config is missing — no silent failures.
 
-## 🧠 Memory Version Control (v0.5.0)
+## 🧠 Memory Version Control (v0.5.1)
 
 Eling provides Git-like snapshot and rollback for your facts database:
 
@@ -255,7 +258,7 @@ python3 -m eling rollback 20260703-120000-123
 
 Snapshots are file-level copies managed via `snapshot.py`. Available as MCP tools: `eling_snapshot`, `eling_list_snapshots`, `eling_rollback`.
 
-## 🎯 Steering Rules (v0.5.0)
+## 🎯 Steering Rules (v0.5.1)
 
 Teach your AI agent **when** to use eling's MCP tools. Auto-detects Cursor, Claude Code, OpenCode, Kiro, and Gemini:
 
@@ -272,7 +275,7 @@ This writes:
 
 Rules cover: when to store/retrieve memories, session lifecycle, and memory hygiene.
 
-## 🔍 Vector Embeddings (v0.5.0)
+## 🔍 Vector Embeddings (v0.5.1)
 
 Optional semantic search via `sentence-transformers`:
 
@@ -369,7 +372,7 @@ plugins:
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (14 tools)
+├── mcp_server.py     — JSON-RPC stdio server (17 tools)
 ├── brain.py          — Orchestrator: routing + RRF fusion + sync + linking
 ├── config.py         — Layered config: env → json → defaults
 ├── hooks.py          — 15 lifecycle hooks + HookRegistry + evolution
@@ -377,7 +380,7 @@ eling/
 ├── spec_kit.py       — Spec-kit artifact parser + coverage analyzer
 ├── privacy.py        — PII/secret stripping (19 patterns)
 ├── compress.py       — SHA-256 dedup + length compression
-├── cli.py            — CLI client for all 14 operations
+├── cli.py            — CLI client for all 17 operations
 └── layers/
     ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
     ├── facts.py      — Tier 2: SQLite + HRR + BM25 + trust + linking + evolution

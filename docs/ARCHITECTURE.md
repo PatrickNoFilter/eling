@@ -1,6 +1,6 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Five memory layers, one MCP server, zero mandatory external dependencies. v0.5.0 adds snapshot/rollback, vector embeddings, and steering rules.
+> **Eling** — Unified second brain for AI agents. Five memory layers, one MCP server, zero mandatory external dependencies. v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, and steering rules.
 
 ```
 eling/
@@ -59,7 +59,7 @@ SQLite-backed fact store with:
 - **HRR** (Holographic Reduced Representations, `numpy`) — compositional vector binding for multi-entity reasoning
 - **BM25** — FTS5 porter stemming full-text search
 - **Jaccard** — entity co-occurrence scoring
-- **Vector embeddings** (optional, v0.5.0) — `sentence-transformers` integration via `EmbeddingIndex` in `layers/embeddings.py`. Cosine similarity scores blended into hybrid ranking. Enable with `Brain(embedding_model="all-MiniLM-L6-v2")` or `pip install eling[embeddings]`
+- **Vector embeddings** (optional, v0.5.1) — `sentence-transformers` integration via `EmbeddingIndex` in `layers/embeddings.py`. Cosine similarity scores blended into hybrid ranking. Enable with `Brain(embedding_model="all-MiniLM-L6-v2")` or `pip install eling[embeddings]`
 - **Trust scoring** — facts have `trust_score` (0.0–1.0), decays over time, boosted by user corrections
 
 Hybrid search formula: `score = BM25 * 0.4 + Jaccard * 0.3 + HRR * 0.3 + Embedding * 0.1`
@@ -300,7 +300,7 @@ MCP tool queries).
 
 ---
 
-## 📸 Snapshot & Rollback (v0.5.0)
+## 📸 Snapshot & Rollback (v0.5.1)
 
 Git-like version control for the facts database, inspired by Memoria's Git-for-Data:
 
@@ -329,7 +329,7 @@ Available via:
 
 ---
 
-## 🎯 Steering Rules (v0.5.0)
+## 🎯 Steering Rules (v0.5.1)
 
 `rules.py` generates agent-specific steering files that teach AI agents **when** to use eling's MCP tools. Three rule sets:
 

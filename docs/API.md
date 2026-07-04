@@ -552,7 +552,7 @@ facts = brain.probe("pytest")
 # Sync layers (push facts→Notion + flush to disk)
 result = brain.sync(direction="all")
 
-# Snapshot & rollback (v0.5.0)
+# Snapshot & rollback (v0.5.1)
 snap = brain.snapshot(reason="pre_evolution")
 brain.rollback(snap["snapshot_id"])
 snapshots = brain.list_snapshots()
