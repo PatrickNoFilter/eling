@@ -19,12 +19,19 @@ from .brain import Brain
 logger = logging.getLogger(__name__)
 
 _brain: Brain | None = None
+_brain_init_error: str | None = None
 
 
 def _get_brain() -> Brain:
-    global _brain
+    global _brain, _brain_init_error
     if _brain is None:
-        _brain = Brain()
+        try:
+            _brain = Brain()
+            _brain_init_error = None
+        except Exception as exc:
+            _brain_init_error = f"{type(exc).__name__}: {exc}"
+            logger.error("Brain init failed: %s", _brain_init_error, exc_info=True)
+            raise
     return _brain
 
 
@@ -450,7 +457,7 @@ def _handle_initialize(rid: int | str | None, params: dict) -> dict:
         "result": {
             "protocolVersion": "2024-11-05",
             "capabilities": {"tools": {}},
-            "serverInfo": {"name": "eling", "version": "0.5.0"},
+            "serverInfo": {"name": "eling", "version": "0.5.1"},
         },
     }
 
@@ -461,7 +468,10 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
     brain = _get_brain()
 
     def ok(data: Any) -> dict:
-        text = json.dumps(data, default=str)
+        try:
+            text = json.dumps(data, default=str)
+        except Exception:
+            text = json.dumps({"error": "result not serializable", "raw": str(data)[:500]})
         return {
             "jsonrpc": "2.0",
             "id": rid,

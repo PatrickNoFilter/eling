@@ -12,9 +12,13 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
+import logging
+
 from . import hrr
 from .embeddings import EmbeddingIndex
 from .. import decay
+
+logger = logging.getLogger(__name__)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS facts (
@@ -198,17 +202,24 @@ class FactsLayer:
             self._compute_hrr_vector(fact_id, content)
             if self.embedding_index:
                 self.embedding_index.index_fact(fact_id, content)
-            self._conn.commit()
-
-            self._conn.commit()
 
             # Self-wiring graph: edges between co-occurring entities
-            self.self_wire_graph(fact_id)
+            try:
+                self.self_wire_graph(fact_id)
+            except Exception as exc:
+                logger.debug("self_wire_graph failed for fact %s: %s", fact_id, exc)
             # Post-write contradiction check
-            self.detect_contradictions(fact_id)
+            try:
+                self.detect_contradictions(fact_id)
+            except Exception as exc:
+                logger.debug("detect_contradictions failed for fact %s: %s", fact_id, exc)
             # Zettelkasten memory linking: connect to related facts
-            self.create_links(fact_id)
+            try:
+                self.create_links(fact_id)
+            except Exception as exc:
+                logger.debug("create_links failed for fact %s: %s", fact_id, exc)
 
+            self._conn.commit()
             return int(fact_id)
 
     def remove(self, fact_id: int) -> bool:
@@ -326,7 +337,7 @@ class FactsLayer:
         """
         try:
             rows = self._conn.execute(sql, params).fetchall()
-        except sqlite3.OperationalError:
+        except (sqlite3.OperationalError, sqlite3.DatabaseError, sqlite3.IntegrityError):
             return []
         cands = [dict(r) for r in rows]
         if cands:

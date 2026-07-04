@@ -15,12 +15,16 @@ module.exports = async function (input, options) {
 
   function eling(args) {
     const cmd = `python3 -m eling ${args}`;
-    $`${cmd}`.then(() => {}).catch(() => {});
+    $`${cmd}`.then(() => {}).catch((err) => {
+      console.error(`[eling] FAILED: ${cmd} — ${err.message || err}`);
+    });
   }
 
   function elingSync(args) {
     const cmd = `python3 -m eling ${args}`;
-    $`${cmd}`.then(() => {}).catch(() => {});
+    $`${cmd}`.then(() => {}).catch((err) => {
+      console.error(`[eling] FAILED: ${cmd} — ${err.message || err}`);
+    });
   }
 
   return {
