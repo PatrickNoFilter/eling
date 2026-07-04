@@ -1,21 +1,26 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for Hermes Agent. Five memory layers, one MCP server, zero external dependencies. v0.3.0 adds Zettelkasten memory linking + evolution (A-MEM).
+> **Eling** — Unified second brain for AI agents. Five memory layers, one MCP server, zero mandatory external dependencies. v0.5.0 adds snapshot/rollback, vector embeddings, and steering rules.
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (14 tools)
-├── brain.py          — Orchestrator: routing + RRF fusion + sync
+├── mcp_server.py     — JSON-RPC stdio server (17 tools)
+├── brain.py          — Orchestrator: routing + RRF fusion + sync + snapshot
 ├── config.py         — Layered config: env → json → defaults
 ├── hooks.py          — 15 lifecycle hooks + HookRegistry
 ├── verify_on_stop.py — Verification ledger + nudge builder + spec-kit wiring
 ├── spec_kit.py       — Spec-kit artifact parser + coverage analyzer
+├── snapshot.py       — Git-like snapshot & rollback for facts DB
+├── rules.py          — Steering rules generator (Cursor, Claude Code, OpenCode)
 ├── privacy.py        — PII/secret stripping (19 patterns)
 ├── compress.py       — SHA-256 dedup + length compression
-├── cli.py            — `eling` CLI (remember/recall/reason/verify/verify-spec/stats/mcp/config/sync)
+├── cli.py            — `eling` CLI (18 subcommands)
+├── opencode_plugin/  — Bundled OpenCode lifecycle plugin
+│   └── eling-memory.js
 └── layers/
-    ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
-    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + Trust + Zettelkasten links + evolution
+    ├── builtin.py    — Tier 1: MEMORY.md / USER.md loader
+    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + Embeddings + Trust + Zettelkasten
+    ├── embeddings.py — Optional vector embeddings (sentence-transformers)
     ├── hrr.py        — Holographic Reduced Representations (numpy)
     ├── code.py       — Tier 3: CodeLayer wrapper
     ├── code_index.py — Pure-Python AST+regex code indexer
@@ -54,7 +59,10 @@ SQLite-backed fact store with:
 - **HRR** (Holographic Reduced Representations, `numpy`) — compositional vector binding for multi-entity reasoning
 - **BM25** — FTS5 porter stemming full-text search
 - **Jaccard** — entity co-occurrence scoring
+- **Vector embeddings** (optional, v0.5.0) — `sentence-transformers` integration via `EmbeddingIndex` in `layers/embeddings.py`. Cosine similarity scores blended into hybrid ranking. Enable with `Brain(embedding_model="all-MiniLM-L6-v2")` or `pip install eling[embeddings]`
 - **Trust scoring** — facts have `trust_score` (0.0–1.0), decays over time, boosted by user corrections
+
+Hybrid search formula: `score = BM25 * 0.4 + Jaccard * 0.3 + HRR * 0.3 + Embedding * 0.1`
 
 Use `brain.reason(entities)` to find facts connecting multiple entities via HRR unbinding.
 
@@ -240,7 +248,7 @@ Sync state persisted to `~/.eling/sync_state.json` (tracks last sync time, count
 | `eling_probe` | entity, limit | `facts[]` about entity |
 | `eling_reflect` | fact_id | `{page_id}` in Notion |
 | `eling_sync` | direction, layer | `{pushed, pulled, errors}` |
-| `eling_stats` | — | `{facts, kb, code, notion, privacy, hooks}` |
+| `eling_stats` | — | `{facts, kb, code, notion, privacy, hooks, embeddings}` |
 | `eling_think` | query, entities[], limit | `{synthesis, results, gap_analysis}` |
 | `eling_export` | format, path | `{format, bytes, preview}` |
 | `eling_verify` | status, command, output, **spec_check** | `{active, changed_paths, nudge, spec_kit}` |
@@ -248,6 +256,9 @@ Sync state persisted to `~/.eling/sync_state.json` (tracks last sync time, count
 | `eling_link_stats` | — | `{total_links, linked_facts, avg_links_per_fact}` |
 | `eling_linked_facts` | fact_id, limit | `[{fact_id, content, weight}]` |
 | `eling_evolve` | threshold | `{merged}` |
+| `eling_snapshot` | reason | `{snapshot_id, path, fact_count}` |
+| `eling_list_snapshots` | — | `{snapshots[]}` |
+| `eling_rollback` | snapshot_id | `{snapshot_id, fact_count, current_backup}` |
 
 ---
 
@@ -286,6 +297,55 @@ code changes            │ + nudge message  │──→ eling_verify(spec_chec
 The `SpecKitVerifier` class in `spec_kit.py` is the core engine, used by both
 `verify_on_stop.py` (for automatic nudge) and `eling_verify_spec` (for explicit
 MCP tool queries).
+
+---
+
+## 📸 Snapshot & Rollback (v0.5.0)
+
+Git-like version control for the facts database, inspired by Memoria's Git-for-Data:
+
+### Mechanism
+
+Snapshots are **file-level copies** of `facts.db` with automatic WAL checkpointing for consistency. The current database is auto-snapshotted before each rollback (undo for the undo).
+
+```
+create_snapshot(db_path):
+  1. PRAGMA wal_checkpoint(TRUNCATE)
+  2. shutil.copy2(db_path, snapshots/<id>.db)
+  3. Count facts, write metadata JSON
+  4. Prune oldest beyond SNAPSHOT_KEEP (default 5)
+
+rollback(snapshot_id, db_path):
+  1. Auto-snapshot current DB (pre_rollback_<id>)
+  2. shutil.copy2(snapshot.db, db_path)
+  3. PRAGMA wal_checkpoint(TRUNCATE)
+  4. Brain re-opens FactsLayer from restored DB
+```
+
+Available via:
+- **Python**: `brain.snapshot(reason)`, `brain.rollback(id)`, `brain.list_snapshots()`
+- **CLI**: `eling snapshot --reason`, `eling list-snapshots`, `eling rollback <id>`
+- **MCP**: `eling_snapshot`, `eling_list_snapshots`, `eling_rollback`
+
+---
+
+## 🎯 Steering Rules (v0.5.0)
+
+`rules.py` generates agent-specific steering files that teach AI agents **when** to use eling's MCP tools. Three rule sets:
+
+| Rule Set | Content |
+|----------|---------|
+| `memory` | When to store, retrieve, probe, snapshot |
+| `session-lifecycle` | Bootstrap at conversation start, persist at end |
+| `memory-hygiene` | Evolution, contradiction resolution, health checks |
+
+Auto-detects Cursor (`.cursor/rules/`), Claude Code (`.claude/rules/`), OpenCode (`AGENTS.md`), Kiro (`.kiro/`), Gemini (`.gemini/`). Fallback writes `ELING_MEMORY.md`.
+
+```
+eling init-rules --project-dir /path/to/project
+```
+
+---
 
 Each tool accepts an optional `source` parameter for multi-agent identity. When
 `source` is set during remember, the fact is tagged with that agent name. When
@@ -335,4 +395,4 @@ tests/
 └── test_cli.py        — CLI subcommands (20 tests)
 ```
 
-Total: **240 tests** (220 non-CLI + 20 CLI). Coverage target: >80%.
+Total: **408 tests**. Coverage target: >80%.

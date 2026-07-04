@@ -284,6 +284,74 @@ Trigger a memory evolution pass: scan all facts for near-duplicate pairs and mer
 
 ---
 
+#### `eling_snapshot`
+
+Create a named snapshot of the facts database. Use before destructive operations (evolution, decay, bulk edits) for safe rollback.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `reason` | string | `""` | Why the snapshot is taken (e.g. `"pre_evolution"`) |
+
+**Response:**
+```json
+{
+  "snapshot_id": "20260704-013052-853",
+  "path": "/root/.eling/snapshots/20260704-013052-853.db",
+  "created_at": "2026-07-04T01:30:52",
+  "reason": "pre_evolution",
+  "size_bytes": 4096,
+  "fact_count": 42
+}
+```
+
+---
+
+#### `eling_list_snapshots`
+
+List all available snapshots, newest first.
+
+**Parameters:** none
+
+**Response:**
+```json
+{
+  "snapshots": [
+    {
+      "snapshot_id": "20260704-013052-853",
+      "fact_count": 42,
+      "reason": "pre_evolution"
+    }
+  ]
+}
+```
+
+---
+
+#### `eling_rollback`
+
+Rollback the facts database to a named snapshot. The current database is auto-snapshotted before the rollback so it can be undone.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `snapshot_id` | string | **required** | Snapshot ID to restore (from `eling_list_snapshots`) |
+
+**Response:**
+```json
+{
+  "snapshot_id": "20260704-013052-853",
+  "restored_from": "/root/.eling/snapshots/20260704-013052-853.db",
+  "restored_to": "/root/.eling/facts.db",
+  "fact_count": 42,
+  "current_backup": "20260704-013215-456"
+}
+```
+
+---
+
 #### `eling_stats`
 
 Get statistics about all memory layers.
@@ -337,6 +405,9 @@ eling <command> [options]
 | `reflect` | Promote to Notion | `eling reflect 17` |
 | `verify` | Query verification status | `eling verify` |
 | `verify-spec` | Run spec-kit conformance check | `eling verify-spec --changed-files src/main.py` |
+| `snapshot` | Snapshot facts DB | `eling snapshot --reason "pre_evolution"` |
+| `list-snapshots` | List all snapshots | `eling list-snapshots` |
+| `rollback` | Restore facts DB from snapshot | `eling rollback <snapshot_id>` |
 | `link-stats` | Zettelkasten link graph stats | `eling link-stats` |
 | `linked-facts` | Get linked facts for fact_id | `eling linked-facts 1` |
 | `evolve` | Merge near-duplicate facts | `eling evolve --threshold 0.7` |
@@ -344,6 +415,8 @@ eling <command> [options]
 | `stats` | Show brain stats | `eling stats` |
 | `mcp` | Run MCP server | `eling mcp` |
 | `config` | Manage config | `eling config get hrr_dim` |
+| `install-opencode` | Install OpenCode lifecycle plugin | `eling install-opencode` |
+| `init-rules` | Write steering rules for AI agents | `eling init-rules` |
 
 ### `eling remember`
 
@@ -377,6 +450,32 @@ usage: eling sync [-h] [--direction {push,pull,flush,all}]
                   [--layer {auto,facts,notion,kb}]
                   [--daemon] [--interval INTERVAL]
                   [--once] [--state-file STATE_FILE]
+```
+
+### `eling snapshot`
+
+```
+usage: eling snapshot [-h] [--reason REASON]
+```
+
+### `eling rollback`
+
+```
+usage: eling rollback [-h] snapshot_id
+```
+
+### `eling install-opencode`
+
+```
+usage: eling install-opencode [-h] [--dry-run]
+```
+
+### `eling init-rules`
+
+```
+usage: eling init-rules [-h] [--project-dir PROJECT_DIR]
+                        [--agent {cursor,claude_code,opencode,generic}]
+                        [--dry-run]
 ```
 
 ### `eling config`
@@ -418,6 +517,7 @@ Eling resolves configuration in this priority order:
 | `codegraph_enabled` | `ELING_CODEGRAPH_ENABLED` | `true` | bool | Enable Code layer |
 | `dedup_cache_size` | `ELING_DEDUP_CACHE_SIZE` | `1000` | int | SHA-256 dedup LRU cache size |
 | `auto_sync_turns` | `ELING_AUTO_SYNC_TURNS` | `true` | bool | Auto-sync every N turns |
+| `embedding_model` | `ELING_EMBEDDING_MODEL` | `""` | string | Sentence-transformer model name (e.g. `all-MiniLM-L6-v2`) |
 
 ---
 
@@ -434,6 +534,7 @@ brain = Brain(
     notion_parent_id="page_...", # optional
     project_path="/path/to/code",# optional, for code layer
     hrr_dim=1024,                # default: 512
+    embedding_model="all-MiniLM-L6-v2",  # optional, requires sentence-transformers
 )
 
 # Store (with agent source for multi-agent setups)
@@ -450,6 +551,11 @@ facts = brain.probe("pytest")
 
 # Sync layers (push facts→Notion + flush to disk)
 result = brain.sync(direction="all")
+
+# Snapshot & rollback (v0.5.0)
+snap = brain.snapshot(reason="pre_evolution")
+brain.rollback(snap["snapshot_id"])
+snapshots = brain.list_snapshots()
 
 # Stats
 stats = brain.stats()
