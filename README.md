@@ -2,7 +2,9 @@
 
 # 🧠 Eling
 
-**Unified second brain for AI agents — 5-tier memory, HRR reasoning, 22 MCP tools, temporal queries, per-fact versioning, vector search, Zettelkasten linking, memory evolution, spec-kit verification, conditional verify-on-stop**
+**Lightweight memory, powerful retrieval — 5-tier second brain for AI agents**
+
+HRR reasoning · 22 MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional verify-on-stop
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
