@@ -546,6 +546,7 @@ eling <command> [options]
 | `mcp` | Run MCP server | `eling mcp` |
 | `config` | Manage config | `eling config get hrr_dim` |
 | `install-opencode` | Install OpenCode lifecycle plugin | `eling install-opencode` |
+| `install-zero` | Install Zero hooks + skill + MCP | `eling install-zero` |
 | `init-rules` | Write steering rules for AI agents | `eling init-rules` |
 | `search-temporal` | Search facts by time range | `eling search-temporal "last 3 days" --category testing` |
 | `versioned-update` | Update fact with versioning | `eling versioned-update 1 "new text" --reason "correction"` |
@@ -603,6 +604,12 @@ usage: eling rollback [-h] snapshot_id
 
 ```
 usage: eling install-opencode [-h] [--dry-run]
+```
+
+### `eling install-zero`
+
+```
+usage: eling install-zero [-h] [--dry-run] [--zero-config-dir ZERO_CONFIG_DIR]
 ```
 
 ### `eling init-rules`

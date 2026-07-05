@@ -276,3 +276,36 @@ set the relevant feature flag in config (e.g. `notion_enabled: false` disables
 Notion-dependent hooks).
 
 For development/testing, call `brain.hooks.reset()` and register only what you need.
+
+---
+
+## Zero Agent Integration
+
+Eling hooks map to [Zero](https://github.com/Gitlawb/zero) lifecycle events when installed
+via `python3 -m eling install-zero`:
+
+| Eling Hook | Zero Event | Purpose |
+|------------|------------|---------|
+| `session_start` | `sessionStart` | Warm caches, log session info |
+| `pre_tool_use` | `beforeTool` | Recall context relevant to the tool about to run |
+| `post_tool_use` | `afterTool` | Store tool results and file edits as facts |
+| `session_end` | `sessionEnd` | Flush memory to disk, push to Notion |
+
+The Zero hook script (`eling-hook.py`) reads JSON payload on stdin and dispatches
+to the correct handler. It is installed automatically by `eling install-zero`.
+
+### How Zero triggers Eling hooks
+
+```
+Zero sessionStart ──► eling-hook.py sessionStart ──► brain: warm caches
+Zero beforeTool   ──► eling-hook.py beforeTool   ──► brain.recall(query)
+Zero afterTool    ──► eling-hook.py afterTool    ──► brain.remember(file_edit)
+Zero sessionEnd   ──► eling-hook.py sessionEnd   ──► brain.sync(flush) + notion push
+```
+
+For manual hook registration:
+
+```bash
+zero hooks add eling-sessionstart --event sessionStart \
+    --command 'python3 ~/.zero/scripts/eling-hook.py'
+```

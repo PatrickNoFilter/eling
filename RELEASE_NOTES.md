@@ -1,3 +1,57 @@
+# v0.7.1 — Zero integration: install-zero command, hooks, skill, MCP
+
+**Zero** (terminal coding agent) is now a first-class Eling integration target.
+
+## What's New
+
+### `eling install-zero` — One-Command Installer
+
+A new CLI subcommand that installs Eling into Zero in one go:
+
+```bash
+pip install eling
+eling-install-zero
+# Or: python3 -m eling install-zero
+```
+
+Sets up **4 components**:
+
+| Component | What it does |
+|-----------|-------------|
+| **MCP Server** | Registers Eling in Zero's `config.json` → all 22 tools as `mcp.eling.*` |
+| **Hooks (4)** | Registers lifecycle hooks via `zero hooks add` — sessionStart, beforeTool, afterTool, sessionEnd |
+| **Skill** | Installs `SKILL.md` to teach Zero about Eling's tools and usage patterns |
+| **Hook script** | Copies `eling-hook.py` to `~/.zero/scripts/` |
+
+### Auto-Memory via Zero Hooks
+
+| Zero Event | Eling action |
+|------------|-------------|
+| `sessionStart` | Warm caches, log session info |
+| `beforeTool` | Recall relevant context for the tool |
+| `afterTool` | Store file edits + tool results as facts |
+| `sessionEnd` | Flush memory to disk, push to Notion |
+
+### Bundled Zero Plugin Files
+
+- `src/eling/zero_plugin/SKILL.md` — Zero-optimized skill teaching Eling tool usage
+- `src/eling/zero_plugin/eling-hook.py` — Hook script that reads JSON payload on stdin and dispatches to correct handler
+- `src/eling/zero_plugin/__init__.py` — Package marker
+
+### Documentation
+
+- **README.md** — New "### Zero" section with one-command install, component table, hook mapping, manual config
+- **docs/ZERO.md** — Full integration guide (install, MCP, hooks, skill, usage patterns, verification)
+- **docs/API.md** — Added `install-zero` to CLI reference
+- **docs/HOOKS.md** — Added Zero agent integration section
+
+## Commits
+
+```
+fe81b49 docs: expand What is Eling? section, highlight Notion as online memory
+... (all commits since v0.6.2)
+```
+
 # v0.1.0 — Unified second brain for AI agents
 
 **Eling** (Javanese: *to remember, to be conscious, to be aware*) is a unified second brain for AI agents — 5-tier memory with HRR reasoning, forgetting engine, contradiction detection, self-wiring entity graph, and 9 MCP tools.

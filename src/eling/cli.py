@@ -100,6 +100,13 @@ def main():
     p_io.add_argument("--dry-run", action="store_true",
                       help="Show what would be done without making changes")
 
+    # ── install-zero subcommand ──
+    p_iz = sub.add_parser("install-zero", help="Install eling hooks and skill into Zero")
+    p_iz.add_argument("--dry-run", action="store_true",
+                      help="Show what would be done without making changes")
+    p_iz.add_argument("--zero-config-dir", default="",
+                      help="Zero config directory (default: ~/.config/zero)")
+
     # ── init-rules subcommand ──
     p_rules = sub.add_parser("init-rules", help="Write steering rules for AI agents")
     p_rules.add_argument("--project-dir", default=".",
@@ -126,6 +133,10 @@ def main():
 
     if args.cmd == "install-opencode":
         _run_install_opencode(args)
+        return
+
+    if args.cmd == "install-zero":
+        _run_install_zero(args)
         return
 
     if args.cmd == "init-rules":
@@ -396,6 +407,161 @@ def _run_install_opencode(args: argparse.Namespace) -> None:
         print(f"Created {config_file} with plugin registration")
 
     print("Done. Restart OpenCode to load the eling memory plugin.")
+
+
+def _run_install_zero_cli() -> None:
+    """Console_scripts entry point: install eling into Zero."""
+    p = argparse.ArgumentParser(prog="eling-install-zero",
+                                description="Install eling hooks and skill into Zero")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Show what would be done without making changes")
+    p.add_argument("--zero-config-dir", default="",
+                   help="Zero config directory (default: ~/.config/zero)")
+    args = p.parse_args()
+    _run_install_zero(args)
+
+
+def _run_install_zero(args: argparse.Namespace) -> None:
+    """Install eling hooks + skill + MCP server into Zero.
+
+    1. Copy hook script to ~/.zero/scripts/eling-hook.py
+    2. Register hooks via `zero hooks add`
+    3. Install skill to ~/.local/share/zero/skills/eling/SKILL.md
+    4. Add MCP server to ~/.config/zero/config.json
+    """
+    import json
+    import shutil
+    import subprocess
+    from pathlib import Path
+    from importlib.resources import files as pkg_files
+
+    # 1. Detect Zero config dir
+    zero_config_arg = args.zero_config_dir
+    if zero_config_arg:
+        zero_cfg = Path(zero_config_arg)
+    else:
+        zero_cfg = Path.home() / ".config" / "zero"
+    zero_data = Path.home() / ".local" / "share" / "zero"
+    zero_scripts = Path.home() / ".zero" / "scripts"
+
+    if args.dry_run:
+        print(f"[dry-run] Zero config dir: {zero_cfg}")
+        print(f"[dry-run] Zero data dir: {zero_data}")
+        print(f"[dry-run] Zero scripts dir: {zero_scripts}")
+    else:
+        print(f"Zero config dir: {zero_cfg}")
+        print(f"Zero data dir: {zero_data}")
+        print(f"Zero scripts dir: {zero_scripts}")
+
+    # 2. Locate bundled files
+    try:
+        pkg = pkg_files("eling.zero_plugin")
+    except (ModuleNotFoundError, TypeError):
+        pkg = Path(__file__).parent / "zero_plugin"
+
+    hook_src = pkg / "eling-hook.py"
+    skill_src = pkg / "SKILL.md"
+
+    if isinstance(pkg, Path):
+        hook_src = pkg / "eling-hook.py"
+        skill_src = pkg / "SKILL.md"
+
+    for f in (hook_src, skill_src):
+        if not f.exists():
+            print(f"Error: {f} not found", file=sys.stderr)
+            sys.exit(1)
+
+    if args.dry_run:
+        # Show what would be installed
+        skill_dst = zero_data / "skills" / "eling" / "SKILL.md"
+        hook_dst = zero_scripts / "eling-hook.py"
+        print(f"[dry-run] Would copy: {hook_src} → {hook_dst}")
+        print(f"[dry-run] Would copy: {skill_src} → {skill_dst}")
+        print(f"[dry-run] Would add MCP server to {zero_cfg / 'config.json'}")
+        print("[dry-run] Would register hooks: sessionStart, sessionEnd, beforeTool, afterTool")
+        print(f"[dry-run] Would install skill: eling → {skill_dst}")
+        return
+
+    # 3. Copy hook script
+    zero_scripts.mkdir(parents=True, exist_ok=True)
+    hook_dst = zero_scripts / "eling-hook.py"
+    shutil.copy2(str(hook_src), str(hook_dst))
+    os.chmod(str(hook_dst), 0o755)
+    print(f"Copied hook script: {hook_src} → {hook_dst}")
+
+    # 4. Register hooks via `zero hooks add`
+    hook_registrations = [
+        ("eling-sessionstart", "sessionStart",
+         "Eling session start — warm caches"),
+        ("eling-sessionend", "sessionEnd",
+         "Eling session end — flush memory"),
+        ("eling-beforetool", "beforeTool",
+         "Eling pre-tool — recall context"),
+        ("eling-aftool", "afterTool",
+         "Eling after-tool — store results"),
+    ]
+
+    for hook_id, event, desc in hook_registrations:
+        cmd = [
+            "zero", "hooks", "add", hook_id,
+            "--event", event,
+            "--command", f"python3 {hook_dst}",
+            "--description", desc,
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            print(f"Registered hook: {hook_id} ({event})")
+        else:
+            output = (result.stderr or result.stdout or "").strip()
+            # Hook may already exist — check
+            if "already exists" in output.lower() or "exists" in output.lower():
+                print(f"Hook already exists: {hook_id} ({event})")
+            else:
+                print(f"Warning: hook registration failed for {hook_id}: {output}", file=sys.stderr)
+
+    # 5. Install skill
+    skill_dir = zero_data / "skills" / "eling"
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    skill_dst = skill_dir / "SKILL.md"
+    shutil.copy2(str(skill_src), str(skill_dst))
+    print(f"Installed skill: {skill_src} → {skill_dst}")
+
+    # 6. Add MCP server to Zero config if not already present
+    if zero_cfg.joinpath("config.json").exists():
+        try:
+            cfg = json.loads(zero_cfg.joinpath("config.json").read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            cfg = {}
+        mcp = cfg.get("mcp", {})
+        if "eling" not in mcp:
+            mcp["eling"] = {
+                "command": "python3",
+                "args": ["-m", "eling.mcp_server"],
+            }
+            cfg["mcp"] = mcp
+            zero_cfg.joinpath("config.json").write_text(
+                json.dumps(cfg, indent=2) + "\n", encoding="utf-8"
+            )
+            print("Added MCP server 'eling' to Zero config")
+        else:
+            print("MCP server 'eling' already configured in Zero")
+    else:
+        # Create config file
+        cfg = {
+            "mcp": {
+                "eling": {
+                    "command": "python3",
+                    "args": ["-m", "eling.mcp_server"],
+                }
+            }
+        }
+        zero_cfg.mkdir(parents=True, exist_ok=True)
+        zero_cfg.joinpath("config.json").write_text(
+            json.dumps(cfg, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"Created Zero config with MCP server: {zero_cfg / 'config.json'}")
+
+    print("\n✅ Eling is now installed in Zero. Restart Zero to load hooks and skill.")
 
 
 def _run_init_rules(args: argparse.Namespace) -> None:

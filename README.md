@@ -98,7 +98,7 @@ eling-install-opencode
 |-------|-------------|--------|
 | **Hermes** | MCP server + Memory Provider + Plugin | ✅ Tested |
 | **OpenCode** | MCP server + Lifecycle Plugin | ✅ Tested |
-| **Others** (OpenClaw, Cursor, Windsurf, Claude Code) | MCP server only | ⚠️ MCP only |
+| **Zero** | MCP server + Hooks + Skill | ✅ Bundled installer |
 
 Non-tested agents connect exclusively via the stdio MCP server (`python3 -m eling.mcp_server`) — any MCP-compatible host can use all 22 tools.
 
@@ -160,6 +160,49 @@ The eling MCP server should also be configured in OpenCode (`opencode.jsonc`):
 }
 ```
 
+### Zero
+
+Eling provides a **one-command installer** for [Zero](https://github.com/Gitlawb/zero) terminal agent — hooks + skill + MCP in one go:
+
+```bash
+# After installing eling:
+eling-install-zero
+# Or:
+python3 -m eling install-zero
+# Preview without changes:
+python3 -m eling install-zero --dry-run
+```
+
+This sets up:
+
+| Component | What it does |
+|-----------|-------------|
+| **MCP Server** | Adds `eling` to Zero's `config.json` → all 22 tools available |
+| **Hooks (4)** | Registers lifecycle hooks for auto-memory |
+| **Skill** | Installs a `SKILL.md` that teaches Zero about eling's tools |
+
+#### Hook mapping
+
+| Zero Event | Eling action |
+|------------|-------------|
+| `sessionStart` | Warm caches, log session info |
+| `beforeTool` | Recall relevant context for the tool |
+| `afterTool` | Store file edits + tool results as facts |
+| `sessionEnd` | Flush memory to disk, push to Notion |
+
+#### Manual config
+
+If you prefer to wire it up yourself, add the MCP server to Zero's `~/.config/zero/config.json`:
+
+```json
+"mcp": {
+  "eling": {
+    "command": "python3",
+    "args": ["-m", "eling.mcp_server"]
+  }
+}
+```
+
 ## 📋 CLI Commands
 
 ```bash
@@ -186,6 +229,7 @@ python3 -m eling sync       --direction push   # facts → Notion
 
 # Agent integration
 python3 -m eling install-opencode              # install OpenCode lifecycle plugin
+python3 -m eling install-zero                  # install Zero hooks + skill + MCP
 python3 -m eling init-rules                    # write steering rules for AI agents
 
 # Temporal search (v0.6.0)
