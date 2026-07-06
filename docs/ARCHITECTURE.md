@@ -1,10 +1,12 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Five memory layers, one MCP server, zero mandatory external dependencies. v0.7.2 adds FactMemoryProvider (standalone facts layer), lazy numpy for Termux compatibility, and Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, and Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, and steering rules.
+> **Eling** — Unified second brain for AI agents. Five memory layers, dual MCP servers (notion-only `eling` + local-layers `as_brain`), zero mandatory external dependencies. v0.7.3 splits the MCP server into two focused servers (notion-only `eling` + local `as_brain`); v0.7.2 adds FactMemoryProvider, lazy numpy, Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, steering rules.
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (22 tools)
+├── mcp_server.py         — JSON-RPC stdio server (notion-only, 5 tools)
+├── as_brain/
+│   └── mcp_server.py     — JSON-RPC stdio server (local layers, 15+ tools)
 ├── brain.py          — Orchestrator: routing + RRF fusion + sync + snapshot
 ├── config.py         — Layered config: env → json → defaults
 ├── hooks.py          — 15 lifecycle hooks + HookRegistry

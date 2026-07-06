@@ -1,3 +1,39 @@
+# v0.7.3 — MCP Split: notion-only `eling` + local `as_brain` servers
+
+**The single MCP server is split into two focused servers.**
+`eling.mcp_server` is now notion-only (5 tools); the local layers (facts, KB,
+code, builtin, HRR) moved to `eling.as_brain.mcp_server` (15+ tools) with
+`brain_*` tool names.
+
+## What's New
+
+### MCP Server Split
+
+- **`eling mcp`** → notion-only: `eling_remember`, `eling_search`,
+  `eling_get_page`, `eling_create_page`, `eling_stats`.
+- **`eling as-brain`** (new) → local layers: `brain_remember`, `brain_recall`,
+  `brain_reason`, `brain_probe`, `brain_think`, `brain_stats`, `brain_export`,
+  `brain_evolve`, `brain_snapshot` / `brain_list_snapshots` / `brain_rollback`,
+  `brain_link_stats` / `brain_linked_facts`, `brain_search_temporal`,
+  `brain_versioned_update` / `brain_get_version_history` / `brain_undo_to_version` /
+  `brain_versioning_stats`, `brain_verify` / `brain_verify_spec`.
+- Clean separation of concerns: online memory (Notion) vs. local memory layers.
+- Tool names are now namespaced (`brain_*` for local, `eling_*` for Notion).
+
+### CLI
+
+- New `eling as-brain` command — starts the local-layers MCP server.
+- `eling mcp` still starts the notion-only server (unchanged API).
+
+### Zero Plugin Updates
+
+- `SKILL.md` updated to document both MCP servers with separate tool tables.
+- `eling-hook.py` updated to use the local brain for auto-memory.
+
+### Documentation
+
+- README, API.md, ARCHITECTURE.md updated for the MCP split.
+
 # v0.7.2 — Memory provider release: FactMemoryProvider, lazy numpy, Hermes session flush
 
 **FactMemoryProvider** is now bundled in the repo as a standalone memory provider

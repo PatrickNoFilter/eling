@@ -4,7 +4,7 @@
 
 **Lightweight memory, powerful retrieval — 5-tier second brain for AI agents**
 
-HRR reasoning · 22 MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional verify-on-stop · FactMemoryProvider
+HRR reasoning · MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional verify-on-stop · FactMemoryProvider
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -17,7 +17,7 @@ HRR reasoning · 22 MCP tools · temporal queries · per-fact versioning · vect
 
 ## ✨ What is Eling?
 
-Eling is a **lightweight, unified second brain** for AI agents. It merges 5 memory tiers into a single MCP server — no external databases, no cloud services needed for local operation (though it optionally syncs to Notion for human readability).
+Eling is a **lightweight, unified second brain** for AI agents. It merges 5 memory tiers via two MCP servers — no external databases, no cloud services needed for local operation (though it optionally syncs to Notion for human readability).
 
 Think of it as one memory stack that serves **both the agent and the human**:
 
@@ -50,40 +50,20 @@ Tier 5 (Notion) is what makes eling **human-readable**. While tiers 1–4 live l
 
 This gives you a **recoverable brain**: even if your local SQLite databases are lost, your Notion vault retains the curated facts and permanent knowledge. The opinionated vault structure keeps the main page as a clean index of credential children, with all log entries auto-routed to a dedicated child page.
 
-| Tool | Purpose |
-|------|---------|
-| `eling_remember` | Store content — auto-routes to facts (short) or KB (long) |
-| `eling_recall` | Cross-layer search with RRF fusion (BM25 + trigram + porter) |
-| `eling_reason` | Compositional query tying multiple entities together |
-| `eling_probe` | Get all facts about an entity |
-| `eling_reflect` | Promote a high-trust fact to Notion as a permanent page |
-| `eling_sync` | Bidirectional sync between memory layers |
-| `eling_stats` | Show per-layer statistics |
-| `eling_think` | Synthesis + gap analysis across layers |
-| `eling_export` | Full brain export as JSON or Markdown |
-| `eling_verify` | Query/record verification status with optional spec-kit check |
-| `eling_verify_spec` | Run spec-kit conformance verification against project specs |
-| `eling_link_stats` | Zettelkasten link graph statistics |
-| `eling_linked_facts` | Get facts linked to a given fact_id |
-| `eling_evolve` | Trigger memory evolution (merge near-duplicates) |
-| `eling_snapshot` | Snapshot the facts database before destructive operations |
-| `eling_list_snapshots` | List all available snapshots |
-| `eling_rollback` | Rollback facts database to a named snapshot |
-| `eling_search_temporal` | Search facts by time range — "last 3 days", "kemarin" |
-| `eling_versioned_update` | Update a fact with append-only versioning |
-| `eling_get_version_history` | Get all versions of a fact |
-| `eling_undo_to_version` | Rollback a fact to a previous version |
-| `eling_versioning_stats` | Versioning statistics across the fact store |
-
 ## 🚀 Quick Start
 
 ```bash
 pip install eling
 
-# Run MCP server (stdio — plug into any MCP host)
-python3 -m eling.mcp_server
+# Run the Notion-only MCP server (online/remote memory, 5 tools)
+python3 -m eling mcp
 
-# Or use the CLI
+# Run the local-layers MCP server (facts, KB, code, builtin, HRR, 15+ tools)
+python3 -m eling.as_brain.mcp_server
+# or
+eling as-brain
+
+# Use the CLI
 python3 -m eling --help
 
 # If using OpenCode, install the lifecycle plugin:
@@ -94,11 +74,12 @@ eling-install-opencode
 
 | Agent | Integration | Status |
 |-------|-------------|--------|
-| **Hermes** | MCP server + Memory Provider + Plugin | ✅ Tested |
-| **OpenCode** | MCP server + Lifecycle Plugin | ✅ Tested |
-| **Zero** | MCP server + Hooks + Skill | ✅ Bundled installer |
+| **Hermes** | MCP server (Notion-only `eling` + local `as_brain`) + Memory Provider + Plugin | ✅ Tested |
+| **OpenCode** | MCP server (both) + Lifecycle Plugin | ✅ Tested |
+| **Zero** | MCP server (both) + Hooks + Skill | ✅ Bundled installer |
 
-Non-tested agents connect exclusively via the stdio MCP server (`python3 -m eling.mcp_server`) — any MCP-compatible host can use all 22 tools.
+Non-tested agents connect via the stdio MCP servers — any MCP-compatible host can use both
+`eling` (notion-only, 5 tools) and `as_brain` (local layers, 15+ tools).
 
 ### Hermes
 

@@ -61,18 +61,30 @@ class TestExportFunctions:
 
 
 class TestExportMCP:
-    def test_export_tool_in_list(self):
-        from eling.mcp_server import TOOLS
+    def test_export_tool_in_as_brain(self):
+        """Export tool is now in as_brain MCP server (not notion-only eling)."""
+        from eling.as_brain.mcp_server import TOOLS
         names = [t["name"] for t in TOOLS]
-        assert "eling_export" in names
-        tool = next(t for t in TOOLS if t["name"] == "eling_export")
+        assert "brain_export" in names
+        tool = next(t for t in TOOLS if t["name"] == "brain_export")
         props = tool["inputSchema"]["properties"]
         assert "format" in props
         assert props["format"]["enum"] == ["json", "markdown"]
 
-    def test_nine_tools_total(self):
+    def test_as_brain_has_core_tools(self):
+        from eling.as_brain.mcp_server import TOOLS
+        assert len(TOOLS) >= 15  # brain_remember + friends + linking + versioning
+
+    def test_eling_notion_has_5_tools(self):
+        """The notion-only eling MCP has 5 tools."""
         from eling.mcp_server import TOOLS
-        assert len(TOOLS) >= 10  # eling_remember + friends + linking tools
+        names = [t["name"] for t in TOOLS]
+        assert len(TOOLS) == 5
+        assert "eling_remember" in names
+        assert "eling_search" in names
+        assert "eling_get_page" in names
+        assert "eling_create_page" in names
+        assert "eling_stats" in names
 
     def test_export_covers_all_layers(self, brain):
         """Full JSON export covers facts, entity_graph, kb, code, notion, builtin."""

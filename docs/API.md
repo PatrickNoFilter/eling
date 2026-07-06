@@ -1,120 +1,117 @@
 # Eling API Reference
 
-## MCP Server (JSON-RPC stdio)
+## MCP Servers (JSON-RPC stdio)
 
-Eling runs as a JSON-RPC stdio MCP server, compatible with the [Model Context Protocol](https://modelcontextprotocol.io/).
+Eling provides **two** MCP servers, split by concern:
+
+| Server | Command | Purpose | Tools |
+|--------|---------|---------|-------|
+| `eling` | `python -m eling mcp` / `eling mcp` | Notion-only (online/remote memory) | 5 `eling_*` tools |
+| `as_brain` | `python -m eling.as_brain.mcp_server` / `eling as-brain` | Local layers (facts, KB, code, builtin, HRR) | 15+ `brain_*` tools |
 
 ### Start
 
 ```bash
+# Notion-only MCP server
 python -m eling mcp
 # or
 eling mcp
+
+# Local-layers MCP server
+python -m eling.as_brain.mcp_server
+# or
+eling as-brain
 ```
 
 ### Tools
 
 #### `eling_remember`
 
-Store content in the appropriate memory layer. Auto-routes based on content length.
+Store content as a Notion page. Requires configured `NOTION_API_KEY` and
+`NOTION_PARENT_PAGE_ID`. Use the local-layers `as_brain` MCP server
+(`brain_remember`) for local memory storage (facts/KB).
 
 **Parameters:**
 
 | Param | Type | Default | Description |
 |-------|------|---------|-------------|
-| `content` | string | **required** | Content to store |
-| `layer` | string | `"auto"` | `"auto"`, `"facts"`, `"kb"`, or `"notion"` |
-| `category` | string | `"general"` | Fact category (facts layer) |
-| `tags` | string | `` | Comma-separated tags |
-| `source` | string | `mcp` | Agent origin (hermes, opencode, openclaw, etc.) |
-| `title` | string | `` | Page title (notion layer) |
-| `skip_dedup` | boolean | `false` | Skip SHA-256 dedup check |
-
-**Auto-routing logic:**
-- `len > 500` or contains markdown headings (`#` / `##`) → **KB**
-- `len ≤ 500` → **Facts**
+| `content` | string | **required** | Content to store as a Notion page |
+| `title` | string | `` | Page title (auto-derived from content if empty) |
+| `category` | string | `"general"` | Optional category hint for child-page routing |
 
 **Response:**
 ```json
 {
-  "layer": "facts",
-  "id": 42,
-  "content": "...",
-  "redacted": {"keys": 2}
+  "page_id": "abc123",
+  "url": "https://notion.so/abc123",
+  "title": "Stored content"
 }
 ```
 
 ---
 
-#### `eling_recall`
+## `as_brain` MCP Server (Local Layers)
 
-Cross-layer semantic search with RRF fusion.
+The `as_brain` MCP server serves the local memory layers — facts, KB, code, builtin, and HRR. All tool names use the `brain_` prefix.
 
-**Parameters:**
+| Tool | Purpose |
+|------|---------|
+| `brain_remember` | Store content — auto-routes to facts (short) or KB (long) |
+| `brain_recall` | Cross-layer search with RRF fusion (BM25 + trigram + porter) |
+| `brain_reason` | Compositional HRR query tying multiple entities together |
+| `brain_probe` | Get all facts about an entity |
+| `brain_think` | Synthesis + gap analysis across layers |
+| `brain_stats` | Show per-layer statistics |
+| `brain_export` | Full brain export as JSON or Markdown |
+| `brain_evolve` | Trigger memory evolution (merge near-duplicates) |
+| `brain_snapshot` | Snapshot the facts database before destructive operations |
+| `brain_list_snapshots` | List all available snapshots |
+| `brain_rollback` | Rollback facts database to a named snapshot |
+| `brain_link_stats` | Zettelkasten link graph statistics |
+| `brain_linked_facts` | Get facts linked to a given fact_id |
+| `brain_search_temporal` | Search facts by time range — "last 3 days", "kemarin" |
+| `brain_versioned_update` | Update a fact with append-only versioning |
+| `brain_get_version_history` | Get all versions of a fact |
+| `brain_undo_to_version` | Rollback a fact to a previous version |
+| `brain_versioning_stats` | Versioning statistics across the fact store |
+| `brain_verify` | Query/record verification status with optional spec-kit check |
+| `brain_verify_spec` | Run spec-kit conformance verification against project specs |
 
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `query` | string | **required** | Search query |
-| `layers` | string[] | `["builtin","facts","kb","code","notion"]` | Layers to search |
-| `limit` | integer | `10` | Max results in merged output |
-| `source` | string | `` | Filter by agent origin (empty = all agents) |
 
-**Response:**
-```json
-{
-  "query": "hrr dimension",
-  "merged": [
-    {
-      "_layer": "facts",
-      "content": "HRR dim should match numpy float32 stride",
-      "_rrf_score": 0.0323
-    },
-    {
-      "_layer": "kb",
-      "_rrf_score": 0.0164
-    }
-  ],
-  "per_layer": {
-    "builtin": [...],
-    "facts": [...],
-    "kb": [...],
-    "code": [...]
-  }
-}
-```
+These tools accept the same parameters as their `eling_*` predecessors.
+See the migration table below.
 
-RRF scoring: `score = Σ 1/(60 + rank)` per layer. Empty/missing layers are skipped.
+For detailed parameter schemas, see the tool definitions in
+`eling.as_brain.mcp_server.TOOLS`.
 
----
+### `eling_*` → `brain_*` Migration
 
-#### `eling_reason`
-
-Find facts connecting multiple entities (compositional HRR query).
-
-**Parameters:**
-
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| `entities` | string[] | **required** | Entities to connect (e.g. `["pytest", "HRR"]`) |
-| `limit` | integer | `10` | Max results |
-
-**Response:**
-```json
-[
-  {
-    "fact_id": 17,
-    "content": "HRR vectors used to encode entity relationships in pytest test suite",
-    "trust_score": 0.85,
-    "entities": ["pytest", "HRR"]
-  }
-]
-```
+| `eling_*` (v0.7.2-) | `brain_*` (v0.7.3+, as_brain) | Notes |
+|---------------------|-------------------------------|-------|
+| `eling_remember` (local) | `brain_remember` | |
+| `eling_recall` | `brain_recall` | |
+| `eling_reason` | `brain_reason` | |
+| `eling_probe` | `brain_probe` | |
+| `eling_reflect` | — | Notion promote → use `eling_remember` in eling server |
+| `eling_sync` | — | Layers auto-sync internally |
+| `eling_stats` | `brain_stats` | |
+| `eling_think` | `brain_think` | |
+| `eling_export` | `brain_export` | |
+| `eling_verify` | `brain_verify` | |
+| `eling_verify_spec` | `brain_verify_spec` | |
+| `eling_link_stats` | `brain_link_stats` | |
+| `eling_linked_facts` | `brain_linked_facts` | |
+| `eling_evolve` | `brain_evolve` | |
+| `eling_snapshot` | `brain_snapshot` | |
+| `eling_list_snapshots` | `brain_list_snapshots` | |
+| `eling_rollback` | `brain_rollback` | |
+| `eling_search_temporal` | `brain_search_temporal` | |
+| `eling_versioned_update` | `brain_versioned_update` | |
+| `eling_get_version_history` | `brain_get_version_history` | |
+| `eling_undo_to_version` | `brain_undo_to_version` | |
+| `eling_versioning_stats` | `brain_versioning_stats` | |
 
 ---
-
-#### `eling_reflect`
-
-Promote a high-trust fact to a Notion page.
 
 **Parameters:**
 

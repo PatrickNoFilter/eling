@@ -1,56 +1,74 @@
-# Eling Memory System
+# Eling Memory System (MCP Split)
 
-Eling is a **5-layer memory system** (facts + KB + code + Notion + HRR) running as an MCP server inside Zero.
+Eling has been split into **two MCP servers**:
+
+| MCP Server | Config Key | Purpose |
+|------------|-----------|---------|
+| `eling` | `mcp.eling` | Notion-only — remote/online second brain |
+| `as_brain` | `mcp.as_brain` | Local memory — facts, KB, code, builtin, HRR |
 
 ## Configuration
 
-Eling MCP server is pre-configured in Zero's `~/.config/zero/config.json`:
+In `~/.config/zero/config.json`:
 
 ```json
 "mcp": {
   "eling": {
-    "command": "python3",
-    "args": ["-m", "eling.mcp_server"]
+    "command": "eling-termux-mcp",
+    "description": "Notion-based second brain (remote/online memory)"
+  },
+  "as_brain": {
+    "command": "as-brain-mcp",
+    "description": "Local memory layers: facts, KB, code, builtin, HRR"
   }
 }
 ```
 
-## Available MCP Tools
+## Available Tools
 
-### Store & Retrieve
-- `mcp.eling.eling_remember` — Store content. Short → facts layer, long → KB. Pass `source='zero'` to tag origin.
-- `mcp.eling.eling_recall` — Cross-layer search with RRF fusion. Use this when you need prior context.
-- `mcp.eling.eling_probe` — Get all facts about an entity/name.
-- `mcp.eling.eling_reason` — Find facts connecting MULTIPLE entities.
+### `as_brain` (local layers) — `mcp.as_brain.*`
 
-### Analysis
-- `mcp.eling.eling_think` — Synthesis + gap-analysis: checks stale/contradicted/unknown facts.
-- `mcp.eling.eling_stats` — Memory health statistics.
-- `mcp.eling.eling_link_stats` — Fact link graph stats.
+| Tool | Purpose |
+|------|---------|
+| `brain_remember` | Store content → facts/KB |
+| `brain_recall` | Search local layers (RRF fusion) |
+| `brain_reason` | Find facts connecting entities (HRR) |
+| `brain_probe` | Get facts about an entity |
+| `brain_think` | Synthesis + gap analysis |
+| `brain_stats` | Memory health stats |
+| `brain_export` | Export all layers as JSON/Markdown |
+| `brain_evolve` | Merge near-duplicate facts |
+| `brain_snapshot` / `brain_list_snapshots` / `brain_rollback` | Fact DB snapshots |
+| `brain_link_stats` / `brain_linked_facts` | Zettelkasten link graph |
+| `brain_search_temporal` | Temporal query |
+| `brain_versioned_update` / `brain_get_version_history` / `brain_undo_to_version` / `brain_versioning_stats` | Per-fact versioning |
+| `brain_verify` / `brain_verify_spec` | Verify-on-stop |
 
-### Sync & Export
-- `mcp.eling.eling_sync` — Push facts to disk/Notion.
-- `mcp.eling.eling_export` — Export all layers as JSON/Markdown.
+### `eling` (Notion only) — `mcp.eling.*`
 
-### Maintenance
-- `mcp.eling.eling_evolve` — Merge near-duplicate facts.
-- `mcp.eling.eling_snapshot` — Snapshot before destructive ops.
-- `mcp.eling.eling_rollback` — Restore from snapshot.
+| Tool | Purpose |
+|------|---------|
+| `eling_remember` | Store content as a Notion page |
+| `eling_search` | Search Notion pages by title |
+| `eling_get_page` | Fetch a Notion page as markdown |
+| `eling_create_page` | Create a new Notion page |
+| `eling_stats` | Check Notion connection status |
 
 ## Auto-Memory Hooks
 
-Zero lifecycle hooks auto-store file edits and tool results into Eling. These fire automatically:
+Zero lifecycle hooks auto-store file edits and tool results into the local brain (not Notion). These fire automatically using the Python API (not MCP):
 
 | Event | What happens |
 |-------|-------------|
 | `sessionStart` | Warm caches, log session info |
 | `beforeTool` | Recall relevant context for the tool |
 | `afterTool` | Store file edits + tool results as facts |
-| `sessionEnd` | Flush memory to disk, push to Notion |
+| `sessionEnd` | Flush memory to disk, optionally push to Notion |
 
 ## Usage Patterns
 
-1. **Before answering from memory**: `mcp.eling.eling_recall` with relevant query
-2. **After learning preferences**: `mcp.eling.eling_remember` with `category=user_pref`
-3. **When exploring code**: `mcp.eling.eling_remember` with `layer=kb` for docs
-4. **End of feature**: `mcp.eling.eling_sync` to persist, `mcp.eling.eling_stats` to verify
+1. **Store local context**: `mcp.as_brain.brain_remember` with `source='zero'`
+2. **Recall prior context**: `mcp.as_brain.brain_recall` with relevant query
+3. **Push to Notion**: `mcp.eling.eling_remember` (stores directly as a page)
+4. **Check health**: `mcp.as_brain.brain_stats` for local, `mcp.eling.eling_stats` for Notion
+5. **End of feature**: `mcp.as_brain.brain_snapshot` before bulk ops

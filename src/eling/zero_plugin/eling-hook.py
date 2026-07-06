@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Eling auto-memory hook for Zero.
 
-Receives hook payload on stdin (JSON), auto-stores facts in Eling.
-Installed via: `python3 -m eling install-zero`
+Receives hook payload on stdin (JSON), auto-stores facts in the local brain.
+Local memory layers (facts, KB) are served via the `as_brain` MCP server.
+Notion sync is optional and handled separately via the `eling` MCP server.
 
 Events handled:
-  - afterTool    → store file edits as facts
+  - afterTool    → store file edits as facts (in local brain)
   - sessionStart → log session info, warm caches
-  - sessionEnd   → flush memory to disk, push to Notion
+  - sessionEnd   → flush memory to disk, optionally push to Notion
   - beforeTool   → recall relevant context for the tool
 """
 

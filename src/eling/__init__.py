@@ -2,9 +2,13 @@
 
 5-layer architecture: builtin / facts / kb / code / notion
 Features: HRR reasoning, gap analysis, Notion auto-sync, verify-on-stop.
+
+MCP split:
+  - `eling.mcp_server` → notion-only MCP server
+  - `eling.as_brain.mcp_server` → local layers MCP server (facts, KB, code, builtin, HRR)
 """
 
-__version__ = "0.7.2"
+__version__ = "0.7.3"
 __all__ = [
     "Brain", "HookRegistry", "ALL_HOOKS", "register_default_hooks",
     "remember", "recall", "reason", "resolve_config", "set_config_key",
