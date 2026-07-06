@@ -1,3 +1,36 @@
+# v0.7.2 — Memory provider release: FactMemoryProvider, lazy numpy, Hermes session flush
+
+**FactMemoryProvider** is now bundled in the repo as a standalone memory provider
+for the facts (1st) layer, with Hermes plugin integration and session-end flush.
+
+## What's New
+
+### FactMemoryProvider (standalone, no Brain dependency)
+
+- New `eling.fact_memory_provider.FactMemoryProvider` class — wraps `FactsLayer`
+  with a clean `remember`/`recall`/`forget`/`probe` interface.
+- Privacy-first: PII redaction + SHA-256 dedup on every `remember` call.
+- Hermes-compatible: 7 `fact_*` tools (`fact_remember`, `fact_recall`,
+  `fact_forget`, `fact_probe`, `fact_stats`, `fact_evolve`, `fact_entity_neighbors`).
+- Lazy init — underlying SQLite + HRR + BM25 created on first use.
+- `close()` method for clean shutdown.
+
+### Hermes Plugin Enhancements
+
+- `hermes_plugin.py` registers **both** `eling_*` (full 5-layer Brain) and
+  `fact_*` (standalone facts layer) tool groups.
+- `on_session_end()` now flushes memory to disk and closes FactMemoryProvider.
+
+### Termux/Legacy Compatibility
+
+- `layers/embeddings.py`: numpy is now imported lazily via `_get_np()` — avoids
+  import failures on systems without numpy (e.g. bare Termux). Falls back to
+  `None` gracefully for all embedding operations.
+
+### Documentation
+
+- `__init__.py` exports `FactMemoryProvider` in `__all__`.
+
 # v0.7.1 — Zero integration: install-zero command, hooks, skill, MCP
 
 **Zero** (terminal coding agent) is now a first-class Eling integration target.

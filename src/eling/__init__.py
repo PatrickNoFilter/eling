@@ -4,18 +4,20 @@
 Features: HRR reasoning, gap analysis, Notion auto-sync, verify-on-stop.
 """
 
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 __all__ = [
     "Brain", "HookRegistry", "ALL_HOOKS", "register_default_hooks",
     "remember", "recall", "reason", "resolve_config", "set_config_key",
     "get_config", "describe_config",
     "verify_on_stop", "detect_host_agent", "host_has_verify_on_stop",
+    "FactMemoryProvider",
 ]
 
 from .brain import Brain
 from .hooks import HookRegistry, ALL_HOOKS, register_default_hooks
 from .config import resolve_config, set_config_key, get_config, describe_config
 from . import verify_on_stop
+from .fact_memory_provider import FactMemoryProvider
 
 _default_brain: Brain | None = None
 

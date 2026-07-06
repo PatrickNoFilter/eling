@@ -1,6 +1,6 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Five memory layers, one MCP server, zero mandatory external dependencies. v0.6.0 adds temporal queries, per-fact versioning, and Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, and steering rules.
+> **Eling** — Unified second brain for AI agents. Five memory layers, one MCP server, zero mandatory external dependencies. v0.7.2 adds FactMemoryProvider (standalone facts layer), lazy numpy for Termux compatibility, and Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, and Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, and steering rules.
 
 ```
 eling/
@@ -15,6 +15,7 @@ eling/
 ├── privacy.py        — PII/secret stripping (19 patterns)
 ├── compress.py       — SHA-256 dedup + length compression
 ├── cli.py            — `eling` CLI (18 subcommands)
+├── fact_memory_provider.py — Standalone facts layer provider (no Brain)
 ├── opencode_plugin/  — Bundled OpenCode lifecycle plugin
 │   └── eling-memory.js
 └── layers/

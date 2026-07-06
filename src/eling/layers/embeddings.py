@@ -19,9 +19,21 @@ import threading
 from pathlib import Path
 from typing import Any
 
-import numpy as np
-
 logger = logging.getLogger(__name__)
+
+_np = None
+
+
+def _get_np():
+    """Lazy import numpy — avoids import failures on systems without numpy (e.g. bare Termux)."""
+    global _np
+    if _np is None:
+        try:
+            import numpy as __np
+            _np = __np
+        except ImportError:
+            _np = False  # sentinel: don't retry
+    return _np if _np is not False else None
 
 _HAS_SENTENCE_TRANSFORMERS = False
 _MODEL = None
@@ -242,7 +254,10 @@ class EmbeddingIndex:
         if qvec is None:
             return {}
 
-        qvec_np = np.array(qvec, dtype=np.float32)
+        np_mod = _get_np()
+        if np_mod is None:
+            return {}
+        qvec_np = np_mod.array(qvec, dtype=np.float32)
         placeholders = ",".join("?" for _ in fact_ids)
         rows = self._conn.execute(
             f"SELECT fact_id, embedding FROM fact_embeddings_v2 WHERE fact_id IN ({placeholders})",
@@ -252,8 +267,8 @@ class EmbeddingIndex:
         scores: dict[int, float] = {}
         for fid, blob in rows:
             try:
-                fvec = np.array(pickle.loads(blob), dtype=np.float32)
-                sim = float(np.dot(qvec_np, fvec))  # cosine (normalized)
+                fvec = np_mod.array(pickle.loads(blob), dtype=np.float32)
+                sim = float(np_mod.dot(qvec_np, fvec))  # cosine (normalized)
                 scores[int(fid)] = sim
             except Exception:
                 continue

@@ -726,6 +726,44 @@ brain.sync(direction="all")
 brain.close()
 ```
 
+### FactMemoryProvider (v0.7.2+)
+
+Standalone facts-layer provider — no Brain dependency, Hermes-compatible.
+
+```python
+from eling.fact_memory_provider import FactMemoryProvider
+
+mem = FactMemoryProvider(db_path="~/.myagent/facts.db")
+
+# Store a fact (runs PII redaction + SHA-256 dedup)
+r = mem.remember("Alice loves chocolate", category="preference")
+# → {"stored": True, "fact_id": 1, "redacted": {"keys": 0}, "duplicate": False}
+
+# Hybrid search: BM25 + Jaccard + HRR
+results = mem.recall("chocolate", limit=10)
+
+# Get all facts about an entity
+facts = mem.probe("Alice")
+
+# Delete a fact
+mem.forget(1)
+
+# Merge near-duplicates
+stats = mem.evolve(threshold=0.65)
+
+# Entity co-occurrence neighbors
+neighbors = mem.entity_neighbors("Alice")
+
+# Memory health
+health = mem.stats()
+
+# Apply exponential forgetting decay
+decayed = mem.apply_decay(decay_rate=0.01)
+
+# Cleanup
+mem.close()
+```
+
 ### Config
 
 ```python

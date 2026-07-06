@@ -4,14 +4,12 @@
 
 **Lightweight memory, powerful retrieval — 5-tier second brain for AI agents**
 
-HRR reasoning · 22 MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional verify-on-stop
+HRR reasoning · 22 MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional verify-on-stop · FactMemoryProvider
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![MCP](https://img.shields.io/badge/MCP-Ready-6366f1)](https://modelcontextprotocol.io)
 [![PyPI](https://img.shields.io/pypi/v/eling)](https://pypi.org/project/eling/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://python.org)
 
 </div>
 
@@ -534,6 +532,7 @@ eling/
     ├── code_index.py — Pure-Python AST+regex code indexer
     ├── kb.py         — Tier 4: FTS5 + porter + trigram + RRF
     └── notion.py     — Tier 5: httpx Notion API client (lazy import)
+├── fact_memory_provider.py — Standalone facts layer provider (no Brain dependency)
 ```
 
 ## ⚡ Performance
