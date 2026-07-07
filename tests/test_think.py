@@ -92,18 +92,26 @@ class TestThinkGapAnalysis:
 
 
 class TestThinkMCPTools:
-    """Verify the MCP tool definition is registered."""
+    """Verify the MCP tool definition is registered in the as_brain server.
+
+    Since the v0.7.3 MCP Split, local-brain tools (think/reason/probe/...)
+    live in `eling.as_brain.mcp_server` as `brain_*` (Notion-only `eling`
+    server no longer carries them).
+    """
 
     def test_think_tool_in_list(self):
-        from eling.mcp_server import TOOLS
+        from eling.as_brain.mcp_server import TOOLS
         names = [t["name"] for t in TOOLS]
-        assert "eling_think" in names
-        tool = next(t for t in TOOLS if t["name"] == "eling_think")
+        assert "brain_think" in names
+        tool = next(t for t in TOOLS if t["name"] == "brain_think")
         assert "query" in tool["inputSchema"]["required"]
         props = tool["inputSchema"]["properties"]
         assert "entities" in props
         assert "limit" in props
 
-    def test_nine_tools_total(self):
-        from eling.mcp_server import TOOLS
-        assert len(TOOLS) >= 10  # eling_remember + friends + linking tools
+    def test_brain_tools_total(self):
+        from eling.as_brain.mcp_server import TOOLS
+        # as_brain carries 20 local tools: remember/recall/reason/probe/think/
+        # stats/export/evolve/snapshot(3)/link(2)/search_temporal/versioned(4)/
+        # verify(2)
+        assert len(TOOLS) >= 19

@@ -140,15 +140,15 @@ class TestBrainVerifyMethod:
 
 class TestVerifyMCPTool:
     def test_verify_tool_in_tools_list(self):
-        from eling.mcp_server import TOOLS
+        from eling.as_brain.mcp_server import TOOLS
 
         names = [t["name"] for t in TOOLS]
-        assert "eling_verify" in names
+        assert "brain_verify" in names
 
     def test_verify_tool_accepts_status_param(self):
-        from eling.mcp_server import TOOLS
+        from eling.as_brain.mcp_server import TOOLS
 
-        verify_def = [t for t in TOOLS if t["name"] == "eling_verify"][0]
+        verify_def = [t for t in TOOLS if t["name"] == "brain_verify"][0]
         props = verify_def["inputSchema"]["properties"]
         assert "status" in props
         assert props["status"]["enum"] == ["", "passed", "failed", "skipped"]

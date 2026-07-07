@@ -438,7 +438,7 @@ own `agent/verification_stop.py`.
    requirement and includes gaps in the nudge
 4. **Verification nudge** — If code was edited but no passing tests/verification
    was recorded, eling produces a `[System: ...]` nudge message
-5. **Recording** — Agents can call `eling_verify` MCP tool to record verification
+5. **Recording** — Agents can call `brain_verify` MCP tool (as_brain server) to record verification
    results (`passed`, `failed`, `skipped`)
 
 ### Spec-kit Verification
@@ -496,15 +496,18 @@ plugins:
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (22 tools)
-├── brain.py          — Orchestrator: routing + RRF fusion + sync + linking
-├── config.py         — Layered config: env → json → defaults
-├── hooks.py          — 15 lifecycle hooks + HookRegistry + evolution
-├── verify_on_stop.py — Verification ledger + nudge builder + spec-kit wiring
-├── spec_kit.py       — Spec-kit artifact parser + coverage analyzer
-├── privacy.py        — PII/secret stripping (19 patterns)
-├── compress.py       — SHA-256 dedup + length compression
-├── cli.py            — CLI client for all 22 operations
+├── mcp_server.py          — JSON-RPC stdio server (Notion-only, 5 tools: eling_*)
+├── as_brain/
+│   └── mcp_server.py      — JSON-RPC stdio server (local brain, 20 tools: brain_*)
+├── brain.py               — Orchestrator: routing + RRF fusion + sync + linking
+├── config.py              — Layered config: env → json → defaults
+├── hooks.py               — 15 lifecycle hooks + HookRegistry + evolution
+├── verify_on_stop.py      — Verification ledger + nudge builder + spec-kit wiring
+├── spec_kit.py            — Spec-kit artifact parser + coverage analyzer
+├── privacy.py             — PII/secret stripping (19 patterns)
+├── compress.py            — SHA-256 dedup + length compression
+├── cli.py                 — CLI client (install-zero wires BOTH MCP servers)
+├── fact_memory_provider.py — Standalone facts layer provider (no Brain dependency)
 └── layers/
     ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
     ├── facts.py      — Tier 2: SQLite + HRR + BM25 + trust + linking + evolution
@@ -513,7 +516,6 @@ eling/
     ├── code_index.py — Pure-Python AST+regex code indexer
     ├── kb.py         — Tier 4: FTS5 + porter + trigram + RRF
     └── notion.py     — Tier 5: httpx Notion API client (lazy import)
-├── fact_memory_provider.py — Standalone facts layer provider (no Brain dependency)
 ```
 
 ## ⚡ Performance
