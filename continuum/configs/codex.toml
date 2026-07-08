@@ -1,0 +1,7 @@
+# Codex (OpenAI) — merge under [mcp_servers] in ~/.codex/config.toml
+# Tool names surface as mcp__continuum__<tool> in Codex prompts.
+
+[mcp_servers.continuum]
+command = "/root/eling/src/eling/continuum/continuum.sh"
+args = []
+env = { ELING_HOME = "/root/.eling" }

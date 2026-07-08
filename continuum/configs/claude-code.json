@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "continuum": {
+      "command": "/root/eling/src/eling/continuum/continuum.sh",
+      "env": {
+        "ELING_HOME": "/root/.eling"
+      }
+    }
+  }
+}

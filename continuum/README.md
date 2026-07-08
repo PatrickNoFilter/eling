@@ -40,19 +40,13 @@ Copy the matching snippet from `configs/` into each agent's config:
 | **OpenCode** | `~/.config/opencode/opencode.jsonc` | `configs/opencode.jsonc` → under `mcp` |
 | **MiMo-Code** | `~/.config/opencode/opencode.jsonc` (MiMo fork reuses OpenCode config) | same as OpenCode |
 | **Zero** | `~/.config/zero/config.json` | `configs/zero.config.json` → under `mcp.servers` |
+| **Claude Code** | `~/.claude.json` (or project `.mcp.json`) | `configs/claude-code.json` → under `mcpServers` |
+| **Codex** | `~/.codex/config.toml` | `configs/codex.toml` → under `[mcp_servers]` |
 
-Claude Code / Codex / Cline also work — they use the `mcpServers` block:
-
-```json
-{
-  "mcpServers": {
-    "continuum": {
-      "command": "/root/eling/src/eling/continuum/continuum.sh",
-      "env": { "ELING_HOME": "/root/.eling" }
-    }
-  }
-}
-```
+Claude Code / Codex / Cline also work — see `configs/claude-code.json` (Claude Code
+`~/.claude.json` `mcpServers` block) and `configs/codex.toml` (Codex `~/.codex/config.toml`
+`[mcp_servers]`). All four canonical agents + Claude Code + Codex now point at the
+same hub.
 
 ## Verify a connection
 
