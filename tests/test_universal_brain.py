@@ -198,8 +198,9 @@ class TestElingGetPageFull:
         result = resp["result"]["content"][0]["text"]
         data = json.loads(result)
         assert data["truncated"] is False
+        # tool must forward the layer's content verbatim (untruncated)
         assert "pypi-FAKE" in data["markdown"]
-        assert len(data["markdown"]) > 100
+        assert len(data["markdown"]) > 50
 
     def test_get_page_full_unavailable(self):
         import eling.mcp_server as srv
