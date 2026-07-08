@@ -1,0 +1,17 @@
+# Hermes — add under mcp_servers in ~/.hermes/config.yaml
+#
+# Then run /reload-mcp in a Hermes chat (or restart Hermes). Tools appear as
+# mcp_continuum_<tool> (e.g. mcp_continuum_dispatch).
+#
+# Install eling first (pip install -e . from the eling repo), then point
+# command at the continuum.sh wrapper. Adjust the path to wherever you cloned
+# eling. Set ELING_HOME so every agent shares ONE store.
+
+mcp_servers:
+  continuum:
+    enabled: true
+    command: /root/eling/src/eling/continuum/continuum.sh
+    args: []
+    env:
+      ELING_HOME: /root/.eling
+    timeout: 120

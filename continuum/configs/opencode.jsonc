@@ -1,0 +1,17 @@
+// OpenCode (and MiMo-Code — a documented OpenCode fork with the same schema)
+// — merge under "mcp" in your opencode.json / opencode.jsonc.
+//
+// Tool names surface as mcp_continuum_<tool> (e.g. "use the mcp_continuum_dispatch tool").
+// Both agents read ~/.config/opencode/opencode.jsonc by default.
+
+{
+  "mcp": {
+    "continuum": {
+      "type": "local",
+      "command": ["/root/eling/src/eling/continuum/continuum.sh"],
+      "env": {
+        "ELING_HOME": "/root/.eling"
+      }
+    }
+  }
+}

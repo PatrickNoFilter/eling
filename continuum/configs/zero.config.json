@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "servers": {
+      "continuum": {
+        "type": "stdio",
+        "command": "/root/eling/src/eling/continuum/continuum.sh",
+        "args": [],
+        "env": {
+          "ELING_HOME": "/root/.eling"
+        }
+      }
+    }
+  }
+}
