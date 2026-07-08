@@ -6,7 +6,7 @@ Eling provides **two** MCP servers, split by concern:
 
 | Server | Command | Purpose | Tools |
 |--------|---------|---------|-------|
-| `eling` | `python -m eling mcp` / `eling mcp` | Notion-only (online/remote memory) | 5 `eling_*` tools |
+| `eling` | `python -m eling mcp` / `eling mcp` | Notion-only (online/remote memory) | 6 `eling_*` tools |
 | `as_brain` | `python -m eling.as_brain.mcp_server` / `eling as-brain` | Local layers (facts, KB, code, builtin, HRR) | 15+ `brain_*` tools |
 
 ### Start
@@ -45,6 +45,31 @@ Store content as a Notion page. Requires configured `NOTION_API_KEY` and
   "page_id": "abc123",
   "url": "https://notion.so/abc123",
   "title": "Stored content"
+}
+```
+
+---
+
+#### `eling_get_page_full`
+
+Fetch a Notion page's **full, un-truncated** content as markdown, via the
+`/v1/pages/<id>/markdown` endpoint. Unlike `eling_get_page` (which walks the
+blocks API and truncates secrets to their last few chars), this returns complete
+values — use it for credential pages where you need the full API token.
+
+**Parameters:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `page_id` | string | **required** | Notion page ID |
+
+**Response:**
+
+```json
+{
+  "page_id": "3907b66e-...",
+  "markdown": "Token\npypi-FAKE...\n",
+  "truncated": false
 }
 ```
 

@@ -89,7 +89,21 @@ TOOLS = [
     },
     {
         "name": "eling_get_page",
-        "description": "Fetch a Notion page's content as markdown.",
+        "description": "Fetch a Notion page's content as markdown. NOTE: Notion's block API truncates secret values (tokens show only last few chars). For full un-truncated content (e.g. complete API tokens), use eling_get_page_full instead.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "page_id": {
+                    "type": "string",
+                    "description": "Notion page ID",
+                },
+            },
+            "required": ["page_id"],
+        },
+    },
+    {
+        "name": "eling_get_page_full",
+        "description": "Fetch a Notion page's content as markdown via the /v1/pages/<id>/markdown endpoint. Returns FULL, un-truncated content including complete API tokens (unlike eling_get_page which truncates secrets). Use this for credential pages.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -213,6 +227,12 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
                 return ok({"error": "Notion not configured", "available": False})
             md = notion.get_page_markdown(page_id)
             return ok({"page_id": page_id, "markdown": md})
+        elif tool_name == "eling_get_page_full":
+            page_id = args.pop("page_id", "")
+            if not notion.available:
+                return ok({"error": "Notion not configured", "available": False})
+            md = notion.get_page_full_markdown(page_id)
+            return ok({"page_id": page_id, "markdown": md, "truncated": False})
         elif tool_name == "eling_create_page":
             title = args.pop("title", "")
             content = args.pop("content", "")

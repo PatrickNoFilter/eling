@@ -98,7 +98,12 @@ class NotionLayer:
             return []
 
     def get_page_markdown(self, page_id: str) -> str:
-        """Fetch page content as markdown."""
+        """Fetch page content as markdown.
+
+        Walks the blocks endpoint. NOTE: Notion's block API truncates secret
+        values (e.g. API tokens show only the last few chars). For full,
+        un-truncated content use `get_page_full_markdown` instead.
+        """
         if not self.available:
             return ""
         try:
@@ -106,6 +111,28 @@ class NotionLayer:
             return self._blocks_to_markdown(blocks)
         except Exception as e:
             logger.warning("notion.get_page failed: %s", e)
+            return ""
+
+    def get_page_full_markdown(self, page_id: str) -> str:
+        """Fetch page content as markdown via the /v1/pages/<id>/markdown endpoint.
+
+        Unlike `get_page_markdown` (which walks blocks and truncates secrets),
+        this endpoint returns the FULL, un-truncated content — including complete
+        API tokens. Use this when retrieving credential pages.
+        """
+        if not self.available:
+            return ""
+        try:
+            client = self._get_client()
+            # Use the newer markdown endpoint version for raw un-truncated text
+            r = client.get(
+                f"/pages/{page_id}/markdown",
+                headers={"Notion-Version": "2025-09-03"},
+            )
+            r.raise_for_status()
+            return r.json().get("markdown", "")
+        except Exception as e:
+            logger.warning("notion.get_page_full_markdown failed: %s", e)
             return ""
 
     def create_page(self, title: str, content: str, parent_id: str | None = None) -> str | None:

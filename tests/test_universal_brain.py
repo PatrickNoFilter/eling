@@ -6,6 +6,7 @@ Gap #3 — open verify-on-stop to all agents via ELING_VERIFY_ALL_AGENTS.
 """
 
 import importlib
+import json
 import os
 from pathlib import Path
 from unittest.mock import patch
@@ -161,3 +162,60 @@ class TestGap3AllAgentsVerify:
             result = b.verify()
             assert result["host_has_verify"] is False
             assert result["active"] is True
+
+
+# ── eling (Notion) MCP: eling_get_page_full ──────────────────────────────────
+
+
+class TestElingGetPageFull:
+    """eling_get_page_full should return FULL (untruncated) content, unlike
+    eling_get_page which walks blocks and truncates secrets."""
+
+    def test_tool_in_catalog(self):
+        import eling.mcp_server as srv
+
+        names = [t["name"] for t in srv.TOOLS]
+        assert "eling_get_page_full" in names
+        assert "eling_get_page" in names
+
+    def test_get_page_full_returns_untruncated(self):
+        import eling.mcp_server as srv
+
+        full_md = "Token\npypi-FAKEtokenForTestOnly0000000000000000000000000000000000000000000000000000000000000000\n"
+        fake_notion = type(
+            "N",
+            (),
+            {
+                "available": True,
+                "get_page_full_markdown": lambda self, pid: full_md,
+            },
+        )()
+        with patch.object(srv, "_get_notion", return_value=fake_notion):
+            resp = srv._handle_tool_call(
+                1,
+                {"name": "eling_get_page_full", "arguments": {"page_id": "abc"}},
+            )
+        result = resp["result"]["content"][0]["text"]
+        data = json.loads(result)
+        assert data["truncated"] is False
+        assert "pypi-FAKE" in data["markdown"]
+        assert len(data["markdown"]) > 100
+
+    def test_get_page_full_unavailable(self):
+        import eling.mcp_server as srv
+
+        fake_notion = type(
+            "N", (), {"available": False, "get_page_full_markdown": lambda self, pid: ""}
+        )()
+        with patch.object(srv, "_get_notion", return_value=fake_notion):
+            resp = srv._handle_tool_call(
+                1,
+                {"name": "eling_get_page_full", "arguments": {"page_id": "abc"}},
+            )
+        data = json.loads(resp["result"]["content"][0]["text"])
+        assert data.get("available") is False
+
+    def test_layer_has_full_markdown_method(self):
+        from eling.layers.notion import NotionLayer
+
+        assert hasattr(NotionLayer, "get_page_full_markdown")

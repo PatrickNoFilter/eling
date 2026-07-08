@@ -75,14 +75,15 @@ class TestExportMCP:
         from eling.as_brain.mcp_server import TOOLS
         assert len(TOOLS) >= 15  # brain_remember + friends + linking + versioning
 
-    def test_eling_notion_has_5_tools(self):
-        """The notion-only eling MCP has 5 tools."""
+    def test_eling_notion_has_6_tools(self):
+        """The notion-only eling MCP has 6 tools (incl. eling_get_page_full)."""
         from eling.mcp_server import TOOLS
         names = [t["name"] for t in TOOLS]
-        assert len(TOOLS) == 5
+        assert len(TOOLS) == 6
         assert "eling_remember" in names
         assert "eling_search" in names
         assert "eling_get_page" in names
+        assert "eling_get_page_full" in names
         assert "eling_create_page" in names
         assert "eling_stats" in names
 
