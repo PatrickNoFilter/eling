@@ -97,15 +97,25 @@ class NotionLayer:
             logger.warning("notion.search failed: %s", e)
             return []
 
-    def get_page_markdown(self, page_id: str) -> str:
+    def get_page_markdown(self, page_id: str, prefer_full: bool = True) -> str:
         """Fetch page content as markdown.
 
-        Walks the blocks endpoint. NOTE: Notion's block API truncates secret
-        values (e.g. API tokens show only the last few chars). For full,
-        un-truncated content use `get_page_full_markdown` instead.
+        By default (``prefer_full=True``) uses the ``/v1/pages/<id>/markdown``
+        endpoint, which returns FULL, un-truncated content (including complete
+        API tokens). Notion's block API truncates secret values (e.g. tokens
+        show only the last few chars), so the blocks walk is only used as a
+        fallback when the markdown endpoint is unavailable.
+
+        Set ``prefer_full=False`` to force the blocks walk (e.g. for non-secret
+        KB indexing where truncation is acceptable and the endpoint is blocked).
         """
         if not self.available:
             return ""
+        if prefer_full:
+            full = self.get_page_full_markdown(page_id)
+            if full:
+                return full
+            # fall through to blocks walk on empty/failed full retrieval
         try:
             blocks = self._fetch_block_children(page_id)
             return self._blocks_to_markdown(blocks)

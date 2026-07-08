@@ -89,7 +89,7 @@ TOOLS = [
     },
     {
         "name": "eling_get_page",
-        "description": "Fetch a Notion page's content as markdown. NOTE: Notion's block API truncates secret values (tokens show only last few chars). For full un-truncated content (e.g. complete API tokens), use eling_get_page_full instead.",
+        "description": "Fetch a Notion page's content as markdown. Uses the full-markdown endpoint by default, so secret values (API tokens, etc.) are returned un-truncated. Falls back to the block walk if the markdown endpoint is unavailable. For explicit control use eling_get_page_full.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -247,8 +247,8 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             page_id = args.pop("page_id", "")
             if not notion.available:
                 return ok({"error": "Notion not configured", "available": False})
-            md = notion.get_page_markdown(page_id)
-            return ok({"page_id": page_id, "markdown": md})
+            md = notion.get_page_markdown(page_id, prefer_full=True)
+            return ok({"page_id": page_id, "markdown": md, "truncated": False})
         elif tool_name == "eling_get_page_full":
             page_id = args.pop("page_id", "")
             if not notion.available:
