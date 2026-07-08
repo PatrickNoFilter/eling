@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eling"
-version = "0.9.0"
+version = "0.9.1"
 description = "Unified second brain for AI agents — 5-tier memory, HRR reasoning, 41 MCP tools across 3 servers, Continuum Layer 6 multi-agent orchestration hub (Hermes/OpenCode/MiMo-Code/Zero/Claude Code/Codex), temporal queries, per-fact versioning, vector search, Zettelkasten, memory evolution, spec-kit verification, universal verify-on-stop, ELING_HOME override, handshake agent auto-attribution"
 readme = "README.md"
 license = {text = "MIT"}
