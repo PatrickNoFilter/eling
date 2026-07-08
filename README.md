@@ -4,7 +4,7 @@
 
 **Lightweight memory, powerful retrieval — 5-tier second brain for AI agents**
 
-HRR reasoning · MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · FactMemoryProvider
+HRR reasoning · MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 

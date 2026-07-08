@@ -1,3 +1,23 @@
+# v0.8.1 — `eling_get_page_full`: untruncated Notion retrieval
+
+Companion to `eling_get_page`. The blocks API truncates secrets (tokens show
+only last few chars); `eling_get_page_full` uses the `/v1/pages/<id>/markdown`
+endpoint and returns the **full, un-truncated** content — so credential pages
+(such as the PyPI token) can be retrieved complete via MCP.
+
+## What's New
+
+- `NotionLayer.get_page_full_markdown()` — hits `/v1/pages/<id>/markdown`.
+- `eling_get_page_full` MCP tool (Notion-only `eling` server), returns
+  `truncated: false` plus the full markdown body.
+- `eling_get_page` doc clarified: it truncates secrets; use `_full` for tokens.
+- Tool count: notion-only `eling` server now exposes **6** tools.
+
+## Tests
+
+- `tests/test_universal_brain.py::TestElingGetPageFull` (4 tests)
+- `tests/test_export.py` tool-count assertion updated 5 → 6
+
 # v0.8.0 — Universal Brain: handshake agent attribution + ELING_HOME override + all-agents verify
 
 The `as_brain` server becomes a **universal brain** for every connected agent.
