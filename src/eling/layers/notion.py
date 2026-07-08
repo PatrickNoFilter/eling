@@ -161,6 +161,39 @@ class NotionLayer:
             logger.warning("notion.create_page failed: %s", e)
             return None
 
+    def delete_page(self, page_id: str, hard: bool = False) -> bool:
+        """Delete a Notion page.
+
+        Notion has no true DELETE endpoint for pages — removal is done by
+        archiving (PATCH .../pages/{id} with archived=true). When ``hard`` is
+        True, the page's block children are removed first so that restoring
+        the archived page yields an empty shell (cleaner removal of secrets).
+
+        Returns True on success.
+        """
+        if not self.available:
+            return False
+        try:
+            if hard:
+                try:
+                    children = self._fetch_block_children(page_id)
+                    for blk in children:
+                        bid = blk.get("id")
+                        if not bid:
+                            continue
+                        self._get_client().delete(f"/blocks/{bid}")
+                except Exception as e:  # non-fatal: proceed to archive anyway
+                    logger.warning("notion.delete_page child purge failed: %s", e)
+            r = self._get_client().patch(
+                f"/pages/{page_id}",
+                json={"archived": True},
+            )
+            r.raise_for_status()
+            return True
+        except Exception as e:
+            logger.warning("notion.delete_page failed: %s", e)
+            return False
+
     def append_to_page(self, page_id: str, content: str) -> bool:
         """Append markdown content to existing page."""
         if not self.available:

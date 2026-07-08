@@ -139,6 +139,28 @@ TOOLS = [
         "description": "Check Notion connection status and configuration.",
         "inputSchema": {"type": "object", "properties": {}},
     },
+    {
+        "name": "eling_delete_page",
+        "description": "Delete (archive) a Notion page by id. "
+        "Notion removes pages by archiving; pass hard=true to also purge the "
+        "page's block children first so a restored page is empty. "
+        "Requires NOTION_API_KEY to be set.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "page_id": {
+                    "type": "string",
+                    "description": "Notion page ID to delete/archive",
+                },
+                "hard": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "If true, purge block children before archiving",
+                },
+            },
+            "required": ["page_id"],
+        },
+    },
 ]
 
 
@@ -246,6 +268,15 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
                 "has_api_key": bool(notion.api_key),
                 "has_parent_page_id": bool(notion.parent_page_id),
             })
+        elif tool_name == "eling_delete_page":
+            page_id = args.pop("page_id", "")
+            hard = bool(args.pop("hard", False))
+            if not notion.available:
+                return ok({"error": "Notion not configured", "available": False})
+            if not page_id:
+                return ok({"error": "page_id is required", "success": False})
+            success = notion.delete_page(page_id, hard=hard)
+            return ok({"page_id": page_id, "success": success, "hard": hard})
         else:
             return _error(rid, -32601, f"unknown tool: {tool_name}")
     except Exception as e:
