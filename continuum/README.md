@@ -30,23 +30,28 @@ otherwise each agent gets its own island. Pick one path and export it to all:
 export ELING_HOME=/root/.eling     # or ~/.eling, your choice
 ```
 
-## Wire up each agent
+## One-command install (all agents)
 
-Copy the matching snippet from `configs/` into each agent's config:
+`continuum/install.sh` patches every supported agent's config in place with a
+`continuum` MCP entry (all sharing your `ELING_HOME`), backing each file up to
+`<file>.bak-continuum` first. It is idempotent (re-running skips already-patched
+files) and merges into existing configs without clobbering other servers.
 
-| Agent | Config file | Snippet |
-|-------|-------------|---------|
-| **Hermes** | `~/.hermes/config.yaml` | `configs/hermes.yaml` → under `mcp_servers` |
-| **OpenCode** | `~/.config/opencode/opencode.jsonc` | `configs/opencode.jsonc` → under `mcp` |
-| **MiMo-Code** | `~/.config/opencode/opencode.jsonc` (MiMo fork reuses OpenCode config) | same as OpenCode |
-| **Zero** | `~/.config/zero/config.json` | `configs/zero.config.json` → under `mcp.servers` |
-| **Claude Code** | `~/.claude.json` (or project `.mcp.json`) | `configs/claude-code.json` → under `mcpServers` |
-| **Codex** | `~/.codex/config.toml` | `configs/codex.toml` → under `[mcp_servers]` |
+```bash
+# from inside the eling repo
+chmod +x continuum/install.sh
 
-Claude Code / Codex / Cline also work — see `configs/claude-code.json` (Claude Code
-`~/.claude.json` `mcpServers` block) and `configs/codex.toml` (Codex `~/.codex/config.toml`
-`[mcp_servers]`). All four canonical agents + Claude Code + Codex now point at the
-same hub.
+continuum/install.sh                          # auto-detect path, ELING_HOME=~/.eling
+continuum/install.sh --eling-home /data/store # shared store for all agents
+continuum/install.sh --eling-path /opt/eling  # if eling lives elsewhere
+continuum/install.sh --agents hermes,zero     # limit to specific agents
+continuum/install.sh --dry-run                # print actions, change nothing
+continuum/install.sh --force                  # re-patch ignoring markers
+```
+
+Supported agents: `hermes`, `opencode` (+ MiMo-Code, same file), `zero`,
+`claude-code`, `codex`. After running, restart or reload each agent
+(Hermes: `/reload-mcp`).
 
 ## Verify a connection
 
@@ -58,6 +63,18 @@ hermes mcp test continuum
 printf '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","clientInfo":{"name":"probe","version":"1.0"}}}\n{"jsonrpc":"2.0","id":2,"method":"tools/list"}\n' \
   | timeout 5 /root/eling/src/eling/continuum/continuum.sh
 ```
+
+## Manual configs (if you prefer not to use install.sh)
+
+Per-agent snippets live in `continuum/configs/`:
+
+| Agent | File | Target |
+|-------|------|--------|
+| Hermes | `hermes.yaml` | `~/.hermes/config.yaml` (under `mcp_servers`) |
+| OpenCode / MiMo-Code | `opencode.jsonc` | `~/.config/opencode/opencode.jsonc` (under `mcp`) |
+| Zero | `zero.config.json` | `~/.config/zero/config.json` (under `mcp.servers`) |
+| Claude Code | `claude-code.json` | `~/.claude.json` (under `mcpServers`) |
+| Codex | `codex.toml` | `~/.codex/config.toml` (under `[mcp_servers]`) |
 
 ## Agent source attribution
 
