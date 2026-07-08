@@ -2,12 +2,13 @@
 
 ## MCP Servers (JSON-RPC stdio)
 
-Eling provides **two** MCP servers, split by concern:
+Eling provides **three** MCP servers, split by concern:
 
 | Server | Command | Purpose | Tools |
 |--------|---------|---------|-------|
 | `eling` | `python -m eling mcp` / `eling mcp` | Notion-only (online/remote memory) | 6 `eling_*` tools |
-| `as_brain` | `python -m eling.as_brain.mcp_server` / `eling as-brain` | Local layers (facts, KB, code, builtin, HRR) | 15+ `brain_*` tools |
+| `as_brain` | `python -m eling.as_brain.mcp_server` / `eling as-brain` | Local layers (facts, KB, code, builtin, HRR) | 20 `brain_*` tools |
+| `continuum` | `python -m eling continuum mcp` / `eling-continuum` | Layer 6 orchestration hub (multi-agent) | 15 `continuum_*` tools |
 
 ### Start
 
@@ -835,3 +836,50 @@ def my_handler(name: str, ctx: dict) -> dict:
 registry.register(HOOK_DECISION_MADE, my_handler)
 results = registry.fire(HOOK_DECISION_MADE, {"content": "test"})
 ```
+
+---
+
+## Continuum Layer 6 — Multi-Agent Orchestration Hub
+
+`continuum` is a third MCP server that turns eling into a **shared hub for many
+coding agents**. All agents point at one `continuum.db` (via a shared `ELING_HOME`);
+every memory entry and agent registration is auto-attributed by the agent's MCP
+handshake `clientInfo.name`.
+
+```bash
+# Start the hub
+python3 -m eling continuum mcp
+# or
+eling-continuum
+```
+
+It exposes **15 `continuum_*` tools**:
+
+| Tool | Purpose |
+|------|---------|
+| `continuum_project_create` | Register a canonical project root (shared memory + orchestration scope) |
+| `continuum_project_get` | Get a registered project by path |
+| `continuum_project_list` | List all registered projects |
+| `continuum_knowledge_create` | Store a lesson: `kind='fundamental'` (binding rule, loaded every dispatch) or `kind='situational'` (semantic search). `agent_slug` auto-attributed from handshake |
+| `continuum_knowledge_get` | Fetch a knowledge entry body by (project, slug) |
+| `continuum_knowledge_list` | List knowledge metadata (pass `kind='fundamental'` for binding rules) |
+| `continuum_knowledge_search` | BM25/semantic ranked search over knowledge (metadata-only) |
+| `continuum_agent_register` | Register a dispatch agent (state=draft); reserve `reserved_paths` (globs) with collision checks |
+| `continuum_agent_update` | Transition status draft→active→merged\|abandoned; set branch/worktree/prompt/merged_commit |
+| `continuum_agent_get` | Get one agent's full registry record |
+| `continuum_registry_list` | Paginate dispatch metadata across agents (the "what did the other agent do?" view) |
+| `continuum_plot_get` | Get the canonical PLOT.md protocol for a project |
+| `continuum_plot_update` | Mutate PLOT.md via unified diff (no full-text writes) |
+| `continuum_dispatch` | **ONE-CALL DISPATCH**: register agent + create isolated git worktree + return a ready-to-paste prompt for a fresh agent |
+| `continuum_reservations` | Show reserved_path collisions across ACTIVE agents on a project |
+
+### One-command wiring
+
+```bash
+chmod +x continuum/install.sh
+continuum/install.sh --eling-home /shared/eling     # wire Hermes/OpenCode/MiMo-Code/Zero/Claude Code/Codex
+continuum/healthcheck.sh --eling-home /shared/eling  # verify
+continuum/uninstall.sh                               # unwire (restores backups)
+```
+
+Per-agent configs: `continuum/configs/`. Full guide: [`continuum/README.md`](continuum/README.md).

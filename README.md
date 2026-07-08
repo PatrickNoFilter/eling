@@ -4,7 +4,7 @@
 
 **Lightweight memory, powerful retrieval — 5-tier second brain for AI agents**
 
-HRR reasoning · MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
+HRR reasoning · 3 MCP servers (41 tools) · Continuum Layer 6 multi-agent orchestration hub · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -17,11 +17,12 @@ HRR reasoning · MCP tools · temporal queries · per-fact versioning · vector 
 
 ## ✨ What is Eling?
 
-Eling is a **lightweight, unified second brain** for AI agents. It merges 5 memory tiers via two MCP servers — no external databases, no cloud services needed for local operation (though it optionally syncs to Notion for human readability).
+Eling is a **lightweight, unified second brain** for AI agents. It merges 5 memory tiers via three MCP servers — and adds a **Continuum Layer 6 orchestration tier** that turns eling into a shared hub for *multiple* AI coding agents. No external databases, no cloud services needed for local operation (though it optionally syncs to Notion for human readability).
 
-Think of it as one memory stack that serves **both the agent and the human**:
+Think of it as one memory stack that serves **both the agent and the human** — and one orchestration hub that serves **every agent you run**:
 
 ```
+🧠 Layer 6: CONTINUUM — multi-agent orchestration hub (shared continuum.db, 15 continuum_* tools)
 🧠 Tier 5: NOTION   — online brain, persistent, human-readable (optional)
 📚 Tier 4: KB       — FTS5 knowledge corpus for long-form knowledge
 🕸️ Tier 3: CODE     — codegraph symbol intelligence
@@ -55,13 +56,18 @@ This gives you a **recoverable brain**: even if your local SQLite databases are 
 ```bash
 pip install eling
 
-# Run the Notion-only MCP server (online/remote memory, 5 tools)
+# Run the Notion-only MCP server (online/remote memory, 6 tools)
 python3 -m eling mcp
 
-# Run the local-layers MCP server (facts, KB, code, builtin, HRR, 15+ tools)
+# Run the local-layers MCP server (facts, KB, code, builtin, HRR — 20 tools)
 python3 -m eling.as_brain.mcp_server
 # or
 eling as-brain
+
+# Run the Continuum Layer 6 orchestration hub (multi-agent, 15 continuum_* tools)
+python3 -m eling continuum mcp
+# or
+eling-continuum
 
 # Use the CLI
 python3 -m eling --help
@@ -74,12 +80,36 @@ eling-install-opencode
 
 | Agent | Integration | Status |
 |-------|-------------|--------|
-| **Hermes** | MCP server (Notion-only `eling` + local `as_brain`) + Memory Provider + Plugin | ✅ Tested |
-| **OpenCode** | MCP server (both) + Lifecycle Plugin | ✅ Tested |
-| **Zero** | MCP server (both) + Hooks + Skill | ✅ Bundled installer |
+| **Hermes** | MCP (Notion `eling` + local `as_brain` + Continuum `continuum`) + Memory Provider + Plugin | ✅ Tested |
+| **OpenCode** | MCP (all 3 servers) + Lifecycle Plugin | ✅ Tested |
+| **MiMo-Code** | MCP (all 3 servers, OpenCode fork) | ✅ Tested |
+| **Zero** | MCP (all 3 servers) + Hooks + Skill | ✅ Bundled installer |
+| **Claude Code** | MCP (all 3 servers via `mcpServers`) | ✅ Wiring provided |
+| **Codex** | MCP (all 3 servers via `mcp_servers`) | ✅ Wiring provided |
 
-Non-tested agents connect via the stdio MCP servers — any MCP-compatible host can use both
-`eling` (notion-only, 5 tools) and `as_brain` (local layers, 15+ tools).
+### One shared hub for every agent (Continuum Layer 6)
+
+Continuum turns eling into a **single MCP hub** that all your coding agents connect
+to. Each agent gets isolated git worktrees, a shared orchestration registry, and
+two-tier knowledge (fundamental = binding rules, situational = semantic search) —
+all routed through eling's memory. Every entry is auto-attributed by the agent's
+MCP handshake name, so you always know which agent wrote what.
+
+Wire all six agents in one command (Hermes, OpenCode, MiMo-Code, Zero, Claude Code, Codex):
+
+```bash
+# from the eling repo
+chmod +x continuum/install.sh
+continuum/install.sh --eling-home /shared/eling     # shared store for all agents
+continuum/healthcheck.sh --eling-home /shared/eling # verify every agent is wired
+```
+
+Per-agent configs live in `continuum/configs/`; uninstall with `continuum/uninstall.sh`.
+See **[`continuum/README.md`](continuum/README.md)** for the full guide.
+
+Non-tested agents connect via the stdio MCP servers — any MCP-compatible host can use
+`eling` (notion-only, 6 tools), `as_brain` (local layers, 20 tools), and `continuum`
+(orchestration hub, 15 `continuum_*` tools).
 
 ### Hermes
 

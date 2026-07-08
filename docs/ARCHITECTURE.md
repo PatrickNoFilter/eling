@@ -1,12 +1,18 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Five memory layers, dual MCP servers (notion-only `eling` + local-layers `as_brain`), zero mandatory external dependencies. v0.8.0 adds the universal brain: handshake agent attribution, ELING_HOME override, and all-agents verify-on-stop; v0.7.3 splits the MCP server into two focused servers (notion-only `eling` + local `as_brain`); v0.7.2 adds FactMemoryProvider, lazy numpy, Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, steering rules.
+> **Eling** — Unified second brain for AI agents. Five memory layers, three MCP servers (notion-only `eling` + local-layers `as_brain` + orchestration `continuum`), zero mandatory external dependencies. v0.9.0 adds the **Continuum Layer 6** multi-agent orchestration hub — one shared `continuum.db` that every coding agent (Hermes, OpenCode, MiMo-Code, Zero, Claude Code, Codex) connects to, with isolated git worktrees, a shared registry, two-tier knowledge, and handshake agent auto-attribution; v0.8.0 adds the universal brain: handshake agent attribution, ELING_HOME override, and all-agents verify-on-stop; v0.7.3 splits the MCP server into two focused servers (notion-only `eling` + local `as_brain`); v0.7.2 adds FactMemoryProvider, lazy numpy, Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, steering rules.
 
 ```
 eling/
-├── mcp_server.py         — JSON-RPC stdio server (notion-only, 5 tools)
+├── mcp_server.py         — JSON-RPC stdio server (notion-only, 6 tools)
 ├── as_brain/
-│   └── mcp_server.py     — JSON-RPC stdio server (local layers, 15+ tools)
+│   └── mcp_server.py     — JSON-RPC stdio server (local layers, 20 tools)
+├── continuum/             — Layer 6: multi-agent orchestration hub
+│   ├── mcp_server.py     — JSON-RPC stdio server (orchestration, 15 continuum_* tools)
+│   ├── store.py          — continuum.db: projects, agents, knowledge, plot, reservations
+│   ├── worktree.py       — isolated per-agent git worktree manager
+│   ├── plot.py           — PLOT.md canonical protocol (unified-diff mutations)
+│   └── continuum.sh      — shared wrapper exec'd by every agent's MCP config
 ├── brain.py          — Orchestrator: routing + RRF fusion + sync + snapshot
 ├── config.py         — Layered config: env → json → defaults
 ├── hooks.py          — 15 lifecycle hooks + HookRegistry
@@ -53,6 +59,23 @@ eling/
 │          Token bucket, exponential backoff, 5-min cache     │
 └──────────────────────────────────────────────────────────────┘
 ```
+
+### 🧩 Layer 6 — Continuum (Multi-Agent Orchestration)
+
+Continuum is **not a memory tier** — it is an orchestration tier that runs as a
+third MCP server (`continuum`) on top of the 5 memory tiers. Its job is to let
+*many* coding agents share one eling backend without stepping on each other.
+
+- **Shared `continuum.db`** (resolved via `ELING_HOME` / `HERMES_HOME`) — one store for all agents.
+- **Agent auto-attribution** — every `continuum_knowledge_create` / `continuum_agent_register` reads the caller's MCP handshake `clientInfo.name` and stamps `agent_slug`, so the registry always shows *which agent did what*.
+- **Isolated worktrees** — `continuum_dispatch` creates a per-agent git worktree under `continuum/worktrees/<project>/<slug>/`, with `reserved_paths` collided-checked across ACTIVE agents (`continuum_reservations`).
+- **Two-tier knowledge** — `fundamental` lessons (binding rules, loaded into every dispatch prompt) vs `situational` lessons (BM25/semantic search on demand).
+- **Canonical PLOT** — `continuum_plot_get` / `continuum_plot_update` keep a single `PLOT.md` protocol per project, mutated via unified diff so agents never overwrite each other's edits wholesale.
+
+All six agents connect by pointing their MCP config at the same wrapper:
+`eling continuum mcp` (or `continuum/continuum.sh`). Wire them all with
+`continuum/install.sh`; verify with `continuum/healthcheck.sh`. See
+[`continuum/README.md`](continuum/README.md).
 
 ### Tier 1 — Builtin
 Reads Hermes `MEMORY.md` and `USER.md` files directly. Always available, no setup. Provides raw text blocks ranked by BM25 similarity.
