@@ -53,7 +53,22 @@ Supported agents: `hermes`, `opencode` (+ MiMo-Code, same file), `zero`,
 `claude-code`, `codex`. After running, restart or reload each agent
 (Hermes: `/reload-mcp`).
 
-## Verify a connection
+## One-command uninstall
+
+`continuum/uninstall.sh` removes the `continuum` MCP entry from every agent. If a
+`<file>.bak-continuum` backup exists (from `install.sh`), it restores the original
+file; otherwise it strips the continuum block/key in place.
+
+```bash
+continuum/uninstall.sh                 # all agents
+continuum/uninstall.sh --agents hermes # limit scope
+continuum/uninstall.sh --dry-run       # print actions, change nothing
+continuum/uninstall.sh --keep-backups  # restore but keep .bak-continuum files
+```
+
+Restart/reload each agent afterwards to drop the continuum tools.
+
+
 
 ```bash
 # Hermes
