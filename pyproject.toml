@@ -44,6 +44,7 @@ dev = [
 [project.scripts]
 eling-install-opencode = "eling.cli:_run_install_opencode_cli"
 eling-install-zero = "eling.cli:_run_install_zero_cli"
+eling-continuum = "eling.cli:_run_continuum_cli"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -61,6 +61,12 @@ def main():
     p_mcp = sub.add_parser("mcp", help="Run MCP server (stdio)")
     p_mcp.add_argument("--transport", default="stdio")
 
+    # ── continuum subcommand (Layer 6 orchestration tier) ──
+    p_cont = sub.add_parser("continuum", help="Continuum Layer 6 — orchestration MCP server")
+    p_cont_cmd = p_cont.add_subparsers(dest="continuum_cmd", required=True)
+    p_cont_mcp = p_cont_cmd.add_parser("mcp", help="Run the Continuum orchestration MCP server (stdio)")
+    p_cont_mcp.add_argument("--db", default="", help="Path to continuum.db (default: ELING_HOME/continuum.db)")
+
     # ── config subcommand ──
     p_cfg = sub.add_parser("config", help="Manage Eling configuration")
     p_cfg_cmd = p_cfg.add_subparsers(dest="config_cmd", required=True)
@@ -121,6 +127,14 @@ def main():
     if args.cmd == "mcp":
         from .mcp_server import run_stdio
         run_stdio()
+        return
+
+    if args.cmd == "continuum":
+        if args.continuum_cmd == "mcp":
+            if args.db:
+                os.environ["ELING_CONTINUUM_DB"] = args.db
+            from .continuum.mcp_server import run_stdio as continuum_run
+            continuum_run()
         return
 
     if args.cmd == "config":
@@ -300,6 +314,18 @@ def _run_install_opencode_cli() -> None:
                    help="Show what would be done without making changes")
     args = p.parse_args()
     _run_install_opencode(args)
+
+
+def _run_continuum_cli() -> None:
+    """Console_scripts entry point: run the Continuum Layer 6 MCP server."""
+    p = argparse.ArgumentParser(prog="eling-continuum",
+                                description="Eling Continuum — orchestration MCP server")
+    p.add_argument("--db", default="", help="Path to continuum.db (default: ELING_HOME/continuum.db)")
+    args = p.parse_args()
+    if args.db:
+        os.environ["ELING_CONTINUUM_DB"] = args.db
+    from .continuum.mcp_server import run_stdio as continuum_run
+    continuum_run()
 
 
 def _run_install_opencode(args: argparse.Namespace) -> None:
