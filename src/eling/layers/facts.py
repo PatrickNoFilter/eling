@@ -974,7 +974,7 @@ class FactsLayer:
 
         Returns dict with counts of merges performed.
         """
-        t = self.EVOLVE_MERGE_THRESHOLD if threshold is None else threshold
+        t = self.EVOLVE_MERGE_THRESHOLD if threshold is None else float(threshold)
         with self._lock:
             all_facts = self._conn.execute(
                 "SELECT fact_id, content, trust_score, tags, category, source FROM facts "
@@ -1001,7 +1001,7 @@ class FactsLayer:
                     sim = self._jaccard(fa_tokens, fb_tokens)
                     checked += 1
 
-                    if sim >= t:
+                    if float(sim) >= float(t):
                         # Merge fb into fa (keep older/lower ID)
                         keep_id = int(fa["fact_id"])
                         merge_id = int(fb["fact_id"])
