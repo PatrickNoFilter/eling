@@ -77,6 +77,17 @@ The `as_brain` MCP server serves the local memory layers — facts, KB, code, bu
 | `brain_verify` | Query/record verification status with optional spec-kit check |
 | `brain_verify_spec` | Run spec-kit conformance verification against project specs |
 
+> **Universal brain — agent auto-attribution.** The `as_brain` server captures
+> the host agent identity from the MCP `initialize` handshake
+> (`clientInfo.name`) and uses it as the default `source` for `brain_remember`.
+> Each connected agent's memories are auto-tagged with its own identity; pass an
+> explicit `source` to override.
+
+> **Universal mode — verify-on-stop for all agents.** Set the
+> `ELING_VERIFY_ALL_AGENTS=1` environment variable when launching the
+> `as_brain` server to keep verify-on-stop active for *every* agent (including
+> Hermes). By default Hermes skips eling's nudges and uses its own built-in
+> verification.
 
 These tools accept the same parameters as their `eling_*` predecessors.
 See the migration table below.

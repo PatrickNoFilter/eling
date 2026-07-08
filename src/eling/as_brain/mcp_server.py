@@ -10,8 +10,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import sys
 import traceback
+from pathlib import Path
 from typing import Any
 
 from eling.brain import Brain
@@ -21,12 +23,32 @@ logger = logging.getLogger(__name__)
 _brain: Brain | None = None
 _brain_init_error: str | None = None
 
+# Agent identity captured from the MCP `initialize` handshake (clientInfo.name).
+# Gap #1: every brain_* tool that accepts `source` falls back to this so the
+# host agent is auto-attributed as the memory owner without manual tagging.
+_handshake_source: str = "mcp"
+
+
+def _resolve_home() -> str | None:
+    """Gap #2: ELING_HOME override is first-class and explicit.
+
+    Returns the resolved ELING_HOME path when set, else None so Brain() falls
+    back to its own default resolution ($HERMES_HOME/eling or ~/.eling).
+    """
+    env = os.environ.get("ELING_HOME")
+    if env:
+        return str(Path(env).expanduser())
+    return None
+
 
 def _get_brain() -> Brain:
     global _brain, _brain_init_error
     if _brain is None:
         try:
-            _brain = Brain()
+            # Gap #2: resolve ELING_HOME explicitly so the override is honoured
+            # even when Brain()'s internal fallback chain changes.
+            home = _resolve_home()
+            _brain = Brain(home=home) if home else Brain()
             _brain_init_error = None
         except Exception as exc:
             _brain_init_error = f"{type(exc).__name__}: {exc}"
@@ -418,9 +440,14 @@ def _handle(req: dict) -> dict | None:
 
 
 def _handle_initialize(rid: int | str | None, params: dict) -> dict:
+    global _handshake_source
     client_info = params.get("clientInfo", {})
     client_name = client_info.get("name", "unknown")
     client_version = client_info.get("version", "?")
+    # Gap #1: capture the host agent identity from the MCP handshake so
+    # subsequent brain_* calls auto-attribute memory to the right agent.
+    if client_name and client_name != "unknown":
+        _handshake_source = client_name
     logger.info("AsBrain MCP client connected: %s %s", client_name, client_version)
     return {
         "jsonrpc": "2.0",
@@ -451,6 +478,8 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
 
     try:
         if tool_name == "brain_remember":
+            # Gap #1: auto-source from the MCP handshake when caller omits source
+            args.setdefault("source", _handshake_source)
             return ok(brain.remember(**args))
         elif tool_name == "brain_recall":
             # Filter out 'notion' from layers by default

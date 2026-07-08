@@ -533,18 +533,24 @@ def _run_install_zero(args: argparse.Namespace) -> None:
         except (json.JSONDecodeError, OSError):
             cfg = {}
         mcp = cfg.get("mcp", {})
+        # Register BOTH servers — `eling` (Notion, online) + `as_brain`
+        # (local memory layers). Zero needs the local brain, so as_brain
+        # must be present, not just the Notion-only eling server.
         if "eling" not in mcp:
             mcp["eling"] = {
                 "command": "python3",
                 "args": ["-m", "eling.mcp_server"],
             }
-            cfg["mcp"] = mcp
-            zero_cfg.joinpath("config.json").write_text(
-                json.dumps(cfg, indent=2) + "\n", encoding="utf-8"
-            )
-            print("Added MCP server 'eling' to Zero config")
-        else:
-            print("MCP server 'eling' already configured in Zero")
+        if "as_brain" not in mcp:
+            mcp["as_brain"] = {
+                "command": "python3",
+                "args": ["-m", "eling.as_brain.mcp_server"],
+            }
+        cfg["mcp"] = mcp
+        zero_cfg.joinpath("config.json").write_text(
+            json.dumps(cfg, indent=2) + "\n", encoding="utf-8"
+        )
+        print("Added MCP servers 'eling' + 'as_brain' to Zero config")
     else:
         # Create config file
         cfg = {
@@ -552,7 +558,11 @@ def _run_install_zero(args: argparse.Namespace) -> None:
                 "eling": {
                     "command": "python3",
                     "args": ["-m", "eling.mcp_server"],
-                }
+                },
+                "as_brain": {
+                    "command": "python3",
+                    "args": ["-m", "eling.as_brain.mcp_server"],
+                },
             }
         }
         zero_cfg.mkdir(parents=True, exist_ok=True)

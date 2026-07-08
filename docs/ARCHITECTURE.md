@@ -1,6 +1,6 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Five memory layers, dual MCP servers (notion-only `eling` + local-layers `as_brain`), zero mandatory external dependencies. v0.7.3 splits the MCP server into two focused servers (notion-only `eling` + local `as_brain`); v0.7.2 adds FactMemoryProvider, lazy numpy, Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, steering rules.
+> **Eling** — Unified second brain for AI agents. Five memory layers, dual MCP servers (notion-only `eling` + local-layers `as_brain`), zero mandatory external dependencies. v0.8.0 adds the universal brain: handshake agent attribution, ELING_HOME override, and all-agents verify-on-stop; v0.7.3 splits the MCP server into two focused servers (notion-only `eling` + local `as_brain`); v0.7.2 adds FactMemoryProvider, lazy numpy, Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, steering rules.
 
 ```
 eling/
@@ -193,6 +193,7 @@ Keys:
 | `codegraph_enabled` | `ELING_CODEGRAPH_ENABLED` | `true` | bool |
 | `dedup_cache_size` | `ELING_DEDUP_CACHE_SIZE` | `1000` | int |
 | `auto_sync_turns` | `ELING_AUTO_SYNC_TURNS` | `true` | bool |
+| `verify_all_agents` | `ELING_VERIFY_ALL_AGENTS` | `false` | bool (universal brain mode) |
 
 ---
 

@@ -4,7 +4,7 @@
 
 **Lightweight memory, powerful retrieval — 5-tier second brain for AI agents**
 
-HRR reasoning · MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional verify-on-stop · FactMemoryProvider
+HRR reasoning · MCP tools · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · FactMemoryProvider
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -418,12 +418,30 @@ b = Brain(embedding_model="all-MiniLM-L6-v2")
 
 Hybrid search ranking: BM25 + Jaccard + HRR + **cosine similarity** from embeddings. Stored in a separate `fact_embeddings` table.
 
-## 🛡️ Verify-on-Stop (Conditional)
+## 🛡️ Verify-on-Stop (Conditional + Universal)
 
 Eling provides **verify-on-stop** nudges for AI agents that lack built-in
 verification (e.g., OpenCode, OpenClaw, Cursor, Windsurf). When running under
 Hermes, this feature automatically **skips** — because Hermes already has its
 own `agent/verification_stop.py`.
+
+### Universal mode — one shared brain for every agent
+
+The `as_brain` MCP server can act as a **universal brain** for all connected
+agents at once. Set `ELING_VERIFY_ALL_AGENTS=1` to force eling's
+verify-on-stop to stay active for *every* agent — including Hermes — so the
+shared brain provides verification regardless of harness. The default
+(unset) keeps the original behaviour: Hermes skips eling's nudges and relies
+on its own built-in verification.
+
+```bash
+# Run the shared brain with verification for ALL agents
+ELING_VERIFY_ALL_AGENTS=1 python3 -m eling.as_brain.mcp_server
+```
+
+This powers multi-agent setups (e.g. Hermes + OpenCode + Zero sharing one
+`as_brain` instance) where you want a single source of truth for
+verification evidence.
 
 ### How it works
 
@@ -431,14 +449,18 @@ own `agent/verification_stop.py`.
    `initialize` handshake (`clientInfo.name`), which is more reliable than
    environment variable heuristics (prevents false Hermes detection when
    OpenCode runs under Hermes)
-2. **File edit tracking** — When code files are edited via hooks or MCP tools,
+2. **Agent auto-attribution** — The handshake client name becomes the default
+   `source` for `brain_remember`, so each agent's memories are tagged with its
+   own identity without manual configuration (override with an explicit
+   `source` argument)
+3. **File edit tracking** — When code files are edited via hooks or MCP tools,
    eling records them in a verification ledger
-3. **Spec-kit conformance** — If the project has spec-kit artifacts
+4. **Spec-kit conformance** — If the project has spec-kit artifacts
    (`specs/*/spec.md`), eling checks whether code changes cover each spec
    requirement and includes gaps in the nudge
-4. **Verification nudge** — If code was edited but no passing tests/verification
+5. **Verification nudge** — If code was edited but no passing tests/verification
    was recorded, eling produces a `[System: ...]` nudge message
-5. **Recording** — Agents can call `eling_verify` MCP tool to record verification
+6. **Recording** — Agents can call `brain_verify` MCP tool (as_brain server) to record verification
    results (`passed`, `failed`, `skipped`)
 
 ### Spec-kit Verification
@@ -484,6 +506,8 @@ Development) get automatic spec conformance checking:
 | `verify_on_stop` | `true` | `ELING_VERIFY_ON_STOP` | Enable nudges for non-Hermes agents |
 | `verify_on_stop_max_attempts` | `2` | `ELING_VERIFY_MAX_ATTEMPTS` | Max nudges per session |
 | `adapter` | `hermes` | `ELING_ADAPTER` | Force adapter type |
+| `home` | `$HERMES_HOME/eling` | `ELING_HOME` | Data directory for the universal brain (as_brain server) |
+| `verify_all_agents` | `false` | `ELING_VERIFY_ALL_AGENTS` | Universal mode: provide verify-on-stop for ALL agents incl. Hermes |
 
 ```yaml
 plugins:
@@ -496,15 +520,18 @@ plugins:
 
 ```
 eling/
-├── mcp_server.py     — JSON-RPC stdio server (22 tools)
-├── brain.py          — Orchestrator: routing + RRF fusion + sync + linking
-├── config.py         — Layered config: env → json → defaults
-├── hooks.py          — 15 lifecycle hooks + HookRegistry + evolution
-├── verify_on_stop.py — Verification ledger + nudge builder + spec-kit wiring
-├── spec_kit.py       — Spec-kit artifact parser + coverage analyzer
-├── privacy.py        — PII/secret stripping (19 patterns)
-├── compress.py       — SHA-256 dedup + length compression
-├── cli.py            — CLI client for all 22 operations
+├── mcp_server.py          — JSON-RPC stdio server (Notion-only, 5 tools: eling_*)
+├── as_brain/
+│   └── mcp_server.py      — JSON-RPC stdio server (local brain, 20 tools: brain_*)
+├── brain.py               — Orchestrator: routing + RRF fusion + sync + linking
+├── config.py              — Layered config: env → json → defaults
+├── hooks.py               — 15 lifecycle hooks + HookRegistry + evolution
+├── verify_on_stop.py      — Verification ledger + nudge builder + spec-kit wiring
+├── spec_kit.py            — Spec-kit artifact parser + coverage analyzer
+├── privacy.py             — PII/secret stripping (19 patterns)
+├── compress.py            — SHA-256 dedup + length compression
+├── cli.py                 — CLI client (install-zero wires BOTH MCP servers)
+├── fact_memory_provider.py — Standalone facts layer provider (no Brain dependency)
 └── layers/
     ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
     ├── facts.py      — Tier 2: SQLite + HRR + BM25 + trust + linking + evolution
@@ -513,7 +540,6 @@ eling/
     ├── code_index.py — Pure-Python AST+regex code indexer
     ├── kb.py         — Tier 4: FTS5 + porter + trigram + RRF
     └── notion.py     — Tier 5: httpx Notion API client (lazy import)
-├── fact_memory_provider.py — Standalone facts layer provider (no Brain dependency)
 ```
 
 ## ⚡ Performance
