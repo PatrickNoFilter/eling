@@ -53,7 +53,25 @@ Supported agents: `hermes`, `opencode` (+ MiMo-Code, same file), `zero`,
 `claude-code`, `codex`. After running, restart or reload each agent
 (Hermes: `/reload-mcp`).
 
-## One-command uninstall
+## Health check
+
+`continuum/healthcheck.sh` verifies the hub is live and every agent is wired:
+
+1. **LIVE** — spawns `continuum.sh`, runs MCP `initialize` + `tools/list`, confirms all
+   15 `continuum_*` tools are exposed over stdio.
+2. **WIRED** — confirms each agent's config references the wrapper (and is executable).
+3. **DB** — prints orchestration state: agents by status, knowledge count, and which
+   `agent_slug` wrote what (attribution).
+
+```bash
+continuum/healthcheck.sh                  # auto-detect path + ELING_HOME=~/.eling
+continuum/healthcheck.sh --eling-home /data/store
+continuum/healthcheck.sh --agents hermes,zero   # limit scope
+```
+
+Exit code is non-zero if any check fails — safe to run from cron/a watchdog.
+
+
 
 `continuum/uninstall.sh` removes the `continuum` MCP entry from every agent. If a
 `<file>.bak-continuum` backup exists (from `install.sh`), it restores the original
