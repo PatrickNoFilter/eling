@@ -81,7 +81,18 @@ def host_has_verify_on_stop(adapter: str = "auto") -> bool:
     -------
     bool
         True when the host agent natively handles verification nudges.
+
+    Universal mode
+    --------------
+    Set ``ELING_VERIFY_ALL_AGENTS=1`` to force eling's verify-on-stop to be
+    active for *every* agent, including Hermes. This powers the "universal
+    brain" use case where the shared ``as_brain`` MCP server provides
+    verification for all connected agents regardless of harness. When unset
+    (the default), Hermes keeps its built-in verification and eling stays a
+    no-op for it.
     """
+    if os.environ.get("ELING_VERIFY_ALL_AGENTS", "").strip().lower() in ("1", "true", "yes", "on"):
+        return False
     if adapter != "auto":
         return adapter in AGENTS_WITH_VERIFY
     agent = detect_host_agent()

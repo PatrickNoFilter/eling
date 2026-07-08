@@ -1,3 +1,33 @@
+# v0.8.0 — Universal Brain: handshake agent attribution + ELING_HOME override + all-agents verify
+
+The `as_brain` server becomes a **universal brain** for every connected agent.
+
+## What's New
+
+### Gap #1 — Auto agent source from MCP handshake
+- The `as_brain` server captures `clientInfo.name` from the MCP `initialize`
+  handshake and uses it as the default `source` for `brain_remember`.
+- Each host agent's memories are auto-tagged with its own identity — no manual
+  `source` configuration. An explicit `source` argument still overrides it.
+
+### Gap #2 — ELING_HOME override (universal brain data dir)
+- The `as_brain` server now resolves `ELING_HOME` explicitly and passes it to
+  `Brain(home=...)`, making the data-directory override first-class and
+  testable. Falls back to `$HERMES_HOME/eling` / `~/.eling` when unset.
+
+### Gap #3 — Open verify-on-stop to all agents (universal mode)
+- New env var `ELING_VERIFY_ALL_AGENTS=1` forces eling's verify-on-stop to stay
+  active for **every** agent, including Hermes. Default (unset) preserves the
+  original behaviour: Hermes skips eling's nudges and uses its built-in
+  verification. Enables a single shared `as_brain` instance to verify all agents.
+
+### Tests & Docs
+- New `tests/test_universal_brain.py` (13 tests) covering all three gaps.
+- README / API / ARCHITECTURE updated with universal-brain docs and the two new
+  env vars.
+
+---
+
 # v0.7.3 — MCP Split: notion-only `eling` + local `as_brain` servers
 
 **The single MCP server is split into two focused servers.**
