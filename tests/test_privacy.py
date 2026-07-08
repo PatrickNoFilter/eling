@@ -19,14 +19,14 @@ from eling.privacy import (
 
 class TestStripSecrets:
     def test_github_token(self):
-        text = "my token is ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
+        text = "my token is ghp_FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
         clean, kinds = strip_secrets(text)
         assert "ghp_" not in clean
         assert "[REDACTED:github_token]" in clean
         assert "github_token" in kinds
 
     def test_openai_api_key(self):
-        text = "OPENAI_API_KEY=sk-abcdefghijklmnopqrstuvwxyz1234567890abcdefghij"
+        text = "OPENAI_API_KEY=sk-FAKEabcdefghijklmnopqrstuvwxyz1234567890abcdefghij"
         clean, kinds = strip_secrets(text)
         assert "sk-" not in clean
         assert "openai_api_key" in kinds
@@ -68,7 +68,7 @@ class TestStripSecrets:
         assert "connection_string" in kinds
 
     def test_git_credentials_in_url(self):
-        text = "https://user:ghp_token1234567890abcdefghijklmnopqrstuvwxyz@github.com/repo"
+        text = "https://user:ghp_FAKEtoken1234567890abcdefghijklmnopqrstuvwxyz@github.com/repo"
         clean, kinds = strip_secrets(text)
         assert "ghp_" not in clean
         assert "git_credentials_in_url" in kinds
@@ -93,8 +93,8 @@ class TestStripSecrets:
 
     def test_multiple_secrets_in_one_text(self):
         text = (
-            "GITHUB_TOKEN=ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789\n"
-            "OPENAI_KEY=sk-abcdefghijklmnopqrstuvwxyz1234567890abcdefghij\n"
+            "GITHUB_TOKEN=ghp_FAKEaBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789\n"
+            "OPENAI_KEY=sk-FAKEabcdefghijklmnopqrstuvwxyz1234567890abcdefghij\n"
             "Normal content here."
         )
         clean, kinds = strip_secrets(text)
@@ -175,7 +175,7 @@ class TestPrivacyPipeline:
 
     def test_secrets_are_stripped(self):
         pipe = PrivacyPipeline(dedup_ttl=9999)
-        text = "My GitHub token is ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
+        text = "My GitHub token is ghp_FAKEaBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
         result = pipe.process(text)
         assert "[REDACTED:github_token]" in result["clean"]
         assert "ghp_" not in result["clean"]
@@ -199,7 +199,7 @@ class TestPrivacyPipeline:
 
     def test_secrets_then_dedup(self):
         pipe = PrivacyPipeline(dedup_ttl=60)
-        text = "Token: ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
+        text = "Token: ghp_FAKEaBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
         r1 = pipe.process(text)
         assert "github_token" in r1["redacted"]
         assert not r1["is_duplicate"]
@@ -238,11 +238,11 @@ def _match_text_for(name: str) -> str:
     Built at runtime so GitHub's static secret scanner sees no real-looking tokens.
     """
     _tokens = {}
-    _tokens["github_token"] = "g" + "hp_" + "ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789ABCDe"
-    _tokens["github_old_token"] = "g" + "hp_" + "ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
-    _tokens["openai_api_key"] = "s" + "k-" + "ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
-    _tokens["anthropic_api_key"] = "s" + "k-ant-" + "ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
-    _tokens["bearer_token"] = "Bearer ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
+    _tokens["github_token"] = "g" + "hp_" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789ABCDe"
+    _tokens["github_old_token"] = "g" + "hp_" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
+    _tokens["openai_api_key"] = "s" + "k-" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
+    _tokens["anthropic_api_key"] = "s" + "k-ant-" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
+    _tokens["bearer_token"] = "Bearer FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
     _tokens["aws_access_key"] = "AKIAIOSFODNN7EXAMPLE"
     _tokens["google_api_key"] = "AIzaSyABCDeFgHiJkLmNoPqRsTuVwXyZ0123456"
     _tokens["slack_token"] = "x" + "oxb-" + "FAKESLACKTOKENFORTESTINGONLY1234567890"
