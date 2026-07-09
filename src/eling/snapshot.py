@@ -81,7 +81,7 @@ def create_snapshot(
         tmp_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         tmp_conn.close()
     except Exception:
-        pass
+        logger.debug("WAL checkpoint skipped (non-fatal): %s", src)
 
     snap_dir = _snapshot_dir(src.parent)
     snap_id = _snapshot_id()
@@ -100,7 +100,7 @@ def create_snapshot(
         count = row[0] if row else 0
         conn.close()
     except Exception:
-        pass
+        logger.debug("fact count query failed (non-fatal): %s", src)
 
     metadata: dict[str, Any] = {
         "snapshot_id": snap_id,
@@ -170,7 +170,7 @@ def rollback(
         tmp_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         tmp_conn.close()
     except Exception:
-        pass
+        logger.debug("WAL checkpoint on restored DB skipped (non-fatal): %s", src)
 
     if snap_meta.is_file():
         meta = json.loads(snap_meta.read_text(encoding="utf-8"))
