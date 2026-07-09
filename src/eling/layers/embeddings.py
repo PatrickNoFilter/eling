@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 import logging
 import os
-import pickle
 import sqlite3
 import threading
 from pathlib import Path
@@ -225,7 +224,10 @@ class EmbeddingIndex:
         vec = self._encode(content)
         if vec is None:
             return False
-        blob = pickle.dumps(vec)
+        np_mod = _get_np()
+        if np_mod is None:
+            return False
+        blob = np_mod.array(vec, dtype=np.float32).tobytes()
         provider = "local" if self._sentence_model else "api"
         model = self._sentence_model.model_name if self._sentence_model else _DEFAULT_EMBED_MODEL
         dim = len(vec)
@@ -267,7 +269,7 @@ class EmbeddingIndex:
         scores: dict[int, float] = {}
         for fid, blob in rows:
             try:
-                fvec = np_mod.array(pickle.loads(blob), dtype=np.float32)
+                fvec = np_mod.frombuffer(blob, dtype=np.float32)
                 sim = float(np_mod.dot(qvec_np, fvec))  # cosine (normalized)
                 scores[int(fid)] = sim
             except Exception:
