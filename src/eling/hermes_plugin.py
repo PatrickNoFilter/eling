@@ -101,9 +101,9 @@ def on_session_end(session: dict) -> None:
         brain = _get_brain()
         brain.sync(direction="flush")
     except Exception:
-        pass
+        logger.debug("session-end flush skipped (non-fatal)")
     try:
         if _fact_provider is not None:
             _fact_provider.close()
     except Exception:
-        pass
+        logger.debug("fact provider close skipped (non-fatal)")

@@ -8,11 +8,14 @@ from __future__ import annotations
 
 import ast
 import json
+import logging
 import os
 import re
 import time
 from pathlib import Path
 from typing import Iterator
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -384,7 +387,7 @@ class CodeIndex:
                     last_line = min(len(lines), symbols_for_file[0]["line"] + 8)
                     snippet = "\n".join(lines[first_line:last_line])
                 except OSError:
-                    pass
+                    logger.debug("code symbol source read failed (non-fatal): %s", file_path)
 
             out.append({
                 "file": file_path,
@@ -411,7 +414,7 @@ class CodeIndex:
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             self.cache_path.write_text(json.dumps(data, indent=2))
         except OSError:
-            pass
+            logger.debug("code index cache write failed (non-fatal): %s", self.cache_path)
 
     def _load_cache(self) -> int:
         """Load from cache file. Returns number of files loaded."""

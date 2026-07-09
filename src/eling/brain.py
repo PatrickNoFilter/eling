@@ -861,7 +861,7 @@ class Brain:
                     try:
                         state = json.loads(state_path.read_text())
                     except Exception:
-                        pass
+                        logger.debug("sync state parse failed (non-fatal): %s", state_path)
                 state["last_sync"] = __import__("datetime").datetime.now().isoformat()
                 state.setdefault("total_pushed", 0)
                 state["total_pushed"] += result["pushed"]
@@ -906,7 +906,7 @@ class Brain:
             try:
                 synced = set(json.loads(synced_path.read_text()))
             except Exception:
-                pass
+                logger.debug("sync push cache parse failed (non-fatal): %s", synced_path)
 
         for f in all_facts:
             fact_id = f.get("id", f.get("fact_id"))
@@ -953,5 +953,5 @@ class Brain:
                     self.kb.index(source=source, content=meta + md[:4000])
                     pulled += 1
         except Exception:
-            pass
+            logger.debug("notion pull iteration failed (non-fatal)", exc_info=True)
         return pulled

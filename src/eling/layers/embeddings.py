@@ -163,7 +163,7 @@ class EmbeddingIndex:
         try:
             self._conn.execute("PRAGMA journal_mode=WAL")
         except sqlite3.OperationalError:
-            pass
+            logger.debug("WAL mode not available (non-fatal)")
         self._conn.execute(_EMBED_TABLE_SQL)
         self._conn.commit()
 

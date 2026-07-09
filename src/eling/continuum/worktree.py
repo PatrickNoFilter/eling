@@ -80,7 +80,7 @@ def dispatch_worktree(
     try:
         _run_git(str(wt_dir), "checkout", "-B", branch)
     except RuntimeError:
-        pass
+        logger.debug("worktree checkout -B failed (non-fatal): %s", branch)
     return str(wt_dir)
 
 
@@ -95,7 +95,7 @@ def remove_worktree(project: str, worktree_path: str) -> None:
         try:
             _run_git(str(p), "worktree", "prune")
         except RuntimeError:
-            pass
+            logger.debug("worktree prune failed (non-fatal): %s", str(wt))
         logger.debug("worktree removal note: %s", exc)
 
 

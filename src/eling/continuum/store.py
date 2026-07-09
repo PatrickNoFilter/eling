@@ -494,4 +494,5 @@ class ContinuumStore:
         try:
             self._con.close()
         except Exception:
-            pass
+            logger.debug("db connection close failed (non-fatal)")
+

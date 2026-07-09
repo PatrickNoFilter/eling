@@ -214,7 +214,7 @@ class FactsLayer:
         try:
             self._conn.execute("PRAGMA journal_mode=WAL")
         except sqlite3.OperationalError:
-            pass
+            logger.debug("WAL mode not available (non-fatal)")
         self._conn.executescript(_SCHEMA)
         self._conn.executescript(_VERSIONING_SCHEMA)
         # Migration: add strength + last_access_at columns (v4 forgetting engine)
@@ -1433,4 +1433,4 @@ class FactsLayer:
         try:
             self._conn.commit()
         except Exception:
-            pass
+            logger.debug("facts flush commit failed (non-fatal)")

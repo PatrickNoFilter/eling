@@ -6,10 +6,13 @@ external MCP subprocess is needed.
 
 from __future__ import annotations
 
+import logging
 import re
 import sqlite3
 import threading
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS kb_chunks (
@@ -54,7 +57,7 @@ class KBLayer:
         try:
             self._conn.execute("PRAGMA journal_mode=WAL")
         except sqlite3.OperationalError:
-            pass
+            logger.debug("WAL mode not available (non-fatal)")
         self._conn.executescript(_SCHEMA)
         self._conn.commit()
 
@@ -134,7 +137,7 @@ class KBLayer:
             try:
                 self._conn.commit()
             except Exception:
-                pass
+                logger.debug("kb flush commit failed (non-fatal)")
 
     @staticmethod
     def _split_markdown(content: str) -> list[tuple[str, str]]:

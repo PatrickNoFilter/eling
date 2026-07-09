@@ -123,7 +123,7 @@ def handle_session_end(payload: dict) -> str | None:
             if pushed:
                 msgs.append(f"eling: pushed {pushed} facts to Notion")
         except Exception:
-            pass
+            log.debug("notion push skipped (non-fatal)")
         return "\n".join(msgs)
     except Exception as e:
         log.warning("session_end sync failed: %s", e)
