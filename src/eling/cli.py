@@ -113,6 +113,18 @@ def main():
     p_iz.add_argument("--zero-config-dir", default="",
                       help="Zero config directory (default: ~/.config/zero)")
 
+    # ── install-termux subcommand ──
+    p_it = sub.add_parser("install-termux",
+                          help="Install eling launcher scripts for Termux on Android")
+    p_it.add_argument("--bin-dir", default="",
+                      help="Target bin directory (default: ~/.local/bin)")
+    p_it.add_argument("--configure-zero", action="store_true",
+                      help="Also update Zero MCP config to use the Termux scripts")
+    p_it.add_argument("--zero-config-dir", default="",
+                      help="Zero config directory (default: ~/.config/zero)")
+    p_it.add_argument("--dry-run", action="store_true",
+                      help="Show what would be done without making changes")
+
     # ── init-rules subcommand ──
     p_rules = sub.add_parser("init-rules", help="Write steering rules for AI agents")
     p_rules.add_argument("--project-dir", default=".",
@@ -151,6 +163,10 @@ def main():
 
     if args.cmd == "install-zero":
         _run_install_zero(args)
+        return
+
+    if args.cmd == "install-termux":
+        _run_install_termux(args)
         return
 
     if args.cmd == "init-rules":
@@ -630,6 +646,177 @@ def _run_init_rules(args: argparse.Namespace) -> None:
         print(f"  [{r['agent']}] {r['action']}: {r['file']}")
 
     print("Done. Restart your AI agent to load the steering rules.")
+
+
+def _run_install_termux_cli() -> None:
+    """Console_scripts entry point: install eling launchers for Termux."""
+    p = argparse.ArgumentParser(prog="eling-install-termux",
+                                description="Install eling launcher scripts for Termux on Android")
+    p.add_argument("--bin-dir", default="",
+                   help="Target bin directory (default: ~/.local/bin)")
+    p.add_argument("--configure-zero", action="store_true",
+                   help="Also update Zero MCP config to use the Termux scripts")
+    p.add_argument("--zero-config-dir", default="",
+                   help="Zero config directory (default: ~/.config/zero)")
+    p.add_argument("--dry-run", action="store_true",
+                   help="Show what would be done without making changes")
+    args = p.parse_args()
+    _run_install_termux(args)
+
+
+def _run_install_termux(args: argparse.Namespace) -> None:
+    """Install eling launcher scripts for Termux on Android.
+
+    On Termux, ``#!/usr/bin/env python3`` does not work because Termux has no
+    ``/usr/bin/env`` — the correct interpreter path is
+    ``/data/data/com.termux/files/usr/bin/env``.
+
+    This command writes three wrapper scripts in ``~/.local/bin/`` (or the
+    directory given by ``--bin-dir``) using the Termux-compatible shebang:
+
+    +-------------------------+--------------------------------------------------+
+    | Script                  | Purpose                                          |
+    +-------------------------+--------------------------------------------------+
+    | ``eling-termux``        | CLI wrapper — delegates to ``eling.cli.main``    |
+    | ``eling-termux-mcp``    | Notion-only MCP server (6 tools)                 |
+    | ``as-brain-mcp``        | Local memory MCP server — facts, KB, code, etc.  |
+    +-------------------------+--------------------------------------------------+
+
+    With ``--configure-zero`` it also updates Zero's ``config.json`` to point
+    at these scripts instead of bare ``python3 -m`` invocations.
+    """
+    import stat
+    from pathlib import Path
+
+    dry_run = getattr(args, "dry_run", False)
+    bin_dir = Path(args.bin_dir or Path.home() / ".local" / "bin")
+    termux_env = "/data/data/com.termux/files/usr/bin/env"
+    shebang = f"#!{termux_env} python3"
+
+    # ── Detect Termux ──
+    if not os.path.isdir("/data/data/com.termux/files/usr/bin"):
+        print("⚠️  This system does not appear to be Termux (no /data/data/com.termux/files/usr/bin).")
+        print("   The scripts will still be written but the shebang may not work on other platforms.\n")
+
+    scripts = {
+        "eling-termux": f'''{shebang}
+"""Eling Termux CLI — zero-fuss launcher for Termux on Android.
+
+Usage:
+  eling-termux remember "content" --category config
+  eling-termux recall "query"
+  eling-termux stats
+  eling-termux mcp          ← run MCP server (stdio)
+  eling-termux help
+"""
+
+import os
+import sys
+
+# Force ELING_HOME to persistent location
+os.environ.setdefault("ELING_HOME", os.path.expanduser("~/.eling"))
+os.makedirs(os.environ["ELING_HOME"], exist_ok=True)
+
+# In Termux we skip CodeLayer auto-index (no project scanning)
+os.environ["ELING_NO_CODE_INDEX"] = "1"
+
+if len(sys.argv) > 1 and sys.argv[1] == "mcp":
+    # Launch MCP server
+    from eling.mcp_server import run_stdio
+    run_stdio()
+elif len(sys.argv) > 1 and sys.argv[1] == "help":
+    print(__doc__)
+else:
+    # Delegate to eling CLI
+    from eling.cli import main
+    sys.argv[0] = "eling"
+    main()
+''',
+        "eling-termux-mcp": f'''{shebang}
+"""Eling MCP for Zero in Termux — notion-only memory layer.
+
+This server only handles Notion operations.
+For local memory layers (facts, KB, code, builtin, HRR),
+use the `as-brain-mcp` launcher instead.
+"""
+import os, sys
+
+os.environ.setdefault("ELING_HOME", os.path.expanduser("~/.eling"))
+os.makedirs(os.environ["ELING_HOME"], exist_ok=True)
+
+# Change to a temp dir so CodeLayer auto-index doesn't scan home
+import tempfile
+tmpdir = tempfile.mkdtemp(prefix="eling-zero-")
+os.chdir(tmpdir)
+
+# Launch MCP server
+from eling.mcp_server import run_stdio
+run_stdio()
+''',
+        "as-brain-mcp": f'''{shebang}
+"""As Brain MCP launcher — local memory layers for agents.
+
+Serves facts, KB, code, builtin, and HRR layers via MCP.
+Notion sync is handled separately by `eling-mcp`.
+"""
+import os, sys
+
+os.environ.setdefault("ELING_HOME", os.path.expanduser("~/.eling"))
+os.makedirs(os.environ["ELING_HOME"], exist_ok=True)
+
+# Change to a temp dir so CodeLayer auto-index doesn't scan home
+import tempfile
+tmpdir = tempfile.mkdtemp(prefix="as-brain-")
+os.chdir(tmpdir)
+
+from eling.as_brain.mcp_server import run_stdio
+run_stdio()
+''',
+    }
+
+    if dry_run:
+        print(f"[dry-run] Scripts would be written to: {bin_dir}/")
+        for name in scripts:
+            print(f"  {name}")
+        if getattr(args, "configure_zero", False):
+            zero_cfg = Path(args.zero_config_dir or Path.home() / ".config" / "zero")
+            print(f"  Zero config would be updated: {zero_cfg / 'config.json'}")
+        print()
+        return
+
+    # Write scripts
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    for name, content in scripts.items():
+        path = bin_dir / name
+        path.write_text(content, encoding="utf-8")
+        path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+        print(f"  Written: {path}")
+
+    # ── Optionally configure Zero ──
+    if getattr(args, "configure_zero", False):
+        import json as json_mod
+
+        zero_cfg = Path(args.zero_config_dir or Path.home() / ".config" / "zero")
+        cfg_path = zero_cfg / "config.json"
+        if cfg_path.exists():
+            cfg = json_mod.loads(cfg_path.read_text(encoding="utf-8"))
+        else:
+            cfg = {"mcp": {}}
+
+        mcp = cfg.setdefault("mcp", {})
+        mcp.setdefault("eling", {"command": str(bin_dir / "eling-termux-mcp"),
+                                  "description": "Notion-based second brain (remote/online memory)"})
+        mcp.setdefault("as_brain", {"command": str(bin_dir / "as-brain-mcp"),
+                                     "description": "Local memory layers: facts, KB, code, builtin, HRR"})
+        cfg["mcp"] = mcp
+
+        zero_cfg.mkdir(parents=True, exist_ok=True)
+        cfg_path.write_text(json_mod.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+        print(f"  Updated Zero MCP config: {cfg_path}")
+
+    print("\n✅ Termux launcher scripts installed. Ensure ~/.local/bin is in your PATH.")
+    if not getattr(args, "configure_zero", False):
+        print("   Run with --configure-zero to update Zero's MCP config automatically.")
 
 
 if __name__ == "__main__":
