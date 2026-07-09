@@ -12,6 +12,7 @@ Keeps last N snapshots (default 5), auto-pruning oldest on each new snapshot.
 
 from __future__ import annotations
 
+import itertools
 import json
 import logging
 import shutil
@@ -38,9 +39,12 @@ def _snapshot_dir(parent: Path) -> Path:
     return d
 
 
+_snapshot_counter = itertools.count()
+
+
 def _snapshot_id() -> str:
-    """Human-readable snapshot ID: YYYYMMDD-HHMMSS-fff."""
-    return time.strftime("%Y%m%d-%H%M%S-") + f"{int(time.time() * 1000) % 1000:03d}"
+    """Human-readable snapshot ID: YYYYMMDD-HHMMSS-fff (monotonic suffix)."""
+    return time.strftime("%Y%m%d-%H%M%S-") + f"{next(_snapshot_counter):06d}"
 
 
 # ── Core ops ──────────────────────────────────────────────────────────────────
