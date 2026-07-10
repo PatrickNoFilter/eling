@@ -47,6 +47,7 @@ class NotionLayer:
 
     @property
     def available(self) -> bool:
+        global _HAS_HTTPX
         if _HAS_HTTPX is None:
             try:
                 _require_httpx()
@@ -55,6 +56,7 @@ class NotionLayer:
         return _HAS_HTTPX and bool(self.api_key)
 
     def _has_httpx(self) -> bool:
+        global _HAS_HTTPX
         if _HAS_HTTPX is None:
             try:
                 _require_httpx()
