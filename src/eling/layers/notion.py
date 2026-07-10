@@ -48,12 +48,18 @@ class NotionLayer:
     @property
     def available(self) -> bool:
         if _HAS_HTTPX is None:
-            _require_httpx()
+            try:
+                _require_httpx()
+            except RuntimeError:
+                _HAS_HTTPX = False
         return _HAS_HTTPX and bool(self.api_key)
 
     def _has_httpx(self) -> bool:
         if _HAS_HTTPX is None:
-            _require_httpx()
+            try:
+                _require_httpx()
+            except RuntimeError:
+                _HAS_HTTPX = False
         return bool(_HAS_HTTPX)
 
     def _get_client(self) -> "httpx.Client":
