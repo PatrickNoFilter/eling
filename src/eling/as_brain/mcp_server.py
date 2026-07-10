@@ -468,6 +468,9 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
     def ok(data: Any) -> dict:
         try:
             text = json.dumps(data, default=str)
+            # Limit response to 50KB to prevent provider context overflow
+            if len(text) > 50_000:
+                text = json.dumps({"warning": "response truncated (50KB limit)", "truncated": True}, default=str)
         except Exception:
             text = json.dumps({"error": "result not serializable", "raw": str(data)[:500]})
         return {

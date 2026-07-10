@@ -42,8 +42,9 @@ def handle_before_tool(payload: dict) -> str | None:
     try:
         brain = get_brain()
         results = brain.recall(query, limit=3)
-        if results:
-            return f"eling: recalled {len(results)} memory items for {tool}"
+        merged = results.get("merged", [])
+        if merged:
+            return f"eling: recalled {len(merged)} memory items for {tool}"
     except Exception as e:
         log.warning("before_tool recall failed: %s", e)
     return None
@@ -58,6 +59,7 @@ def handle_after_tool(payload: dict) -> str | None:
     result = payload.get("result", "") or payload.get("output", "")
 
     msgs = []
+    brain = None
 
     # Remember file edits as facts
     if changed_files and status in ("success", "ok", "", None):
@@ -78,7 +80,8 @@ def handle_after_tool(payload: dict) -> str | None:
     # Remember tool results as observations
     if result and tool and status in ("success", "ok", "", None):
         try:
-            brain = get_brain()
+            if brain is None:
+                brain = get_brain()
             summary = str(result)[:300]
             brain.remember(
                 f"Tool [{tool}] returned: {summary}",
