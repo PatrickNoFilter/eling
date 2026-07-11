@@ -18,51 +18,63 @@ class TestTagHelpers:
 
     def test_has_present(self):
         from eling.layers.facts import _tag_has
+
         assert _tag_has("foo,bar,baz", "bar") is True
 
     def test_has_absent(self):
         from eling.layers.facts import _tag_has
+
         assert _tag_has("foo,baz", "bar") is False
 
     def test_has_empty(self):
         from eling.layers.facts import _tag_has
+
         assert _tag_has("", "bar") is False
 
     def test_has_single(self):
         from eling.layers.facts import _tag_has
+
         assert _tag_has("bar", "bar") is True
 
     def test_has_substring_no_false(self):
         """'bar' should not match 'barista'."""
         from eling.layers.facts import _tag_has
+
         assert _tag_has("barista", "bar") is False
 
     def test_add_new(self):
         from eling.layers.facts import _tag_add
+
         assert _tag_add("foo", "bar") == "foo,bar"
 
     def test_add_to_empty(self):
         from eling.layers.facts import _tag_add
+
         assert _tag_add("", "bar") == "bar"
 
     def test_add_duplicate(self):
         from eling.layers.facts import _tag_add
+
         assert _tag_add("foo,bar", "bar") == "foo,bar"
 
     def test_remove_present(self):
         from eling.layers.facts import _tag_remove
+
         assert _tag_remove("foo,bar,baz", "bar") == "foo,baz"
 
     def test_remove_absent(self):
         from eling.layers.facts import _tag_remove
+
         assert _tag_remove("foo,baz", "bar") == "foo,baz"
 
     def test_remove_single(self):
         from eling.layers.facts import _tag_remove
+
         assert _tag_remove("bar", "bar") == ""
 
     def test_remove_empty(self):
         from eling.layers.facts import _tag_remove
+
         assert _tag_remove("", "bar") == ""
 
 
@@ -86,14 +98,14 @@ class TestDetectContradictions:
     def test_no_shared_entities_returns_empty(self, fact_db):
         """Facts about different entities should not contradict."""
         f1 = fact_db.add("Albert Einstein studied theoretical physics")
-        f2 = fact_db.add("Java Virtual Machine manages memory automatically")
+        fact_db.add("Java Virtual Machine manages memory automatically")
         # No overlapping entities → no contradiction
         assert fact_db.detect_contradictions(f1) == []
 
     def test_similar_facts_no_flag(self, fact_db):
         """Facts sharing entities with high Jaccard similarity → no flag."""
         f1 = fact_db.add("Albert Einstein developed the theory of relativity")
-        f2 = fact_db.add("Albert Einstein proposed the theory of relativity in 1915")
+        fact_db.add("Albert Einstein proposed the theory of relativity in 1915")
         # Both about Einstein + relativity → high overlap
         assert fact_db.detect_contradictions(f1) == []
 
@@ -129,7 +141,7 @@ class TestDetectContradictions:
     def test_already_flagged_skipped(self, fact_db):
         """Already flagged facts should not be flagged again."""
         f1 = fact_db.add("Java Virtual Machine is a compiled system")
-        f2 = fact_db.add("Java Virtual Machine is for web design")
+        fact_db.add("Java Virtual Machine is for web design")
         # First pass
         fact_db.detect_contradictions(f1)
         # Second pass — should return empty because both already flagged
@@ -157,7 +169,7 @@ class TestDetectContradictions:
     def test_stats_shows_pending_contradictions(self, fact_db):
         """stats() includes pending_contradictions count."""
         f1 = fact_db.add("Java Virtual Machine is a compiled system")
-        f2 = fact_db.add("Java Virtual Machine was designed for web apps")
+        fact_db.add("Java Virtual Machine was designed for web apps")
         fact_db.detect_contradictions(f1)
 
         st = fact_db.stats()
@@ -171,7 +183,7 @@ class TestDetectContradictions:
         # f2 auto-flagged f1+f2. f3 is added fresh — its auto-check only
         # finds unflagged contradictors (f1 and f2 already flagged, so f3
         # itself won't be flagged).  Verify at least f1+f2 both flagged.
-        f3 = fact_db.add("Mars Rover carries scientific instruments for geology")
+        fact_db.add("Mars Rover carries scientific instruments for geology")
 
         rows = fact_db._conn.execute(
             "SELECT fact_id, tags FROM facts WHERE tags LIKE ?",

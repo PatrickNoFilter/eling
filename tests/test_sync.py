@@ -3,9 +3,7 @@
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
-import pytest
 
 from eling.brain import Brain
 from eling.layers.facts import FactsLayer
@@ -83,6 +81,7 @@ class TestBrainSync:
         brain.sync(sync_state_path=str(state_path))
         assert state_path.exists()
         import json
+
         state = json.loads(state_path.read_text())
         assert "last_sync" in state
         assert "total_pushed" in state
@@ -95,6 +94,7 @@ class TestBrainSync:
         brain.sync(sync_state_path=str(state_path))
         brain.sync(sync_state_path=str(state_path))
         import json
+
         state = json.loads(state_path.read_text())
         assert state["total_pushed"] >= 0
         assert state["total_pulled"] >= 0
@@ -140,6 +140,7 @@ class TestSyncEdgeCases:
         import tempfile
         from pathlib import Path
         from eling.brain import Brain
+
         tmp = Path(tempfile.mkdtemp())
         brain = Brain(home=tmp)
         result = brain.sync(direction="flush", layer="nope")
@@ -152,6 +153,7 @@ class TestSyncEdgeCases:
         import tempfile
         from pathlib import Path
         from eling.brain import Brain
+
         tmp = Path(tempfile.mkdtemp())
         brain = Brain(home=tmp)
         result = brain.sync(direction="all", layer="auto")
@@ -164,6 +166,7 @@ class TestSyncEdgeCases:
         import tempfile
         from pathlib import Path
         from eling.brain import Brain
+
         tmp = Path(tempfile.mkdtemp())
         brain = Brain(home=tmp)
         brain.remember("A very important test fact", layer="facts")
@@ -180,6 +183,7 @@ class TestSyncEdgeCases:
         import tempfile
         from pathlib import Path
         from eling.brain import Brain
+
         tmp = Path(tempfile.mkdtemp())
         state_file = tmp / "state.json"
         brain = Brain(home=tmp)

@@ -1,8 +1,5 @@
 """Tests for eling.layers.facts.FactsLayer."""
 
-import tempfile
-from pathlib import Path
-
 import pytest
 
 from eling.layers.facts import FactsLayer
@@ -165,7 +162,7 @@ class TestUpdateTrust:
     def test_helpful_increases_trust(self, facts):
         fid = facts.add("Test fact")
         before = facts.get(fid)
-        result = facts.update_trust(fid, helpful=True)
+        facts.update_trust(fid, helpful=True)
         after = facts.get(fid)
         assert after["trust_score"] > before["trust_score"]
         assert after["helpful_count"] == before["helpful_count"] + 1

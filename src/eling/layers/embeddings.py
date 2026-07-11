@@ -16,7 +16,6 @@ import os
 import sqlite3
 import threading
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +28,12 @@ def _get_np():
     if _np is None:
         try:
             import numpy as __np
+
             _np = __np
         except ImportError:
             _np = False  # sentinel: don't retry
     return _np if _np is not False else None
+
 
 _HAS_SENTENCE_TRANSFORMERS = False
 _MODEL = None
@@ -74,7 +75,9 @@ def _get_env_key() -> str:
     return ""
 
 
-def _api_embed(texts: list[str], *, api_key: str | None = None) -> list[list[float]] | None:
+def _api_embed(
+    texts: list[str], *, api_key: str | None = None
+) -> list[list[float]] | None:
     """Embed a list of texts via the Mistral API.
 
     Returns list of vectors or None on failure.
@@ -121,7 +124,11 @@ def _get_model(model_name: str = "all-MiniLM-L6-v2"):
     if _MODEL is None and _HAS_SENTENCE_TRANSFORMERS:
         try:
             _MODEL = SentenceTransformer(model_name)
-            logger.info("Embedding model loaded: %s (dim=%d)", model_name, _MODEL.get_sentence_embedding_dimension())
+            logger.info(
+                "Embedding model loaded: %s (dim=%d)",
+                model_name,
+                _MODEL.get_sentence_embedding_dimension(),
+            )
         except Exception as e:
             logger.warning("Failed to load embedding model %s: %s", model_name, e)
     return _MODEL
@@ -157,7 +164,9 @@ class EmbeddingIndex:
 
     def __init__(self, db_path: Path, model_name: str = ""):
         self.db_path = db_path
-        self._conn = sqlite3.connect(str(db_path), check_same_thread=False, timeout=10.0)
+        self._conn = sqlite3.connect(
+            str(db_path), check_same_thread=False, timeout=10.0
+        )
         self._lock = threading.RLock()
         try:
             self._conn.execute("PRAGMA journal_mode=WAL")
@@ -175,13 +184,15 @@ class EmbeddingIndex:
             self._api_key = _get_env_key()
             if self._api_key:
                 if not _test_api(api_key=self._api_key):
-                    logger.warning("Embedding API test failed — vector search unavailable")
+                    logger.warning(
+                        "Embedding API test failed — vector search unavailable"
+                    )
                     self._api_key = None
 
         # Detect existing provider
         self._provider, self._model, self._dim = self._detect_existing_provider()
 
-        self.available = (self._sentence_model is not None or self._api_key is not None)
+        self.available = self._sentence_model is not None or self._api_key is not None
 
     def _detect_existing_provider(self) -> tuple[str | None, str | None, int]:
         """Detect the provider/model/dim of existing indexed facts.
@@ -208,7 +219,9 @@ class EmbeddingIndex:
         """Encode text using the best available provider."""
         if self._sentence_model:
             try:
-                return self._sentence_model.encode(text, normalize_embeddings=True).tolist()
+                return self._sentence_model.encode(
+                    text, normalize_embeddings=True
+                ).tolist()
             except Exception as e:
                 logger.debug("Local embedding encode failed: %s", e)
         if self._api_key:
@@ -227,9 +240,13 @@ class EmbeddingIndex:
         np_mod = _get_np()
         if np_mod is None:
             return False
-        blob = np_mod.array(vec, dtype=np.float32).tobytes()
+        blob = np_mod.array(vec, dtype=np_mod.float32).tobytes()
         provider = "local" if self._sentence_model else "api"
-        model = self._sentence_model.model_name if self._sentence_model else _DEFAULT_EMBED_MODEL
+        model = (
+            self._sentence_model.model_name
+            if self._sentence_model
+            else _DEFAULT_EMBED_MODEL
+        )
         dim = len(vec)
         with self._lock:
             self._conn.execute(
@@ -241,10 +258,14 @@ class EmbeddingIndex:
 
     def remove_fact(self, fact_id: int) -> None:
         with self._lock:
-            self._conn.execute("DELETE FROM fact_embeddings_v2 WHERE fact_id = ?", (fact_id,))
+            self._conn.execute(
+                "DELETE FROM fact_embeddings_v2 WHERE fact_id = ?", (fact_id,)
+            )
             self._conn.commit()
 
-    def search(self, query: str, fact_ids: list[int], limit: int = 10) -> dict[int, float]:
+    def search(
+        self, query: str, fact_ids: list[int], limit: int = 10
+    ) -> dict[int, float]:
         """Search facts by embedding similarity. Returns {fact_id: cosine_similarity}.
 
         Flat brute-force scan using numpy — fine for eling's scale (<10k facts).
@@ -259,7 +280,7 @@ class EmbeddingIndex:
         np_mod = _get_np()
         if np_mod is None:
             return {}
-        qvec_np = np_mod.array(qvec, dtype=np.float32)
+        qvec_np = np_mod.array(qvec, dtype=np_mod.float32)
         placeholders = ",".join("?" for _ in fact_ids)
         rows = self._conn.execute(
             f"SELECT fact_id, embedding FROM fact_embeddings_v2 WHERE fact_id IN ({placeholders})",
@@ -269,7 +290,7 @@ class EmbeddingIndex:
         scores: dict[int, float] = {}
         for fid, blob in rows:
             try:
-                fvec = np_mod.frombuffer(blob, dtype=np.float32)
+                fvec = np_mod.frombuffer(blob, dtype=np_mod.float32)
                 sim = float(np_mod.dot(qvec_np, fvec))  # cosine (normalized)
                 scores[int(fid)] = sim
             except Exception:
@@ -296,7 +317,9 @@ class EmbeddingIndex:
         if not self.available:
             return {"available": False, "model": None, "indexed_facts": 0, "dim": 0}
         with self._lock:
-            count = self._conn.execute("SELECT COUNT(*) as n FROM fact_embeddings_v2").fetchone()[0]
+            count = self._conn.execute(
+                "SELECT COUNT(*) as n FROM fact_embeddings_v2"
+            ).fetchone()[0]
             provider = self._conn.execute(
                 "SELECT provider, COUNT(*) as n FROM fact_embeddings_v2 GROUP BY provider ORDER BY n DESC LIMIT 1"
             ).fetchone()

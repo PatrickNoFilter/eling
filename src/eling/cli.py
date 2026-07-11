@@ -4,28 +4,44 @@ import argparse
 import json
 import os
 import sys
+from pathlib import Path
 
 from .brain import Brain
-from .config import DEFAULTS, describe_config, get_config, remove_config_key, resolve_config, set_config_key
+from .config import (
+    DEFAULTS,
+    describe_config,
+    get_config,
+    remove_config_key,
+    resolve_config,
+    set_config_key,
+)
 
 
 def main():
-    parser = argparse.ArgumentParser(prog="eling", description="Eling — unified second brain")
+    parser = argparse.ArgumentParser(
+        prog="eling", description="Eling — unified second brain"
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_rem = sub.add_parser("remember", help="Store content")
     p_rem.add_argument("content")
-    p_rem.add_argument("--layer", default="auto", choices=["auto", "facts", "kb", "notion"])
+    p_rem.add_argument(
+        "--layer", default="auto", choices=["auto", "facts", "kb", "notion"]
+    )
     p_rem.add_argument("--category", default="general")
     p_rem.add_argument("--tags", default="")
     p_rem.add_argument("--title", default="")
-    p_rem.add_argument("--source", default="mcp", help="Agent origin (hermes, opencode, etc.)")
+    p_rem.add_argument(
+        "--source", default="mcp", help="Agent origin (hermes, opencode, etc.)"
+    )
 
     p_rec = sub.add_parser("recall", help="Search across all layers")
     p_rec.add_argument("query")
     p_rec.add_argument("--limit", type=int, default=10)
     p_rec.add_argument("--layers", default="", help="comma-separated subset")
-    p_rec.add_argument("--source", default="", help="Filter by agent origin (hermes, opencode, etc.)")
+    p_rec.add_argument(
+        "--source", default="", help="Filter by agent origin (hermes, opencode, etc.)"
+    )
 
     p_probe = sub.add_parser("probe", help="Get facts about an entity")
     p_probe.add_argument("entity")
@@ -45,99 +61,166 @@ def main():
     p_linked.add_argument("fact_id", type=int)
     p_linked.add_argument("--limit", type=int, default=10)
 
-    p_evolve = sub.add_parser("evolve", help="Merge near-duplicate facts (memory evolution)")
-    p_evolve.add_argument("--threshold", type=float, default=None,
-                          help="Jaccard similarity threshold (default: 0.65)")
+    p_evolve = sub.add_parser(
+        "evolve", help="Merge near-duplicate facts (memory evolution)"
+    )
+    p_evolve.add_argument(
+        "--threshold",
+        type=float,
+        default=None,
+        help="Jaccard similarity threshold (default: 0.65)",
+    )
 
     # ── snapshot / rollback ──
-    p_snap = sub.add_parser("snapshot", help="Create a named snapshot of the facts database")
+    p_snap = sub.add_parser(
+        "snapshot", help="Create a named snapshot of the facts database"
+    )
     p_snap.add_argument("--reason", default="", help="Why the snapshot is taken")
 
     sub.add_parser("list-snapshots", help="List all available snapshots")
 
     p_roll = sub.add_parser("rollback", help="Rollback facts database to a snapshot")
-    p_roll.add_argument("snapshot_id", help="Snapshot ID to restore (use list-snapshots to find it)")
+    p_roll.add_argument(
+        "snapshot_id", help="Snapshot ID to restore (use list-snapshots to find it)"
+    )
 
     p_mcp = sub.add_parser("mcp", help="Run MCP server (stdio)")
     p_mcp.add_argument("--transport", default="stdio")
 
     # ── continuum subcommand (Layer 6 orchestration tier) ──
-    p_cont = sub.add_parser("continuum", help="Continuum Layer 6 — orchestration MCP server")
+    p_cont = sub.add_parser(
+        "continuum", help="Continuum Layer 6 — orchestration MCP server"
+    )
     p_cont_cmd = p_cont.add_subparsers(dest="continuum_cmd", required=True)
-    p_cont_mcp = p_cont_cmd.add_parser("mcp", help="Run the Continuum orchestration MCP server (stdio)")
-    p_cont_mcp.add_argument("--db", default="", help="Path to continuum.db (default: ELING_HOME/continuum.db)")
+    p_cont_mcp = p_cont_cmd.add_parser(
+        "mcp", help="Run the Continuum orchestration MCP server (stdio)"
+    )
+    p_cont_mcp.add_argument(
+        "--db",
+        default="",
+        help="Path to continuum.db (default: ELING_HOME/continuum.db)",
+    )
 
     # ── config subcommand ──
     p_cfg = sub.add_parser("config", help="Manage Eling configuration")
     p_cfg_cmd = p_cfg.add_subparsers(dest="config_cmd", required=True)
     p_cfg_get = p_cfg_cmd.add_parser("get", help="Get a config value")
-    p_cfg_get.add_argument("key", nargs="?", default="", help="Config key (omit to see all)")
+    p_cfg_get.add_argument(
+        "key", nargs="?", default="", help="Config key (omit to see all)"
+    )
     p_cfg_set = p_cfg_cmd.add_parser("set", help="Set a config value")
     p_cfg_set.add_argument("key", help="Config key")
     p_cfg_set.add_argument("value", help="Config value")
-    p_cfg_set.add_argument("--home", default="", help="Eling home dir (default: resolved)")
-    p_cfg_ls = p_cfg_cmd.add_parser("ls", help="List all config keys with values and sources")
+    p_cfg_set.add_argument(
+        "--home", default="", help="Eling home dir (default: resolved)"
+    )
+    p_cfg_cmd.add_parser("ls", help="List all config keys with values and sources")
     p_cfg_unset = p_cfg_cmd.add_parser("unset", help="Remove a config key")
     p_cfg_unset.add_argument("key", help="Config key")
-    p_cfg_unset.add_argument("--home", default="", help="Eling home dir (default: resolved)")
+    p_cfg_unset.add_argument(
+        "--home", default="", help="Eling home dir (default: resolved)"
+    )
     p_cfg_init = p_cfg_cmd.add_parser("init", help="Write default config.json")
-    p_cfg_init.add_argument("--home", default="", help="Eling home dir (default: resolved)")
-    p_cfg_schema = p_cfg_cmd.add_parser("schema", help="Show config schema")
+    p_cfg_init.add_argument(
+        "--home", default="", help="Eling home dir (default: resolved)"
+    )
+    p_cfg_cmd.add_parser("schema", help="Show config schema")
 
     # ── sync subcommand ──
     p_sync = sub.add_parser("sync", help="Synchronize layers (facts↔Notion, flush)")
-    p_sync.add_argument("--direction", default="all",
-                        choices=["push", "pull", "flush", "all"],
-                        help="Sync direction [all]")
-    p_sync.add_argument("--layer", default="auto",
-                        choices=["auto", "facts", "notion", "kb"],
-                        help="Layer scope [auto]")
-    p_sync.add_argument("--daemon", action="store_true",
-                        help="Run as daemon (continuous sync)")
-    p_sync.add_argument("--interval", type=int, default=300,
-                        help="Daemon interval in seconds [300]")
-    p_sync.add_argument("--once", action="store_true",
-                        help="Run once and exit [default]")
-    p_sync.add_argument("--state-file", default="",
-                        help="Path to sync state file")
+    p_sync.add_argument(
+        "--direction",
+        default="all",
+        choices=["push", "pull", "flush", "all"],
+        help="Sync direction [all]",
+    )
+    p_sync.add_argument(
+        "--layer",
+        default="auto",
+        choices=["auto", "facts", "notion", "kb"],
+        help="Layer scope [auto]",
+    )
+    p_sync.add_argument(
+        "--daemon", action="store_true", help="Run as daemon (continuous sync)"
+    )
+    p_sync.add_argument(
+        "--interval", type=int, default=300, help="Daemon interval in seconds [300]"
+    )
+    p_sync.add_argument(
+        "--once", action="store_true", help="Run once and exit [default]"
+    )
+    p_sync.add_argument("--state-file", default="", help="Path to sync state file")
 
     # ── install-opencode subcommand ──
-    p_io = sub.add_parser("install-opencode", help="Install eling memory plugin into OpenCode")
-    p_io.add_argument("--dry-run", action="store_true",
-                      help="Show what would be done without making changes")
+    p_io = sub.add_parser(
+        "install-opencode", help="Install eling memory plugin into OpenCode"
+    )
+    p_io.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
 
     # ── install-zero subcommand ──
-    p_iz = sub.add_parser("install-zero", help="Install eling hooks and skill into Zero")
-    p_iz.add_argument("--dry-run", action="store_true",
-                      help="Show what would be done without making changes")
-    p_iz.add_argument("--zero-config-dir", default="",
-                      help="Zero config directory (default: ~/.config/zero)")
+    p_iz = sub.add_parser(
+        "install-zero", help="Install eling hooks and skill into Zero"
+    )
+    p_iz.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
+    p_iz.add_argument(
+        "--zero-config-dir",
+        default="",
+        help="Zero config directory (default: ~/.config/zero)",
+    )
 
     # ── install-termux subcommand ──
-    p_it = sub.add_parser("install-termux",
-                          help="Install eling launcher scripts for Termux on Android")
-    p_it.add_argument("--bin-dir", default="",
-                      help="Target bin directory (default: ~/.local/bin)")
-    p_it.add_argument("--configure-zero", action="store_true",
-                      help="Also update Zero MCP config to use the Termux scripts")
-    p_it.add_argument("--zero-config-dir", default="",
-                      help="Zero config directory (default: ~/.config/zero)")
-    p_it.add_argument("--dry-run", action="store_true",
-                      help="Show what would be done without making changes")
+    p_it = sub.add_parser(
+        "install-termux", help="Install eling launcher scripts for Termux on Android"
+    )
+    p_it.add_argument(
+        "--bin-dir", default="", help="Target bin directory (default: ~/.local/bin)"
+    )
+    p_it.add_argument(
+        "--configure-zero",
+        action="store_true",
+        help="Also update Zero MCP config to use the Termux scripts",
+    )
+    p_it.add_argument(
+        "--zero-config-dir",
+        default="",
+        help="Zero config directory (default: ~/.config/zero)",
+    )
+    p_it.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
 
     # ── init-rules subcommand ──
     p_rules = sub.add_parser("init-rules", help="Write steering rules for AI agents")
-    p_rules.add_argument("--project-dir", default=".",
-                         help="Project root directory (default: cwd)")
-    p_rules.add_argument("--agent", choices=["cursor", "claude_code", "opencode", "generic"], action="append",
-                         help="Target agent type (auto-detected if omitted)")
-    p_rules.add_argument("--dry-run", action="store_true",
-                         help="Show what would be done without making changes")
+    p_rules.add_argument(
+        "--project-dir", default=".", help="Project root directory (default: cwd)"
+    )
+    p_rules.add_argument(
+        "--agent",
+        choices=["cursor", "claude_code", "opencode", "generic"],
+        action="append",
+        help="Target agent type (auto-detected if omitted)",
+    )
+    p_rules.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
 
     args = parser.parse_args()
 
     if args.cmd == "mcp":
         from .mcp_server import run_stdio
+
         run_stdio()
         return
 
@@ -146,6 +229,7 @@ def main():
             if args.db:
                 os.environ["ELING_CONTINUUM_DB"] = args.db
             from .continuum.mcp_server import run_stdio as continuum_run
+
             continuum_run()
         return
 
@@ -176,12 +260,20 @@ def main():
     brain = Brain()
     try:
         if args.cmd == "remember":
-            out = brain.remember(args.content, layer=args.layer, category=args.category,
-                                  tags=args.tags, title=args.title, source=args.source)
+            out = brain.remember(
+                args.content,
+                layer=args.layer,
+                category=args.category,
+                tags=args.tags,
+                title=args.title,
+                source=args.source,
+            )
         elif args.cmd == "recall":
             layers = [s.strip() for s in args.layers.split(",") if s.strip()] or None
             source = args.source or None
-            out = brain.recall(args.query, layers=layers, limit=args.limit, source=source)
+            out = brain.recall(
+                args.query, layers=layers, limit=args.limit, source=source
+            )
         elif args.cmd == "probe":
             out = brain.probe(args.entity, limit=args.limit)
         elif args.cmd == "reason":
@@ -214,7 +306,9 @@ def _run_config(args: argparse.Namespace) -> None:
         return
 
     if args.config_cmd == "init":
-        home = args.home or resolve_config().get("home") or os.path.expanduser("~/.eling")
+        home = (
+            args.home or resolve_config().get("home") or os.path.expanduser("~/.eling")
+        )
         for k, v in DEFAULTS.items():
             set_config_key(k, v, home=home)
         print(f"Default config written to {home}/config.json")
@@ -260,13 +354,17 @@ def _run_config(args: argparse.Namespace) -> None:
         return
 
     if args.config_cmd == "set":
-        home = args.home or resolve_config().get("home") or os.path.expanduser("~/.eling")
+        home = (
+            args.home or resolve_config().get("home") or os.path.expanduser("~/.eling")
+        )
         set_config_key(args.key, args.value, home=home)
         print(f"Set {args.key} = {args.value} in {home}/config.json")
         return
 
     if args.config_cmd == "unset":
-        home = args.home or resolve_config().get("home") or os.path.expanduser("~/.eling")
+        home = (
+            args.home or resolve_config().get("home") or os.path.expanduser("~/.eling")
+        )
         remove_config_key(args.key, home=home)
         print(f"Removed {args.key} from {home}/config.json")
         return
@@ -276,6 +374,7 @@ def _hermes_config_has(key: str) -> bool:
     """Check if key exists in Hermes plugins.eling config."""
     try:
         from hermes_cli.config import cfg_get, load_config
+
         cfg = load_config()
         pc = cfg_get(cfg, "plugins", "eling", default={}) or {}
         return key in pc
@@ -290,7 +389,9 @@ def _run_sync(args: argparse.Namespace) -> None:
         state_file = args.state_file or ""
         if not state_file:
             home = brain.home
-            state_file = str(home / "sync_state.json") if hasattr(home, "__truediv__") else ""
+            state_file = (
+                str(home / "sync_state.json") if hasattr(home, "__truediv__") else ""
+            )
 
         if args.daemon:
             import time
@@ -324,23 +425,34 @@ def _run_sync(args: argparse.Namespace) -> None:
 
 def _run_install_opencode_cli() -> None:
     """Console_scripts entry point: install eling plugin into OpenCode."""
-    p = argparse.ArgumentParser(prog="eling-install-opencode",
-                                description="Install eling memory plugin into OpenCode")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Show what would be done without making changes")
+    p = argparse.ArgumentParser(
+        prog="eling-install-opencode",
+        description="Install eling memory plugin into OpenCode",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
     args = p.parse_args()
     _run_install_opencode(args)
 
 
 def _run_continuum_cli() -> None:
     """Console_scripts entry point: run the Continuum Layer 6 MCP server."""
-    p = argparse.ArgumentParser(prog="eling-continuum",
-                                description="Eling Continuum — orchestration MCP server")
-    p.add_argument("--db", default="", help="Path to continuum.db (default: ELING_HOME/continuum.db)")
+    p = argparse.ArgumentParser(
+        prog="eling-continuum", description="Eling Continuum — orchestration MCP server"
+    )
+    p.add_argument(
+        "--db",
+        default="",
+        help="Path to continuum.db (default: ELING_HOME/continuum.db)",
+    )
     args = p.parse_args()
     if args.db:
         os.environ["ELING_CONTINUUM_DB"] = args.db
     from .continuum.mcp_server import run_stdio as continuum_run
+
     continuum_run()
 
 
@@ -372,7 +484,10 @@ def _run_install_opencode(args: argparse.Namespace) -> None:
                 break
         if oc_dir is None:
             print("OpenCode config directory not found.", file=sys.stderr)
-            print("Checked: OPENCODE_HOME, ~/.config/opencode, ~/.opencode", file=sys.stderr)
+            print(
+                "Checked: OPENCODE_HOME, ~/.config/opencode, ~/.opencode",
+                file=sys.stderr,
+            )
             print("Install OpenCode first, or set OPENCODE_HOME.", file=sys.stderr)
             sys.exit(1)
 
@@ -402,7 +517,7 @@ def _run_install_opencode(args: argparse.Namespace) -> None:
     print(f"Copied plugin: {src} → {target}")
 
     # 4. Register in opencode.jsonc
-    rel_path = f"./plugins/eling-memory.js"
+    rel_path = "./plugins/eling-memory.js"
     if config_file.exists():
         raw = config_file.read_text(encoding="utf-8")
         # Check if already registered
@@ -424,7 +539,10 @@ def _run_install_opencode(args: argparse.Namespace) -> None:
                         clean_lines.append(line)
                 cfg = json.loads("\n".join(clean_lines))
             except json.JSONDecodeError:
-                print(f"Could not parse {config_file} — add plugin manually:", file=sys.stderr)
+                print(
+                    f"Could not parse {config_file} — add plugin manually:",
+                    file=sys.stderr,
+                )
                 print(f'  "plugin": ["{rel_path}"]', file=sys.stderr)
                 return
 
@@ -453,12 +571,19 @@ def _run_install_opencode(args: argparse.Namespace) -> None:
 
 def _run_install_zero_cli() -> None:
     """Console_scripts entry point: install eling into Zero."""
-    p = argparse.ArgumentParser(prog="eling-install-zero",
-                                description="Install eling hooks and skill into Zero")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Show what would be done without making changes")
-    p.add_argument("--zero-config-dir", default="",
-                   help="Zero config directory (default: ~/.config/zero)")
+    p = argparse.ArgumentParser(
+        prog="eling-install-zero", description="Install eling hooks and skill into Zero"
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
+    p.add_argument(
+        "--zero-config-dir",
+        default="",
+        help="Zero config directory (default: ~/.config/zero)",
+    )
     args = p.parse_args()
     _run_install_zero(args)
 
@@ -520,7 +645,9 @@ def _run_install_zero(args: argparse.Namespace) -> None:
         print(f"[dry-run] Would copy: {hook_src} → {hook_dst}")
         print(f"[dry-run] Would copy: {skill_src} → {skill_dst}")
         print(f"[dry-run] Would add MCP server to {zero_cfg / 'config.json'}")
-        print("[dry-run] Would register hooks: sessionStart, sessionEnd, beforeTool, afterTool")
+        print(
+            "[dry-run] Would register hooks: sessionStart, sessionEnd, beforeTool, afterTool"
+        )
         print(f"[dry-run] Would install skill: eling → {skill_dst}")
         return
 
@@ -533,22 +660,24 @@ def _run_install_zero(args: argparse.Namespace) -> None:
 
     # 4. Register hooks via `zero hooks add`
     hook_registrations = [
-        ("eling-sessionstart", "sessionStart",
-         "Eling session start — warm caches"),
-        ("eling-sessionend", "sessionEnd",
-         "Eling session end — flush memory"),
-        ("eling-beforetool", "beforeTool",
-         "Eling pre-tool — recall context"),
-        ("eling-aftool", "afterTool",
-         "Eling after-tool — store results"),
+        ("eling-sessionstart", "sessionStart", "Eling session start — warm caches"),
+        ("eling-sessionend", "sessionEnd", "Eling session end — flush memory"),
+        ("eling-beforetool", "beforeTool", "Eling pre-tool — recall context"),
+        ("eling-aftool", "afterTool", "Eling after-tool — store results"),
     ]
 
     for hook_id, event, desc in hook_registrations:
         cmd = [
-            "zero", "hooks", "add", hook_id,
-            "--event", event,
-            "--command", f"python3 {hook_dst}",
-            "--description", desc,
+            "zero",
+            "hooks",
+            "add",
+            hook_id,
+            "--event",
+            event,
+            "--command",
+            f"python3 {hook_dst}",
+            "--description",
+            desc,
         ]
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
@@ -559,7 +688,10 @@ def _run_install_zero(args: argparse.Namespace) -> None:
             if "already exists" in output.lower() or "exists" in output.lower():
                 print(f"Hook already exists: {hook_id} ({event})")
             else:
-                print(f"Warning: hook registration failed for {hook_id}: {output}", file=sys.stderr)
+                print(
+                    f"Warning: hook registration failed for {hook_id}: {output}",
+                    file=sys.stderr,
+                )
 
     # 5. Install skill
     skill_dir = zero_data / "skills" / "eling"
@@ -571,7 +703,9 @@ def _run_install_zero(args: argparse.Namespace) -> None:
     # 6. Add MCP server to Zero config if not already present
     if zero_cfg.joinpath("config.json").exists():
         try:
-            cfg = json.loads(zero_cfg.joinpath("config.json").read_text(encoding="utf-8"))
+            cfg = json.loads(
+                zero_cfg.joinpath("config.json").read_text(encoding="utf-8")
+            )
         except (json.JSONDecodeError, OSError):
             cfg = {}
         mcp = cfg.get("mcp", {})
@@ -629,7 +763,9 @@ def _run_init_rules(args: argparse.Namespace) -> None:
 
     if agents is None:
         agents_sniffed = detect_agent(Path(project_dir))
-        print(f"Detected agents: {', '.join(agents_sniffed) if agents_sniffed else '(none)'}")
+        print(
+            f"Detected agents: {', '.join(agents_sniffed) if agents_sniffed else '(none)'}"
+        )
         if not agents_sniffed:
             agents = ["generic"]
             print("No agent config detected — writing generic ELING_MEMORY.md")
@@ -650,16 +786,28 @@ def _run_init_rules(args: argparse.Namespace) -> None:
 
 def _run_install_termux_cli() -> None:
     """Console_scripts entry point: install eling launchers for Termux."""
-    p = argparse.ArgumentParser(prog="eling-install-termux",
-                                description="Install eling launcher scripts for Termux on Android")
-    p.add_argument("--bin-dir", default="",
-                   help="Target bin directory (default: ~/.local/bin)")
-    p.add_argument("--configure-zero", action="store_true",
-                   help="Also update Zero MCP config to use the Termux scripts")
-    p.add_argument("--zero-config-dir", default="",
-                   help="Zero config directory (default: ~/.config/zero)")
-    p.add_argument("--dry-run", action="store_true",
-                   help="Show what would be done without making changes")
+    p = argparse.ArgumentParser(
+        prog="eling-install-termux",
+        description="Install eling launcher scripts for Termux on Android",
+    )
+    p.add_argument(
+        "--bin-dir", default="", help="Target bin directory (default: ~/.local/bin)"
+    )
+    p.add_argument(
+        "--configure-zero",
+        action="store_true",
+        help="Also update Zero MCP config to use the Termux scripts",
+    )
+    p.add_argument(
+        "--zero-config-dir",
+        default="",
+        help="Zero config directory (default: ~/.config/zero)",
+    )
+    p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done without making changes",
+    )
     args = p.parse_args()
     _run_install_termux(args)
 
@@ -695,8 +843,12 @@ def _run_install_termux(args: argparse.Namespace) -> None:
 
     # ── Detect Termux ──
     if not os.path.isdir("/data/data/com.termux/files/usr/bin"):
-        print("⚠️  This system does not appear to be Termux (no /data/data/com.termux/files/usr/bin).")
-        print("   The scripts will still be written but the shebang may not work on other platforms.\n")
+        print(
+            "⚠️  This system does not appear to be Termux (no /data/data/com.termux/files/usr/bin)."
+        )
+        print(
+            "   The scripts will still be written but the shebang may not work on other platforms.\n"
+        )
 
     scripts = {
         "eling-termux": f'''{shebang}
@@ -804,17 +956,29 @@ run_stdio()
             cfg = {"mcp": {}}
 
         mcp = cfg.setdefault("mcp", {})
-        mcp.setdefault("eling", {"command": str(bin_dir / "eling-termux-mcp"),
-                                  "description": "Notion-based second brain (remote/online memory)"})
-        mcp.setdefault("as_brain", {"command": str(bin_dir / "as-brain-mcp"),
-                                     "description": "Local memory layers: facts, KB, code, builtin, HRR"})
+        mcp.setdefault(
+            "eling",
+            {
+                "command": str(bin_dir / "eling-termux-mcp"),
+                "description": "Notion-based second brain (remote/online memory)",
+            },
+        )
+        mcp.setdefault(
+            "as_brain",
+            {
+                "command": str(bin_dir / "as-brain-mcp"),
+                "description": "Local memory layers: facts, KB, code, builtin, HRR",
+            },
+        )
         cfg["mcp"] = mcp
 
         zero_cfg.mkdir(parents=True, exist_ok=True)
         cfg_path.write_text(json_mod.dumps(cfg, indent=2) + "\n", encoding="utf-8")
         print(f"  Updated Zero MCP config: {cfg_path}")
 
-    print("\n✅ Termux launcher scripts installed. Ensure ~/.local/bin is in your PATH.")
+    print(
+        "\n✅ Termux launcher scripts installed. Ensure ~/.local/bin is in your PATH."
+    )
     if not getattr(args, "configure_zero", False):
         print("   Run with --configure-zero to update Zero's MCP config automatically.")
 

@@ -18,13 +18,14 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _brain = None
-_fact_provider: "FactMemoryProvider | None" = None
+_fact_provider: Any = None  # FactMemoryProvider | None (lazy import)
 
 
 def _get_brain():
     global _brain
     if _brain is None:
         from .brain import Brain
+
         _brain = Brain()
     return _brain
 
@@ -33,6 +34,7 @@ def _get_fact_provider():
     global _fact_provider
     if _fact_provider is None:
         from .fact_memory_provider import FactMemoryProvider
+
         _fact_provider = FactMemoryProvider()
     return _fact_provider
 
@@ -76,8 +78,12 @@ def register(registry: Any) -> None:
 
     # ── Full Brain-based tools (all 5 layers) ─────────────────────────
     try:
-        registry.register_tool(ELING_REMEMBER_SCHEMA, lambda **kw: _get_brain().remember(**kw))
-        registry.register_tool(ELING_RECALL_SCHEMA, lambda **kw: _get_brain().recall(**kw))
+        registry.register_tool(
+            ELING_REMEMBER_SCHEMA, lambda **kw: _get_brain().remember(**kw)
+        )
+        registry.register_tool(
+            ELING_RECALL_SCHEMA, lambda **kw: _get_brain().recall(**kw)
+        )
         logger.info("eling: registered eling_remember + eling_recall")
     except Exception as e:
         errors.append(f"brain tools: {e}")
@@ -92,7 +98,11 @@ def register(registry: Any) -> None:
         logger.warning("FactMemoryProvider registration failed: %s", e)
 
     if errors:
-        logger.warning("eling plugin registered with %d error(s): %s", len(errors), "; ".join(errors))
+        logger.warning(
+            "eling plugin registered with %d error(s): %s",
+            len(errors),
+            "; ".join(errors),
+        )
 
 
 def on_session_end(session: dict) -> None:

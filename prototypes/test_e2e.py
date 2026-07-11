@@ -1,6 +1,5 @@
 """E2E tests for the 3 prototypes: vector search, temporal queries, versioning."""
 
-import json
 import os
 import sys
 import tempfile
@@ -18,16 +17,16 @@ if _env_path.exists():
 # Add prototype dir to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from vector_search import VectorSearchLayer, _api_embed, _get_env_key
-from temporal import (
+from vector_search import VectorSearchLayer, _api_embed, _get_env_key  # noqa: E402
+from temporal import (  # noqa: E402
     parse_time_range,
     has_temporal_intent,
-    search_with_time,
     make_temporal_filter_clause,
 )
-from versioning import VersionedFactStore
+from versioning import VersionedFactStore  # noqa: E402
 
 # ── 1. TEST VECTOR SEARCH ──────────────────────────────────────────────────
+
 
 def test_vector_search_api():
     """Test that the embedding API is reachable and returns correct dimensions."""
@@ -35,18 +34,23 @@ def test_vector_search_api():
     # Debug: check env
     for ek in ("OPENAI_API_KEY", "OPENCODE_ZEN_API_KEY", "MISTRAL_API_KEY"):
         val = os.environ.get(ek, "")
-        print(f"  DEBUG: {ek}={'set ' + val[:8] + '...' if val else 'UNSET'} [{len(val)} chars]")
+        print(
+            f"  DEBUG: {ek}={'set ' + val[:8] + '...' if val else 'UNSET'} [{len(val)} chars]"
+        )
     key_from_fn = _get_env_key()
-    print(f"  DEBUG: _get_env_key() returns {'set ' + key_from_fn[:8] + '...' if key_from_fn else 'EMPTY'} [{len(key_from_fn)} chars]")
-    
+    print(
+        f"  DEBUG: _get_env_key() returns {'set ' + key_from_fn[:8] + '...' if key_from_fn else 'EMPTY'} [{len(key_from_fn)} chars]"
+    )
+
     result = _api_embed(["test connection"])
     if result is None:
         print("  ⚠️  API call failed (no API key set or network issue)")
         return False
     vec = result[0]
     assert len(vec) == 1024, f"Expected 1024-dim (mistral-embed), got {len(vec)}"
-    print(f"  ✅ API works: 1024-dim vector returned")
+    print("  ✅ API works: 1024-dim vector returned")
     return True
+
 
 def test_vsl_index_and_search():
     """Test full index + search flow."""
@@ -76,15 +80,19 @@ def test_vsl_index_and_search():
 
         # Model binding test
         bind_result = vsl._bind_model()
-        assert bind_result is None, f"Model binding should succeed on first call: {bind_result}"
-        print(f"  ✅ Model binding works")
+        assert bind_result is None, (
+            f"Model binding should succeed on first call: {bind_result}"
+        )
+        print("  ✅ Model binding works")
 
         # Semantic search
         results = vsl.search("database query language", top_k=3)
         assert len(results) > 0, "Should find at least one result"
         # Fact 3 or 5 should be top (database-related)
         top_ids = [r["fact_id"] for r in results]
-        print(f"  ✅ Semantic search: top={top_ids} scores={[r['score'] for r in results]}")
+        print(
+            f"  ✅ Semantic search: top={top_ids} scores={[r['score'] for r in results]}"
+        )
 
         # Search with filter
         results_filtered = vsl.search("computer programming", top_k=5, fact_ids=[1, 4])
@@ -105,6 +113,7 @@ def test_vsl_index_and_search():
     except Exception as e:
         print(f"  ❌ FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -112,6 +121,7 @@ def test_vsl_index_and_search():
 
 
 # ── 2. TEST TEMPORAL QUERIES ───────────────────────────────────────────────
+
 
 def test_temporal_parser():
     """Test the NLP date parser."""
@@ -144,6 +154,7 @@ def test_temporal_parser():
     print(f"  ✅ {ok}/{len(cases)} temporal patterns matched")
     return ok > 0
 
+
 def test_temporal_intent():
     """Test temporal intent detection."""
     print("\n[2.2] Temporal: has_temporal_intent...")
@@ -166,6 +177,7 @@ def test_temporal_intent():
     print("  ✅ Temporal intent detection done")
     return True
 
+
 def test_temporal_sql():
     """Test SQL clause generation."""
     print("\n[2.3] Temporal: make_temporal_filter_clause...")
@@ -187,13 +199,14 @@ def test_temporal_sql():
     # Test empty
     clause, params = make_temporal_filter_clause()
     assert clause == ""
-    print(f"  ✅ Empty clause returns empty string")
+    print("  ✅ Empty clause returns empty string")
 
     print("  ✅ All SQL clause tests passed!")
     return True
 
 
 # ── 3. TEST VERSIONING ─────────────────────────────────────────────────────
+
 
 def test_versioning():
     """Test the VersionedFactStore."""
@@ -247,7 +260,9 @@ def test_versioning():
         print(f"  ✅ Snapshot fact 1: version_id={v_id}")
 
         # Update (creates version)
-        result = vfs.update_fact(1, "Python is a versatile programming language for AI and web")
+        result = vfs.update_fact(
+            1, "Python is a versatile programming language for AI and web"
+        )
         assert result["action"] == "versioned_update"
         print(f"  ✅ Versioned update: {result}")
 
@@ -262,7 +277,9 @@ def test_versioning():
 
         # Get history
         first_version = history[0]
-        print(f"  ✅ Time travel ready: can restore to version seq={first_version['version_seq']}")
+        print(
+            f"  ✅ Time travel ready: can restore to version seq={first_version['version_seq']}"
+        )
 
         # Undo
         undo_result = vfs.undo_to_version(1, 1)
@@ -284,6 +301,7 @@ def test_versioning():
     except Exception as e:
         print(f"  ❌ FAILED: {e}")
         import traceback
+
         traceback.print_exc()
         return False
     finally:
@@ -298,7 +316,7 @@ if __name__ == "__main__":
     print("=" * 60)
 
     results = {}
-    
+
     results["vec_api"] = test_vector_search_api()
     results["vsl"] = test_vsl_index_and_search()
     results["temporal_parse"] = test_temporal_parser()

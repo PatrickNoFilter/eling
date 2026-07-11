@@ -12,10 +12,15 @@ def brain():
     """A fresh brain with a known facts.db, notion disabled."""
     import tempfile
     from pathlib import Path
+
     tmp = Path(tempfile.mkdtemp())
-    b = Brain(home=tmp, notion_api_key="")  # disable notion — env NOTION_API_KEY may be set
+    b = Brain(
+        home=tmp, notion_api_key=""
+    )  # disable notion — env NOTION_API_KEY may be set
     # Seed with controlled facts
-    b.remember("Python is a high-level programming language", layer="facts", category="code")
+    b.remember(
+        "Python is a high-level programming language", layer="facts", category="code"
+    )
     b.remember("Python was created by Guido van Rossum", layer="facts", category="code")
     b.remember("JavaScript runs in the browser", layer="facts", category="code")
     yield b
@@ -55,9 +60,12 @@ class TestThinkGapAnalysis:
     def test_stale_fact_detected(self, brain):
         """A fact with artificially lowered strength shows as stale."""
         import sqlite3
+
         db = str(brain.facts.db_path)
         conn = sqlite3.connect(db)
-        conn.execute("UPDATE facts SET strength = 0.3 WHERE content = 'Python is a high-level programming language'")
+        conn.execute(
+            "UPDATE facts SET strength = 0.3 WHERE content = 'Python is a high-level programming language'"
+        )
         conn.commit()
         conn.close()
 
@@ -71,9 +79,12 @@ class TestThinkGapAnalysis:
     def test_contradicted_fact_detected(self, brain):
         """A fact tagged with contradiction_pending shows as contradicted."""
         import sqlite3
+
         db = str(brain.facts.db_path)
         conn = sqlite3.connect(db)
-        conn.execute("UPDATE facts SET tags = 'contradiction_pending' WHERE content = 'Python is a high-level programming language'")
+        conn.execute(
+            "UPDATE facts SET tags = 'contradiction_pending' WHERE content = 'Python is a high-level programming language'"
+        )
         conn.commit()
         conn.close()
 
@@ -101,6 +112,7 @@ class TestThinkMCPTools:
 
     def test_think_tool_in_list(self):
         from eling.as_brain.mcp_server import TOOLS
+
         names = [t["name"] for t in TOOLS]
         assert "brain_think" in names
         tool = next(t for t in TOOLS if t["name"] == "brain_think")
@@ -111,6 +123,7 @@ class TestThinkMCPTools:
 
     def test_brain_tools_total(self):
         from eling.as_brain.mcp_server import TOOLS
+
         # as_brain carries 20 local tools: remember/recall/reason/probe/think/
         # stats/export/evolve/snapshot(3)/link(2)/search_temporal/versioned(4)/
         # verify(2)

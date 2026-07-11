@@ -64,6 +64,7 @@ class TestExportMCP:
     def test_export_tool_in_as_brain(self):
         """Export tool is now in as_brain MCP server (not notion-only eling)."""
         from eling.as_brain.mcp_server import TOOLS
+
         names = [t["name"] for t in TOOLS]
         assert "brain_export" in names
         tool = next(t for t in TOOLS if t["name"] == "brain_export")
@@ -73,11 +74,13 @@ class TestExportMCP:
 
     def test_as_brain_has_core_tools(self):
         from eling.as_brain.mcp_server import TOOLS
+
         assert len(TOOLS) >= 15  # brain_remember + friends + linking + versioning
 
     def test_eling_notion_has_7_tools(self):
         """The notion-only eling MCP has 7 tools (incl. eling_get_page_full, eling_delete_page)."""
         from eling.mcp_server import TOOLS
+
         names = [t["name"] for t in TOOLS]
         assert len(TOOLS) == 7
         assert "eling_remember" in names
@@ -105,8 +108,10 @@ class TestExportIntegrity:
     def test_export_entity_graph_covered(self, brain):
         """Entity graph edges appear in export when they exist."""
         # Force an entity wire by adding content with [[wiki links]]
-        brain.remember("[[FastAPI]] uses [[Python]] for web APIs", layer="facts", category="code")
+        brain.remember(
+            "[[FastAPI]] uses [[Python]] for web APIs", layer="facts", category="code"
+        )
         result = brain.export()
-        preview = result["preview"]
+        result["preview"]
         # Check facts now contains FastAPI
         assert result["bytes"] > 200

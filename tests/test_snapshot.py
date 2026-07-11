@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import tempfile
 from pathlib import Path
@@ -59,7 +58,9 @@ class TestCreateSnapshot:
         with tempfile.TemporaryDirectory() as td:
             db = Path(td) / "empty.db"
             conn = sqlite3.connect(str(db))
-            conn.execute("CREATE TABLE facts (fact_id INTEGER PRIMARY KEY, content TEXT)")
+            conn.execute(
+                "CREATE TABLE facts (fact_id INTEGER PRIMARY KEY, content TEXT)"
+            )
             conn.commit()
             conn.close()
             meta = create_snapshot(db)

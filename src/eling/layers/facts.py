@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 import sqlite3
 import threading
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 import logging
@@ -92,10 +92,10 @@ END;
 _HELPFUL_DELTA = 0.05
 _UNHELPFUL_DELTA = -0.10
 
-_RE_CAPITALIZED = re.compile(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b')
+_RE_CAPITALIZED = re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b")
 _RE_DOUBLE_QUOTE = re.compile(r'"([^"]+)"')
 _RE_SINGLE_QUOTE = re.compile(r"'([^']+)'")
-_RE_WIKI_LINK = re.compile(r'\[\[([^\]]+)\]\]')
+_RE_WIKI_LINK = re.compile(r"\[\[([^\]]+)\]\]")
 
 # ── Temporal / Date parsing ───────────────────────────────────────────────
 _RELATIVE_PATTERNS: list[tuple[re.Pattern, str, int]] = [
@@ -110,15 +110,33 @@ _RELATIVE_PATTERNS: list[tuple[re.Pattern, str, int]] = [
     (re.compile(r"(?i)\b(this\s+(year|quarter))\b"), "year", 0),
     (re.compile(r"(?i)\b(last\s+(year|quarter|3\s*months))\b"), "year", -1),
     # Numbered relative: "last X days/weeks/months"
-    (re.compile(r"(?i)(?:last|past|previous)\s+(\d+)\s*(days?|hours?|h|minutes?|menit|jam)\b"), "num", 0),
-    (re.compile(r"(?i)(?:next|coming)\s+(\d+)\s*(days?|hours?|h|minutes?|menit|jam)\b"), "num", 1),
+    (
+        re.compile(
+            r"(?i)(?:last|past|previous)\s+(\d+)\s*(days?|hours?|h|minutes?|menit|jam)\b"
+        ),
+        "num",
+        0,
+    ),
+    (
+        re.compile(
+            r"(?i)(?:next|coming)\s+(\d+)\s*(days?|hours?|h|minutes?|menit|jam)\b"
+        ),
+        "num",
+        1,
+    ),
 ]
 """Patterns for relative time expressions. Each entry: (pattern, unit, offset_direction)."""
 
 _ABSOLUTE_DATE_PATTERNS: list[tuple[re.Pattern, str]] = [
     (re.compile(r"\b(\d{4})-(\d{1,2})-(\d{1,2})\b"), "iso"),
     (re.compile(r"\b(\d{1,2})[/](\d{1,2})[/](\d{4})\b"), "us"),
-    (re.compile(r"\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})\b", re.I), "named"),
+    (
+        re.compile(
+            r"\b(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+(\d{4})\b",
+            re.I,
+        ),
+        "named",
+    ),
 ]
 """Absolute date patterns: ISO 8601, US-style, named-month."""
 
@@ -204,11 +222,15 @@ class FactsLayer:
         self.embedding_index: EmbeddingIndex | None = None
         if embedding_model:
             try:
-                self.embedding_index = EmbeddingIndex(self.db_path, model_name=embedding_model)
+                self.embedding_index = EmbeddingIndex(
+                    self.db_path, model_name=embedding_model
+                )
             except Exception as e:
                 logger.debug("Embedding index not available: %s", e)
 
-        self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False, timeout=10.0)
+        self._conn = sqlite3.connect(
+            str(self.db_path), check_same_thread=False, timeout=10.0
+        )
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
         try:
@@ -231,7 +253,13 @@ class FactsLayer:
         self._conn.commit()
 
     # ---- write ops ----
-    def add(self, content: str, category: str = "general", tags: str = "", source: str = "facts") -> int:
+    def add(
+        self,
+        content: str,
+        category: str = "general",
+        tags: str = "",
+        source: str = "facts",
+    ) -> int:
         with self._lock:
             content = content.strip()
             if not content:
@@ -250,12 +278,16 @@ class FactsLayer:
                     (fact_id, content, category, tags, self.default_trust, source),
                 )
             except sqlite3.IntegrityError:
-                row = self._conn.execute("SELECT fact_id FROM facts WHERE content = ?", (content,)).fetchone()
+                row = self._conn.execute(
+                    "SELECT fact_id FROM facts WHERE content = ?", (content,)
+                ).fetchone()
                 return int(row["fact_id"])
 
             for name in self._extract_entities(content):
                 eid = self._resolve_entity(name)
-                self._conn.execute("INSERT OR IGNORE INTO fact_entities VALUES (?, ?)", (fact_id, eid))
+                self._conn.execute(
+                    "INSERT OR IGNORE INTO fact_entities VALUES (?, ?)", (fact_id, eid)
+                )
             self._compute_hrr_vector(fact_id, content)
             if self.embedding_index:
                 self.embedding_index.index_fact(fact_id, content)
@@ -269,7 +301,9 @@ class FactsLayer:
             try:
                 self.detect_contradictions(fact_id)
             except Exception as exc:
-                logger.debug("detect_contradictions failed for fact %s: %s", fact_id, exc)
+                logger.debug(
+                    "detect_contradictions failed for fact %s: %s", fact_id, exc
+                )
             # Zettelkasten memory linking: connect to related facts
             try:
                 self.create_links(fact_id)
@@ -281,10 +315,14 @@ class FactsLayer:
 
     def remove(self, fact_id: int) -> bool:
         with self._lock:
-            row = self._conn.execute("SELECT fact_id FROM facts WHERE fact_id = ?", (fact_id,)).fetchone()
+            row = self._conn.execute(
+                "SELECT fact_id FROM facts WHERE fact_id = ?", (fact_id,)
+            ).fetchone()
             if not row:
                 return False
-            self._conn.execute("DELETE FROM fact_entities WHERE fact_id = ?", (fact_id,))
+            self._conn.execute(
+                "DELETE FROM fact_entities WHERE fact_id = ?", (fact_id,)
+            )
             self._conn.execute("DELETE FROM facts WHERE fact_id = ?", (fact_id,))
             if self.embedding_index:
                 self.embedding_index.remove_fact(fact_id)
@@ -294,7 +332,8 @@ class FactsLayer:
     def update_trust(self, fact_id: int, helpful: bool) -> dict:
         with self._lock:
             row = self._conn.execute(
-                "SELECT trust_score, helpful_count, strength FROM facts WHERE fact_id = ?", (fact_id,)
+                "SELECT trust_score, helpful_count, strength FROM facts WHERE fact_id = ?",
+                (fact_id,),
             ).fetchone()
             if not row:
                 raise KeyError(f"fact_id {fact_id} not found")
@@ -310,18 +349,31 @@ class FactsLayer:
                 (new_trust, 1 if helpful else 0, new_strength, fact_id),
             )
             self._conn.commit()
-            return {"fact_id": fact_id, "trust_score": new_trust, "strength": new_strength}
+            return {
+                "fact_id": fact_id,
+                "trust_score": new_trust,
+                "strength": new_strength,
+            }
 
     def set_notion_page(self, fact_id: int, notion_page_id: str) -> bool:
         with self._lock:
             cur = self._conn.execute(
-                "UPDATE facts SET notion_page_id = ? WHERE fact_id = ?", (notion_page_id, fact_id)
+                "UPDATE facts SET notion_page_id = ? WHERE fact_id = ?",
+                (notion_page_id, fact_id),
             )
             self._conn.commit()
             return cur.rowcount > 0
 
     # ---- search ops ----
-    def search(self, query: str, category: str | None = None, source: str | None = None, min_trust: float = 0.3, limit: int = 10, include_cleared: bool = False) -> list[dict]:
+    def search(
+        self,
+        query: str,
+        category: str | None = None,
+        source: str | None = None,
+        min_trust: float = 0.3,
+        limit: int = 10,
+        include_cleared: bool = False,
+    ) -> list[dict]:
         """Hybrid BM25 + Jaccard + HRR search. Filter by category or source.
 
         Excludes cleared facts (strength <= DORMANT_THRESHOLD) unless include_cleared=True.
@@ -331,12 +383,18 @@ class FactsLayer:
             query = query.strip()
             if not query:
                 return []
-            candidates = self._fts_candidates(query, category, source, min_trust, limit * 3)
+            candidates = self._fts_candidates(
+                query, category, source, min_trust, limit * 3
+            )
             if not candidates:
                 return []
             # Filter out cleared facts unless explicitly included
             if not include_cleared:
-                candidates = [c for c in candidates if c.get("strength", 1.0) > decay.DORMANT_THRESHOLD]
+                candidates = [
+                    c
+                    for c in candidates
+                    if c.get("strength", 1.0) > decay.DORMANT_THRESHOLD
+                ]
                 if not candidates:
                     return []
             query_tokens = self._tokenize(query)
@@ -358,7 +416,12 @@ class FactsLayer:
                 else:
                     hrr_sim = 0.5
                 emb_sim = emb_scores.get(fact["fact_id"], 0.5)
-                relevance = self.fts_weight * fts_score + self.jaccard_weight * jaccard + self.hrr_weight * hrr_sim + 0.1 * emb_sim
+                relevance = (
+                    self.fts_weight * fts_score
+                    + self.jaccard_weight * jaccard
+                    + self.hrr_weight * hrr_sim
+                    + 0.1 * emb_sim
+                )
                 fact["score"] = relevance * fact["trust_score"]
                 fact.pop("hrr_vector", None)
                 scored.append(fact)
@@ -376,6 +439,7 @@ class FactsLayer:
     def _sanitize_fts_query(query: str) -> str:
         """Escape FTS5 special chars (dots, parens, colons etc.) so queries don't crash FTS5."""
         import shlex
+
         try:
             tokens = shlex.split(query)
         except ValueError:
@@ -388,7 +452,14 @@ class FactsLayer:
                 out.append(t)
         return " ".join(out) or query
 
-    def _fts_candidates(self, query: str, category: str | None, source: str | None, min_trust: float, limit: int) -> list[dict]:
+    def _fts_candidates(
+        self,
+        query: str,
+        category: str | None,
+        source: str | None,
+        min_trust: float,
+        limit: int,
+    ) -> list[dict]:
         safe_query = self._sanitize_fts_query(query)
         params = [safe_query, min_trust]
         filters = []
@@ -413,7 +484,11 @@ class FactsLayer:
         """
         try:
             rows = self._conn.execute(sql, params).fetchall()
-        except (sqlite3.OperationalError, sqlite3.DatabaseError, sqlite3.IntegrityError):
+        except (
+            sqlite3.OperationalError,
+            sqlite3.DatabaseError,
+            sqlite3.IntegrityError,
+        ):
             return []
         cands = [dict(r) for r in rows]
         if cands:
@@ -422,7 +497,13 @@ class FactsLayer:
                 c["fts_rank"] = c.get("fts_rank", 0.0) / max_rank
         return cands
 
-    def list_all(self, category: str | None = None, min_trust: float = 0.0, limit: int = 100, include_cleared: bool = False) -> list[dict]:
+    def list_all(
+        self,
+        category: str | None = None,
+        min_trust: float = 0.0,
+        limit: int = 100,
+        include_cleared: bool = False,
+    ) -> list[dict]:
         with self._lock:
             params = [min_trust]
             cat_clause = ""
@@ -448,7 +529,8 @@ class FactsLayer:
             row = self._conn.execute(
                 "SELECT fact_id, content, category, tags, trust_score, retrieval_count, "
                 "helpful_count, created_at, updated_at, source, notion_page_id "
-                "FROM facts WHERE fact_id = ?", (fact_id,)
+                "FROM facts WHERE fact_id = ?",
+                (fact_id,),
             ).fetchone()
             if row:
                 # Update last_access_at on read
@@ -465,7 +547,8 @@ class FactsLayer:
         with self._lock:
             self._conn.execute(
                 "UPDATE facts SET trust_score = ?, updated_at = CURRENT_TIMESTAMP "
-                "WHERE fact_id = ?", (score, fact_id)
+                "WHERE fact_id = ?",
+                (score, fact_id),
             )
             self._conn.commit()
 
@@ -488,16 +571,20 @@ class FactsLayer:
             self._conn.commit()
 
             # Count lifecycle states
-            total = self._conn.execute("SELECT COUNT(*) as n FROM facts").fetchone()["n"]
+            total = self._conn.execute("SELECT COUNT(*) as n FROM facts").fetchone()[
+                "n"
+            ]
             active = self._conn.execute(
-                "SELECT COUNT(*) as n FROM facts WHERE strength > ?", (decay.ACTIVE_THRESHOLD,)
+                "SELECT COUNT(*) as n FROM facts WHERE strength > ?",
+                (decay.ACTIVE_THRESHOLD,),
             ).fetchone()["n"]
             dormant = self._conn.execute(
                 "SELECT COUNT(*) as n FROM facts WHERE strength > ? AND strength <= ?",
                 (decay.DORMANT_THRESHOLD, decay.ACTIVE_THRESHOLD),
             ).fetchone()["n"]
             cleared = self._conn.execute(
-                "SELECT COUNT(*) as n FROM facts WHERE strength <= ?", (decay.DORMANT_THRESHOLD,)
+                "SELECT COUNT(*) as n FROM facts WHERE strength <= ?",
+                (decay.DORMANT_THRESHOLD,),
             ).fetchone()["n"]
 
         return {
@@ -527,14 +614,16 @@ class FactsLayer:
                 "SELECT category, COUNT(*) as n FROM facts GROUP BY category"
             ).fetchall()
             active = self._conn.execute(
-                "SELECT COUNT(*) as n FROM facts WHERE strength > ?", (decay.ACTIVE_THRESHOLD,)
+                "SELECT COUNT(*) as n FROM facts WHERE strength > ?",
+                (decay.ACTIVE_THRESHOLD,),
             ).fetchone()["n"]
             dormant = self._conn.execute(
                 "SELECT COUNT(*) as n FROM facts WHERE strength > ? AND strength <= ?",
                 (decay.DORMANT_THRESHOLD, decay.ACTIVE_THRESHOLD),
             ).fetchone()["n"]
             cleared = self._conn.execute(
-                "SELECT COUNT(*) as n FROM facts WHERE strength <= ?", (decay.DORMANT_THRESHOLD,)
+                "SELECT COUNT(*) as n FROM facts WHERE strength <= ?",
+                (decay.DORMANT_THRESHOLD,),
             ).fetchone()["n"]
             result = {
                 "total_facts": counts["n"],
@@ -544,10 +633,12 @@ class FactsLayer:
                 "active_facts": int(active),
                 "dormant_facts": int(dormant),
                 "cleared_facts": int(cleared),
-                "pending_contradictions": int(self._conn.execute(
-                    "SELECT COUNT(*) as n FROM facts WHERE tags LIKE ?",
-                    (f"%{self.CONTRADICTION_FLAG}%",),
-                ).fetchone()["n"]),
+                "pending_contradictions": int(
+                    self._conn.execute(
+                        "SELECT COUNT(*) as n FROM facts WHERE tags LIKE ?",
+                        (f"%{self.CONTRADICTION_FLAG}%",),
+                    ).fetchone()["n"]
+                ),
             }
             if self.embedding_index:
                 result["embeddings"] = self.embedding_index.stats()
@@ -566,11 +657,13 @@ class FactsLayer:
     def _extract_entities(self, text: str) -> list[str]:
         seen: set[str] = set()
         out: list[str] = []
+
         def _add(n: str):
             n = n.strip()
             if n and n.lower() not in seen:
                 seen.add(n.lower())
                 out.append(n)
+
         for m in _RE_WIKI_LINK.finditer(text):
             _add(m.group(1))
         for m in _RE_CAPITALIZED.finditer(text):
@@ -582,7 +675,9 @@ class FactsLayer:
         return out
 
     def _resolve_entity(self, name: str) -> int:
-        row = self._conn.execute("SELECT entity_id FROM entities WHERE name LIKE ?", (name,)).fetchone()
+        row = self._conn.execute(
+            "SELECT entity_id FROM entities WHERE name LIKE ?", (name,)
+        ).fetchone()
         if row:
             return int(row["entity_id"])
         cur = self._conn.execute("INSERT INTO entities (name) VALUES (?)", (name,))
@@ -593,7 +688,8 @@ class FactsLayer:
             return
         rows = self._conn.execute(
             "SELECT e.name FROM entities e JOIN fact_entities fe ON fe.entity_id = e.entity_id "
-            "WHERE fe.fact_id = ?", (fact_id,)
+            "WHERE fe.fact_id = ?",
+            (fact_id,),
         ).fetchall()
         entities = [r["name"] for r in rows]
         vector = hrr.encode_fact(content, entities, self.hrr_dim)
@@ -602,7 +698,9 @@ class FactsLayer:
             (hrr.phases_to_bytes(vector), fact_id),
         )
 
-    def probe(self, entity: str, limit: int = 10, include_cleared: bool = False) -> list[dict]:
+    def probe(
+        self, entity: str, limit: int = 10, include_cleared: bool = False
+    ) -> list[dict]:
         """Find facts mentioning a single entity.
 
         Excludes cleared facts (strength <= DORMANT_THRESHOLD) unless include_cleared=True.
@@ -638,18 +736,24 @@ class FactsLayer:
         with self._lock:
             rows = self._conn.execute(
                 "SELECT e.name FROM entities e JOIN fact_entities fe ON fe.entity_id = e.entity_id "
-                "WHERE fe.fact_id = ?", (fact_id,)
+                "WHERE fe.fact_id = ?",
+                (fact_id,),
             ).fetchall()
             return [r["name"] for r in rows]
 
-    def reason(self, entities: list[str], category: str | None = None, limit: int = 10) -> list[dict]:
+    def reason(
+        self, entities: list[str], category: str | None = None, limit: int = 10
+    ) -> list[dict]:
         """Compositional query — facts mentioning ALL entities (HRR algebra)."""
         if not self._hrr_available or not entities:
             return self.search(" ".join(entities), category=category, limit=limit)
         with self._lock:
             role_entity = hrr.encode_atom("__hrr_role_entity__", self.hrr_dim)
             role_content = hrr.encode_atom("__hrr_role_content__", self.hrr_dim)
-            probe_keys = [hrr.bind(hrr.encode_atom(e.lower(), self.hrr_dim), role_entity) for e in entities]
+            probe_keys = [
+                hrr.bind(hrr.encode_atom(e.lower(), self.hrr_dim), role_entity)
+                for e in entities
+            ]
             where = "WHERE hrr_vector IS NOT NULL"
             params: list = []
             if category:
@@ -658,7 +762,8 @@ class FactsLayer:
             rows = self._conn.execute(
                 f"SELECT fact_id, content, category, tags, trust_score, retrieval_count, "
                 f"helpful_count, created_at, updated_at, source, notion_page_id, hrr_vector "
-                f"FROM facts {where}", params,
+                f"FROM facts {where}",
+                params,
             ).fetchall()
             if not rows:
                 return self.search(" ".join(entities), category=category, limit=limit)
@@ -666,7 +771,10 @@ class FactsLayer:
             for row in rows:
                 fact = dict(row)
                 fact_vec = hrr.bytes_to_phases(fact.pop("hrr_vector"))
-                ent_scores = [hrr.similarity(hrr.unbind(fact_vec, pk), role_content) for pk in probe_keys]
+                ent_scores = [
+                    hrr.similarity(hrr.unbind(fact_vec, pk), role_content)
+                    for pk in probe_keys
+                ]
                 fact["score"] = (min(ent_scores) + 1.0) / 2.0 * fact["trust_score"]
                 scored.append(fact)
             scored.sort(key=lambda x: x["score"], reverse=True)
@@ -854,7 +962,7 @@ class FactsLayer:
         """
         with self._lock:
             candidates = self._conn.execute(
-                f"""SELECT f.fact_id
+                """SELECT f.fact_id
                     FROM facts f
                     WHERE f.tags NOT LIKE ?
                       AND f.fact_id IN (
@@ -901,7 +1009,9 @@ class FactsLayer:
             tokens = self._tokenize(content)
 
             # Get BM25 candidates (exclude self)
-            candidates = self._fts_candidates(content, category=None, source=None, min_trust=0.0, limit=limit)
+            candidates = self._fts_candidates(
+                content, category=None, source=None, min_trust=0.0, limit=limit
+            )
             links: list[dict] = []
 
             for c in candidates:
@@ -920,11 +1030,13 @@ class FactsLayer:
                                updated_at = CURRENT_TIMESTAMP""",
                         (a, b, round(sim, 4), round(sim, 4)),
                     )
-                    links.append({
-                        "fact_id": cid,
-                        "content": c["content"][:120],
-                        "weight": round(sim, 4),
-                    })
+                    links.append(
+                        {
+                            "fact_id": cid,
+                            "content": c["content"][:120],
+                            "weight": round(sim, 4),
+                        }
+                    )
 
             self._conn.commit()
             return links
@@ -952,7 +1064,9 @@ class FactsLayer:
     def link_stats(self) -> dict:
         """Return statistics about the fact link graph."""
         with self._lock:
-            total = self._conn.execute("SELECT COUNT(*) as n FROM fact_links").fetchone()["n"]
+            total = self._conn.execute(
+                "SELECT COUNT(*) as n FROM fact_links"
+            ).fetchone()["n"]
             if total == 0:
                 return {"total_links": 0, "linked_facts": 0, "avg_links_per_fact": 0.0}
             linked = self._conn.execute(
@@ -1009,7 +1123,10 @@ class FactsLayer:
                         # Combine content (append, deduplicate)
                         new_content = fa["content"]
                         fb_content = fb["content"]
-                        if fb_content not in new_content and fa["content"] not in fb_content:
+                        if (
+                            fb_content not in new_content
+                            and fa["content"] not in fb_content
+                        ):
                             new_content = fa["content"] + "\n\n---\n\n" + fb_content
                         elif len(fb_content) > len(fa["content"]):
                             new_content = fb_content  # keep the longer one
@@ -1029,7 +1146,8 @@ class FactsLayer:
 
                         # Transfer entity links from merge_id to keep_id
                         existing_ents = set(
-                            r["entity_id"] for r in self._conn.execute(
+                            r["entity_id"]
+                            for r in self._conn.execute(
                                 "SELECT entity_id FROM fact_entities WHERE fact_id = ?",
                                 (keep_id,),
                             ).fetchall()
@@ -1053,10 +1171,18 @@ class FactsLayer:
                             (merge_id, merge_id),
                         ).fetchall()
                         for link_row in merge_links:
-                            other_id = link_row["fact_id_a"] if link_row["fact_id_b"] == merge_id else link_row["fact_id_b"]
+                            other_id = (
+                                link_row["fact_id_a"]
+                                if link_row["fact_id_b"] == merge_id
+                                else link_row["fact_id_b"]
+                            )
                             if other_id == keep_id:
                                 continue  # already linked
-                            a, b = (keep_id, other_id) if keep_id < other_id else (other_id, keep_id)
+                            a, b = (
+                                (keep_id, other_id)
+                                if keep_id < other_id
+                                else (other_id, keep_id)
+                            )
                             self._conn.execute(
                                 """INSERT INTO fact_links (fact_id_a, fact_id_b, weight, updated_at)
                                    VALUES (?, ?, ?, CURRENT_TIMESTAMP)
@@ -1077,7 +1203,9 @@ class FactsLayer:
                         self._compute_hrr_vector(keep_id, new_content)
 
                         # Delete the merged fact (cascades to fact_entities, fact_links)
-                        self._conn.execute("DELETE FROM facts WHERE fact_id = ?", (merge_id,))
+                        self._conn.execute(
+                            "DELETE FROM facts WHERE fact_id = ?", (merge_id,)
+                        )
 
                         skip_ids.add(merge_id)
                         merged += 1
@@ -1158,17 +1286,35 @@ class FactsLayer:
                 m = pattern.search(query)
                 if m:
                     if kind == "iso":
-                        start = datetime(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                        start = datetime(
+                            int(m.group(1)), int(m.group(2)), int(m.group(3))
+                        )
                         end = start + timedelta(days=1)
                     elif kind == "us":
-                        start = datetime(int(m.group(3)), int(m.group(1)), int(m.group(2)))
+                        start = datetime(
+                            int(m.group(3)), int(m.group(1)), int(m.group(2))
+                        )
                         end = start + timedelta(days=1)
                     elif kind == "named":
                         months = {
-                            "jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
-                            "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12,
+                            "jan": 1,
+                            "feb": 2,
+                            "mar": 3,
+                            "apr": 4,
+                            "may": 5,
+                            "jun": 6,
+                            "jul": 7,
+                            "aug": 8,
+                            "sep": 9,
+                            "oct": 10,
+                            "nov": 11,
+                            "dec": 12,
                         }
-                        start = datetime(int(m.group(3)), months[m.group(2).lower()[:3]], int(m.group(1)))
+                        start = datetime(
+                            int(m.group(3)),
+                            months[m.group(2).lower()[:3]],
+                            int(m.group(1)),
+                        )
                         end = start + timedelta(days=1)
                     break
 
@@ -1206,20 +1352,32 @@ class FactsLayer:
         [time_start, time_end). When time_end is omitted, defaults to now.
         """
         if not time_start and not time_end:
-            return self.search(query, category=category, source=source,
-                               min_trust=min_trust, limit=limit, include_cleared=include_cleared)
+            return self.search(
+                query,
+                category=category,
+                source=source,
+                min_trust=min_trust,
+                limit=limit,
+                include_cleared=include_cleared,
+            )
 
         with self._lock:
             query = query.strip()
             if not query:
                 return []
 
-            candidates = self._fts_candidates(query, category, source, min_trust, limit * 3)
+            candidates = self._fts_candidates(
+                query, category, source, min_trust, limit * 3
+            )
             if not candidates:
                 return []
 
             if not include_cleared:
-                candidates = [c for c in candidates if c.get("strength", 1.0) > decay.DORMANT_THRESHOLD]
+                candidates = [
+                    c
+                    for c in candidates
+                    if c.get("strength", 1.0) > decay.DORMANT_THRESHOLD
+                ]
                 if not candidates:
                     return []
 
@@ -1298,14 +1456,25 @@ class FactsLayer:
 
             old_content = row["content"]
             if old_content == new_content.strip():
-                return {"fact_id": fact_id, "changed": False, "message": "content unchanged"}
+                return {
+                    "fact_id": fact_id,
+                    "changed": False,
+                    "message": "content unchanged",
+                }
 
             # Snapshot current state into versions table
             self._conn.execute(
                 "INSERT INTO fact_versions (fact_id, content, category, tags, trust_score, source, action, reason) "
                 "VALUES (?, ?, ?, ?, ?, ?, 'updated', ?)",
-                (fact_id, new_content.strip(), row["category"], row["tags"],
-                 row["trust_score"], row["source"], reason),
+                (
+                    fact_id,
+                    new_content.strip(),
+                    row["category"],
+                    row["tags"],
+                    row["trust_score"],
+                    row["source"],
+                    reason,
+                ),
             )
 
             # Apply the update (may fail if new_content conflicts with another fact's UNIQUE content)
@@ -1315,12 +1484,15 @@ class FactsLayer:
                     (new_content.strip(), fact_id),
                 )
             except sqlite3.IntegrityError:
-                logger.warning("versioned_update: content '%s' conflicts with existing fact UNIQUE constraint", new_content.strip()[:60])
+                logger.warning(
+                    "versioned_update: content '%s' conflicts with existing fact UNIQUE constraint",
+                    new_content.strip()[:60],
+                )
                 return {
                     "fact_id": fact_id,
                     "changed": False,
                     "error": "content conflicts with existing fact UNIQUE constraint",
-                    "detail": f"Another fact already has this exact content. Use a different wording or reference the existing fact.",
+                    "detail": "Another fact already has this exact content. Use a different wording or reference the existing fact.",
                 }
 
             # Recompute HRR
@@ -1379,17 +1551,28 @@ class FactsLayer:
             self._conn.execute(
                 "INSERT INTO fact_versions (fact_id, content, category, tags, trust_score, source, action, reason) "
                 "VALUES (?, ?, ?, ?, ?, ?, 'undo_checkpoint', ?)",
-                (fact_id, current["content"], current["category"], current["tags"],
-                 current["trust_score"], current["source"],
-                 f"undo_to_version_{version_id}"),
+                (
+                    fact_id,
+                    current["content"],
+                    current["category"],
+                    current["tags"],
+                    current["trust_score"],
+                    current["source"],
+                    f"undo_to_version_{version_id}",
+                ),
             )
 
             # Restore target version content to main table
             self._conn.execute(
                 "UPDATE facts SET content = ?, category = ?, tags = ?, trust_score = ?, "
                 "updated_at = CURRENT_TIMESTAMP WHERE fact_id = ?",
-                (target["content"], target["category"], target["tags"],
-                 target["trust_score"], fact_id),
+                (
+                    target["content"],
+                    target["category"],
+                    target["tags"],
+                    target["trust_score"],
+                    fact_id,
+                ),
             )
 
             # Recompute HRR vector
@@ -1411,7 +1594,9 @@ class FactsLayer:
     def versioning_stats(self) -> dict:
         """Return versioning statistics."""
         with self._lock:
-            total = self._conn.execute("SELECT COUNT(*) as n FROM fact_versions").fetchone()["n"]
+            total = self._conn.execute(
+                "SELECT COUNT(*) as n FROM fact_versions"
+            ).fetchone()["n"]
             versioned_facts = self._conn.execute(
                 "SELECT COUNT(DISTINCT fact_id) as n FROM fact_versions"
             ).fetchone()["n"]

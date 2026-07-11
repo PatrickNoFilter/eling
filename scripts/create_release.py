@@ -1,4 +1,5 @@
 """Create GitHub release for eling v0.1.0."""
+
 from __future__ import annotations
 
 import json
@@ -11,14 +12,16 @@ token = pathlib.Path("/root/.github-token").read_text().strip()
 with open("/root/eling/RELEASE_NOTES.md") as f:
     notes = f.read()
 
-payload = json.dumps({
-    "tag_name": "v0.1.0",
-    "target_commitish": "main",
-    "name": "v0.1.0 — Unified second brain for AI agents",
-    "body": notes,
-    "draft": False,
-    "prerelease": False,
-}).encode()
+payload = json.dumps(
+    {
+        "tag_name": "v0.1.0",
+        "target_commitish": "main",
+        "name": "v0.1.0 — Unified second brain for AI agents",
+        "body": notes,
+        "draft": False,
+        "prerelease": False,
+    }
+).encode()
 
 req = urllib.request.Request(
     "https://api.github.com/repos/PatrickNoFilter/eling/releases",

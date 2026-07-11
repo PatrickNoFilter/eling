@@ -351,8 +351,9 @@ class FactMemoryProvider:
             try:
                 registry.register_tool(schema, handler)
             except Exception as exc:
-                logger.warning("FactMemoryProvider: failed to register %s: %s",
-                               schema["name"], exc)
+                logger.warning(
+                    "FactMemoryProvider: failed to register %s: %s", schema["name"], exc
+                )
 
         logger.info("FactMemoryProvider registered %d tools", len(bindings))
 

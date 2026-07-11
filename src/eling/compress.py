@@ -10,8 +10,6 @@ from __future__ import annotations
 
 import logging
 import os
-import re
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -108,7 +106,10 @@ def _llm_compress(content: str) -> str:
             json={
                 "model": "gpt-3.5-turbo",
                 "messages": [
-                    {"role": "system", "content": "You are a compression assistant. Return only the compressed text, no explanation."},
+                    {
+                        "role": "system",
+                        "content": "You are a compression assistant. Return only the compressed text, no explanation.",
+                    },
                     {"role": "user", "content": prompt},
                 ],
                 "max_tokens": 500,
@@ -123,17 +124,25 @@ def _llm_compress(content: str) -> str:
         resp.raise_for_status()
         data = resp.json()
         compressed = data["choices"][0]["message"]["content"].strip()
-        logger.info("llm_compress: %d → %d chars (-%d%%)",
-                     len(content), len(compressed),
-                     (1 - len(compressed) / len(content)) * 100 if content else 0)
+        logger.info(
+            "llm_compress: %d → %d chars (-%d%%)",
+            len(content),
+            len(compressed),
+            (1 - len(compressed) / len(content)) * 100 if content else 0,
+        )
         return compressed
     except Exception as e:
         logger.warning("llm_compress failed, fallback to truncation: %s", e)
         return _truncate_compress(content)
 
 
-def configure(*, enabled: bool | None = None, endpoint: str | None = None,
-              api_key: str | None = None, max_chars: int | None = None) -> None:
+def configure(
+    *,
+    enabled: bool | None = None,
+    endpoint: str | None = None,
+    api_key: str | None = None,
+    max_chars: int | None = None,
+) -> None:
     """Override compression settings at runtime."""
     global _LLM_COMPRESS, _LLM_ENDPOINT, _LLM_API_KEY, _COMPRESS_MAX_CHARS
     if enabled is not None:

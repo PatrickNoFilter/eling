@@ -23,12 +23,18 @@ logger = logging.getLogger(__name__)
 try:
     from eling.brain import Brain
     from eling.config import describe_config, resolve_config
+
     _HAS_ELING = True
 except ImportError:
     _HAS_ELING = False
     Brain = None  # type: ignore[assignment]
-    describe_config = lambda: {}  # type: ignore[assignment]
-    resolve_config = lambda cfg={}: cfg  # type: ignore[assignment]
+
+    def describe_config():
+        return {}  # type: ignore[assignment]
+
+    def resolve_config(cfg={}):
+        return cfg  # type: ignore[assignment]
+
 
 _hermes_plugin_config: dict | None = None
 
@@ -40,6 +46,7 @@ def _get_plugin_config() -> dict:
         return _hermes_plugin_config
     try:
         from hermes_cli.config import cfg_get, load_config
+
         config = load_config()
         _hermes_plugin_config = cfg_get(config, "plugins", "eling", default={}) or {}
     except Exception:
@@ -70,19 +77,47 @@ ELING_STORE_SCHEMA = {
         "properties": {
             "action": {
                 "type": "string",
-                "enum": ["add", "search", "probe", "related", "reason", "stats", "update", "remove"],
+                "enum": [
+                    "add",
+                    "search",
+                    "probe",
+                    "related",
+                    "reason",
+                    "stats",
+                    "update",
+                    "remove",
+                ],
             },
-            "content": {"type": "string", "description": "Content to store (required for 'add')."},
-            "query": {"type": "string", "description": "Search query (required for 'search')."},
-            "entity": {"type": "string", "description": "Entity name for 'probe'/'related'."},
+            "content": {
+                "type": "string",
+                "description": "Content to store (required for 'add').",
+            },
+            "query": {
+                "type": "string",
+                "description": "Search query (required for 'search').",
+            },
+            "entity": {
+                "type": "string",
+                "description": "Entity name for 'probe'/'related'.",
+            },
             "entities": {
-                "type": "array", "items": {"type": "string"},
+                "type": "array",
+                "items": {"type": "string"},
                 "description": "Entity names for 'reason'.",
             },
-            "fact_id": {"type": "integer", "description": "Fact ID for 'update'/'remove'."},
-            "category": {"type": "string", "enum": ["user_pref", "project", "tool", "general"]},
+            "fact_id": {
+                "type": "integer",
+                "description": "Fact ID for 'update'/'remove'.",
+            },
+            "category": {
+                "type": "string",
+                "enum": ["user_pref", "project", "tool", "general"],
+            },
             "tags": {"type": "string", "description": "Comma-separated tags."},
-            "trust_score": {"type": "number", "description": "New trust score (0.0–1.0) for 'update'."},
+            "trust_score": {
+                "type": "number",
+                "description": "New trust score (0.0–1.0) for 'update'.",
+            },
             "limit": {"type": "integer", "description": "Max results (default: 10)."},
         },
         "required": ["action"],
@@ -107,6 +142,7 @@ ELING_FEEDBACK_SCHEMA = {
 
 
 # ── MemoryProvider ────────────────────────────────────────────────────────────
+
 
 class ElingMemoryProvider:
     """5-layer memory provider (facts + code + KB + Notion). Replaces holographic."""
@@ -138,10 +174,12 @@ class ElingMemoryProvider:
             project_path=os.environ.get("ELING_PROJECT_PATH"),
         )
         self._session_id = session_id
-        logger.info("Eling initialized at %s (%d facts, %d KB sources)",
-                     home,
-                     self._brain.facts.stats().get("total_facts", 0),
-                     self._brain.kb.stats().get("total_sources", 0))
+        logger.info(
+            "Eling initialized at %s (%d facts, %d KB sources)",
+            home,
+            self._brain.facts.stats().get("total_facts", 0),
+            self._brain.kb.stats().get("total_sources", 0),
+        )
 
         # ── auto-flush on startup ──
         if cfg.get("auto_sync_turns", True):
@@ -189,17 +227,27 @@ class ElingMemoryProvider:
             logger.debug("Eling prefetch failed: %s", e)
             return ""
 
-    def sync_turn(self, user_content: str, assistant_content: str, *, session_id: str = "") -> None:
+    def sync_turn(
+        self, user_content: str, assistant_content: str, *, session_id: str = ""
+    ) -> None:
         """Auto-store user and assistant messages during session."""
         if not self._brain:
             return
         try:
             if user_content and len(user_content) > 10:
-                self._brain.remember(user_content, layer="facts", category="user_pref",
-                                     source="sync_turn")
+                self._brain.remember(
+                    user_content,
+                    layer="facts",
+                    category="user_pref",
+                    source="sync_turn",
+                )
             if assistant_content and len(assistant_content) > 20:
-                self._brain.remember(assistant_content, layer="kb", category="assistant_reply",
-                                     source="sync_turn")
+                self._brain.remember(
+                    assistant_content,
+                    layer="kb",
+                    category="assistant_reply",
+                    source="sync_turn",
+                )
             # Flush to disk for durability
             self._brain.sync(direction="flush")
         except Exception as e:
@@ -226,6 +274,7 @@ class ElingMemoryProvider:
             return
         extracted = 0
         import re
+
         _PREF_PATTERNS = [
             re.compile(r"(?:prefer|like|use|always|never)\s+\w+", re.I),
             re.compile(r"(?:my|our)\s+\w+\s+(?:is|are|should)", re.I),
@@ -239,7 +288,9 @@ class ElingMemoryProvider:
             for pattern in _PREF_PATTERNS:
                 if pattern.search(content):
                     try:
-                        self._brain.remember(content[:400], layer="facts", category="user_pref")
+                        self._brain.remember(
+                            content[:400], layer="facts", category="user_pref"
+                        )
                         extracted += 1
                     except Exception:
                         pass
@@ -326,16 +377,25 @@ class ElingMemoryProvider:
         try:
             if action == "helpful":
                 info = self._brain.facts.update_trust(fact_id, helpful=True)
-                return {"success": True, "fact_id": fact_id, "trust_score": info.get("trust_score", 0)}
+                return {
+                    "success": True,
+                    "fact_id": fact_id,
+                    "trust_score": info.get("trust_score", 0),
+                }
             elif action == "unhelpful":
                 info = self._brain.facts.update_trust(fact_id, helpful=False)
-                return {"success": True, "fact_id": fact_id, "trust_score": info.get("trust_score", 0)}
+                return {
+                    "success": True,
+                    "fact_id": fact_id,
+                    "trust_score": info.get("trust_score", 0),
+                }
             return {"error": f"Unknown action: {action}"}
         except Exception as e:
             return {"error": str(e)}
 
 
 # ── Hermes plugin entrypoint ─────────────────────────────────────────────────
+
 
 def register(registry) -> None:
     """Register Eling as a memory provider (called by Hermes plugin loader)."""

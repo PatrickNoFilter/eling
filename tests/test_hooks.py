@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import time
-import re
 import tempfile
 from pathlib import Path
 
@@ -24,8 +22,6 @@ from eling.hooks import (
     HOOK_COMPACTION,
     HOOK_SESSION_END,
     HOOK_IDLE_30MIN,
-    register_default_hooks,
-    HookHandler,
 )
 from eling.brain import Brain
 
@@ -33,6 +29,7 @@ from eling.brain import Brain
 # ============================================================================
 # HookRegistry — unit tests
 # ============================================================================
+
 
 class TestHookRegistry:
     def test_register_and_fire(self):
@@ -87,7 +84,10 @@ class TestHookRegistry:
 
     def test_unregister(self):
         reg = HookRegistry()
-        handler = lambda n, c: None
+
+        def handler(n, c):
+            return None
+
         reg.register(HOOK_POST_TOOL_USE, handler)
         assert reg.has_handlers(HOOK_POST_TOOL_USE)
         reg.unregister(HOOK_POST_TOOL_USE, handler)
@@ -126,6 +126,7 @@ class TestHookRegistry:
 # ALL_HOOKS constant
 # ============================================================================
 
+
 class TestAllHooks:
     def test_exactly_16_hooks(self):
         assert len(ALL_HOOKS) == 16  # was 15, now 16 with verify_request
@@ -136,12 +137,22 @@ class TestAllHooks:
 
     def test_all_named_hooks_present(self):
         required = {
-            "session_start", "pre_user_message", "post_user_message",
-            "pre_tool_use", "post_tool_use", "post_assistant_message",
-            "decision_made", "file_edit", "verify_request",
+            "session_start",
+            "pre_user_message",
+            "post_user_message",
+            "pre_tool_use",
+            "post_tool_use",
+            "post_assistant_message",
+            "decision_made",
+            "file_edit",
+            "verify_request",
             "error_occurred",
-            "compaction", "session_end", "idle_30min",
-            "sync_start", "sync_complete", "sync_error",
+            "compaction",
+            "session_end",
+            "idle_30min",
+            "sync_start",
+            "sync_complete",
+            "sync_error",
         }
         assert set(ALL_HOOKS) == required
 
@@ -149,6 +160,7 @@ class TestAllHooks:
 # ============================================================================
 # Built-in handlers — integration tests with Brain
 # ============================================================================
+
 
 class TestBuiltinHandlers:
     @pytest.fixture
@@ -183,12 +195,16 @@ class TestBuiltinHandlers:
         assert info["injected"] is True
 
     def test_hook_post_user_message(self, brain):
-        results = brain.fire_hook(HOOK_POST_USER_MESSAGE, content="Hello Eling!", source="user_prompt")
+        results = brain.fire_hook(
+            HOOK_POST_USER_MESSAGE, content="Hello Eling!", source="user_prompt"
+        )
         assert len(results) == 1
         assert results[0]["indexed"] is True
 
     def test_hook_pre_tool_use(self, brain):
-        results = brain.fire_hook(HOOK_PRE_TOOL_USE, tool_name="web_search", arguments="climate")
+        results = brain.fire_hook(
+            HOOK_PRE_TOOL_USE, tool_name="web_search", arguments="climate"
+        )
         assert len(results) == 1
         assert results[0]["recalled"] is True
 
@@ -207,12 +223,16 @@ class TestBuiltinHandlers:
         assert results[0]["stored"] is True
 
     def test_hook_post_assistant_message(self, brain):
-        results = brain.fire_hook(HOOK_POST_ASSISTANT_MESSAGE, content="Here is an answer about Eling.")
+        results = brain.fire_hook(
+            HOOK_POST_ASSISTANT_MESSAGE, content="Here is an answer about Eling."
+        )
         assert len(results) == 1
         assert results[0]["facts_stored"] == 1
 
     def test_hook_decision_made_with_content(self, brain):
-        results = brain.fire_hook(HOOK_DECISION_MADE, content="Always use facts for short text")
+        results = brain.fire_hook(
+            HOOK_DECISION_MADE, content="Always use facts for short text"
+        )
         assert len(results) == 1
         assert results[0]["decided"] is True
         assert results[0]["fact_id"] is not None
@@ -247,7 +267,11 @@ class TestBuiltinHandlers:
         # Notion configured but missing parent_id: returns notion_page: None
         # If notion falls through, falls back to facts.add (stored=True or logged=True)
         r = results[0]
-        assert r.get("notion_page") is None or r.get("stored") is True or r.get("logged") is True
+        assert (
+            r.get("notion_page") is None
+            or r.get("stored") is True
+            or r.get("logged") is True
+        )
 
     def test_hook_file_edit(self, brain):
         # codegraph CLI is installed in this environment — reindex may succeed
@@ -264,6 +288,7 @@ class TestBuiltinHandlers:
 # ============================================================================
 # HookRegistry — integration with Brain.remember() wiring
 # ============================================================================
+
 
 class TestBrainHookWiring:
     @pytest.fixture
@@ -294,6 +319,7 @@ class TestBrainHookWiring:
 # ============================================================================
 # Custom hooks — plugin-style registration
 # ============================================================================
+
 
 class TestCustomHandlers:
     def test_custom_handler_on_existing_hook(self):
@@ -337,6 +363,7 @@ class TestCustomHandlers:
 # ============================================================================
 # Stats integration
 # ============================================================================
+
 
 class TestBrainStatsHooks:
     def test_stats_includes_hooks(self):

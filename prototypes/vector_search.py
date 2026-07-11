@@ -11,9 +11,7 @@ import logging
 import os
 import sqlite3
 import threading
-import time
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 
@@ -49,9 +47,12 @@ def _get_env_key() -> str:
     return ""
 
 
-def _api_embed(texts: list[str], api_key: str | None = None,
-               url: str = _DEFAULT_EMBED_URL,
-               model: str = _DEFAULT_EMBED_MODEL) -> list[list[float]] | None:
+def _api_embed(
+    texts: list[str],
+    api_key: str | None = None,
+    url: str = _DEFAULT_EMBED_URL,
+    model: str = _DEFAULT_EMBED_MODEL,
+) -> list[list[float]] | None:
     """Get embeddings from any OpenAI-compatible API endpoint.
 
     Returns list of vectors or None on failure.
@@ -95,6 +96,7 @@ def _api_embed(texts: list[str], api_key: str | None = None,
 
 # ── Local Embedding Cache (numpy flat index) ────────────────────────────────
 
+
 class VectorIndex:
     """Simple numpy flat index for cosine similarity search.
 
@@ -119,8 +121,12 @@ class VectorIndex:
         except ValueError:
             pass
 
-    def search(self, query_vec: list[float], top_k: int = 10,
-               ids_filter: set[int] | None = None) -> list[tuple[int, float]]:
+    def search(
+        self,
+        query_vec: list[float],
+        top_k: int = 10,
+        ids_filter: set[int] | None = None,
+    ) -> list[tuple[int, float]]:
         """Search by cosine similarity. Returns [(fact_id, score)]."""
         if not self._vectors:
             return []
@@ -216,7 +222,9 @@ class VectorSearchLayer:
         self.dim = dim
         self.api_key = api_key or _get_env_key()
 
-        self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False, timeout=10.0)
+        self._conn = sqlite3.connect(
+            str(self.db_path), check_same_thread=False, timeout=10.0
+        )
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
         try:
@@ -233,7 +241,11 @@ class VectorSearchLayer:
 
         logger.info(
             "VectorSearchLayer: model=%s dim=%d api=%s available=%s indexed=%d",
-            model, dim, embed_url, self.available, self._index.size,
+            model,
+            dim,
+            embed_url,
+            self.available,
+            self._index.size,
         )
 
     def _test_api(self) -> bool:
@@ -253,9 +265,7 @@ class VectorSearchLayer:
 
     def _bind_model(self) -> str | None:
         """Check/record model binding. Returns error message or None."""
-        row = self._conn.execute(
-            "SELECT model FROM vec_index_meta LIMIT 1"
-        ).fetchone()
+        row = self._conn.execute("SELECT model FROM vec_index_meta LIMIT 1").fetchone()
         if row is None:
             self._conn.execute(
                 "INSERT INTO vec_index_meta (model, dim) VALUES (?, ?)",
@@ -299,7 +309,9 @@ class VectorSearchLayer:
 
     def remove_fact(self, fact_id: int) -> None:
         with self._lock:
-            self._conn.execute("DELETE FROM fact_embeddings_v2 WHERE fact_id = ?", (fact_id,))
+            self._conn.execute(
+                "DELETE FROM fact_embeddings_v2 WHERE fact_id = ?", (fact_id,)
+            )
             self._conn.commit()
             self._index.remove(fact_id)
 
@@ -310,7 +322,7 @@ class VectorSearchLayer:
         # Batch embed in chunks of 20
         batch_size = 20
         for i in range(0, len(fact_id_content_pairs), batch_size):
-            batch = fact_id_content_pairs[i:i + batch_size]
+            batch = fact_id_content_pairs[i : i + batch_size]
             texts = [c for _, c in batch]
             results = _api_embed(texts, self.api_key, self.embed_url, self.model)
             if results is None:
@@ -330,8 +342,9 @@ class VectorSearchLayer:
 
     # ── Search ──
 
-    def search(self, query: str, top_k: int = 10,
-               fact_ids: list[int] | None = None) -> list[dict]:
+    def search(
+        self, query: str, top_k: int = 10, fact_ids: list[int] | None = None
+    ) -> list[dict]:
         """Semantic search by vector similarity.
 
         Args:
@@ -374,7 +387,8 @@ class VectorSearchLayer:
             "api_url": self.embed_url,
             "model_bound": self._conn.execute(
                 "SELECT model FROM vec_index_meta LIMIT 1"
-            ).fetchone() is not None,
+            ).fetchone()
+            is not None,
         }
 
     def close(self) -> None:

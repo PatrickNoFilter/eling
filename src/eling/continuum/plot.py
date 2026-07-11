@@ -10,7 +10,6 @@ clear error (``hunk_mismatch``) on failure — mirroring Continuum's behaviour.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import List
 
 # 4-phase dispatch protocol (Intake -> Research -> Verify -> Handoff)

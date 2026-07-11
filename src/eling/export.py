@@ -142,11 +142,15 @@ def export_markdown(brain: Brain, path: str | None = None) -> tuple[str, Path | 
         trust = f.get("trust_score", 0.0)
         strength = f.get("strength", 1.0)
         cat = f.get("category", "general")
-        lines.append(f"\n### Fact #{f['fact_id']}  `{cat}`  trust={trust:.2f}  strength={strength:.3f}")
+        lines.append(
+            f"\n### Fact #{f['fact_id']}  `{cat}`  trust={trust:.2f}  strength={strength:.3f}"
+        )
         if tags:
             lines.append(f"*Tags: {tags}*")
         lines.append(f"> {f['content']}")
-        lines.append(f"*Source: {f.get('source', '?')}  Created: {f.get('created_at', '?')}*")
+        lines.append(
+            f"*Source: {f.get('source', '?')}  Created: {f.get('created_at', '?')}*"
+        )
 
     # Entity Graph
     edges = data.get("entity_graph", [])
@@ -155,7 +159,9 @@ def export_markdown(brain: Brain, path: str | None = None) -> tuple[str, Path | 
         lines.append("\n| Entity A | Entity B | Weight | Last Updated |")
         lines.append("|----------|----------|--------|-------------|")
         for e in edges:
-            lines.append(f"| {e['a']} | {e['b']} | {e.get('weight', 0)} | {e.get('updated_at', '?')} |")
+            lines.append(
+                f"| {e['a']} | {e['b']} | {e.get('weight', 0)} | {e.get('updated_at', '?')} |"
+            )
 
     # KB
     kb = data.get("kb", [])
@@ -173,7 +179,9 @@ def export_markdown(brain: Brain, path: str | None = None) -> tuple[str, Path | 
         lines.append("\n| File | Symbol | Kind |")
         lines.append("|------|--------|------|")
         for c in code:
-            lines.append(f"| {c.get('file', '')} | {c.get('symbol', '')} | {c.get('kind', '')} |")
+            lines.append(
+                f"| {c.get('file', '')} | {c.get('symbol', '')} | {c.get('kind', '')} |"
+            )
 
     # Notion
     notion = data.get("notion_pages", [])

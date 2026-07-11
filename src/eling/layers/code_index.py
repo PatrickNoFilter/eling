@@ -26,51 +26,87 @@ logger = logging.getLogger(__name__)
 _RE_PATTERNS: list[tuple[str, str]] = [
     # Python (fallback when ast fails)
     ("function", r"(?:^|\n)\s*(?:async\s+)?def\s+(\w+)\s*\("),
-    ("method",   r"(?:^|\n)\s*(?:async\s+)?def\s+(\w+)\s*\("),
-    ("class",    r"(?:^|\n)\s*class\s+(\w+)\s*(?:\(|:)"),
+    ("method", r"(?:^|\n)\s*(?:async\s+)?def\s+(\w+)\s*\("),
+    ("class", r"(?:^|\n)\s*class\s+(\w+)\s*(?:\(|:)"),
     # TypeScript / JavaScript
     ("function", r"(?:^|\n)\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\("),
-    ("method",   r"(?:^|\n)\s*(\w+)\s*(?:=\s*(?:async\s+)?\([^)]*\)\s*=>|\([^)]*\)\s*\{)"),
-    ("class",    r"(?:^|\n)\s*(?:export\s+)?class\s+(\w+)"),
+    (
+        "method",
+        r"(?:^|\n)\s*(\w+)\s*(?:=\s*(?:async\s+)?\([^)]*\)\s*=>|\([^)]*\)\s*\{)",
+    ),
+    ("class", r"(?:^|\n)\s*(?:export\s+)?class\s+(\w+)"),
     ("interface", r"(?:^|\n)\s*(?:export\s+)?interface\s+(\w+)"),
-    ("type",     r"(?:^|\n)\s*(?:export\s+)?type\s+(\w+)"),
+    ("type", r"(?:^|\n)\s*(?:export\s+)?type\s+(\w+)"),
     # Rust
     ("function", r"(?:^|\n)\s*(?:pub\s+)?(?:async\s+)?fn\s+(\w+)"),
-    ("struct",   r"(?:^|\n)\s*(?:pub\s+)?struct\s+(\w+)"),
-    ("impl",     r"(?:^|\n)\s*(?:pub\s+)?impl\s+(\w+)"),
-    ("enum",     r"(?:^|\n)\s*(?:pub\s+)?enum\s+(\w+)"),
-    ("trait",    r"(?:^|\n)\s*(?:pub\s+)?trait\s+(\w+)"),
+    ("struct", r"(?:^|\n)\s*(?:pub\s+)?struct\s+(\w+)"),
+    ("impl", r"(?:^|\n)\s*(?:pub\s+)?impl\s+(\w+)"),
+    ("enum", r"(?:^|\n)\s*(?:pub\s+)?enum\s+(\w+)"),
+    ("trait", r"(?:^|\n)\s*(?:pub\s+)?trait\s+(\w+)"),
     # Go
     ("function", r"(?:^|\n)\s*func\s+(\w+)\s*\("),
-    ("type",     r"(?:^|\n)\s*type\s+(\w+)\s"),
+    ("type", r"(?:^|\n)\s*type\s+(\w+)\s"),
     # Ruby
-    ("method",   r"(?:^|\n)\s*def\s+(?:self\.)?(\w+)"),
-    ("class",    r"(?:^|\n)\s*class\s+(\w+)"),
-    ("module",   r"(?:^|\n)\s*module\s+(\w+)"),
+    ("method", r"(?:^|\n)\s*def\s+(?:self\.)?(\w+)"),
+    ("class", r"(?:^|\n)\s*class\s+(\w+)"),
+    ("module", r"(?:^|\n)\s*module\s+(\w+)"),
     # Java / Kotlin
-    ("class",    r"(?:^|\n)\s*(?:public\s+|private\s+|protected\s+)?class\s+(\w+)"),
-    ("interface", r"(?:^|\n)\s*(?:public\s+|private\s+|protected\s+)?interface\s+(\w+)"),
-    ("method",   r"(?:^|\n)\s*(?:public\s+|private\s+|protected\s+)?\w+\s+(\w+)\s*\("),
+    ("class", r"(?:^|\n)\s*(?:public\s+|private\s+|protected\s+)?class\s+(\w+)"),
+    (
+        "interface",
+        r"(?:^|\n)\s*(?:public\s+|private\s+|protected\s+)?interface\s+(\w+)",
+    ),
+    ("method", r"(?:^|\n)\s*(?:public\s+|private\s+|protected\s+)?\w+\s+(\w+)\s*\("),
     # C / C++
     ("function", r"(?:^|\n)\s*\w+\s+(\w+)\s*\([^)]*\)\s*\{"),
-    ("class",    r"(?:^|\n)\s*class\s+(\w+)"),
-    ("struct",   r"(?:^|\n)\s*struct\s+(\w+)"),
+    ("class", r"(?:^|\n)\s*class\s+(\w+)"),
+    ("struct", r"(?:^|\n)\s*struct\s+(\w+)"),
 ]
 
 # File extensions treated as code
 _CODE_EXTS = {
-    ".py", ".pyw", ".pyx",
-    ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs",
-    ".rs", ".go", ".rb", ".java", ".kt", ".kts",
-    ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx",
-    ".swift", ".scala", ".ex", ".exs",
+    ".py",
+    ".pyw",
+    ".pyx",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".mjs",
+    ".cjs",
+    ".rs",
+    ".go",
+    ".rb",
+    ".java",
+    ".kt",
+    ".kts",
+    ".c",
+    ".h",
+    ".cpp",
+    ".hpp",
+    ".cc",
+    ".cxx",
+    ".swift",
+    ".scala",
+    ".ex",
+    ".exs",
 }
 
 # Directories to skip
 _SKIP_DIRS = {
-    "__pycache__", ".git", ".venv", "node_modules", "target",
-    "build", "dist", ".egg-info", ".tox", ".mypy_cache",
-    ".pytest_cache", ".ruff_cache", ".hermes",
+    "__pycache__",
+    ".git",
+    ".venv",
+    "node_modules",
+    "target",
+    "build",
+    "dist",
+    ".egg-info",
+    ".tox",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".hermes",
 }
 
 # File size limit (bytes) — skip files larger than this
@@ -80,6 +116,7 @@ _MAX_FILE_BYTES = 512 * 1024  # 512 KB
 # ---------------------------------------------------------------------------
 # Symbol
 # ---------------------------------------------------------------------------
+
 
 class CodeSymbol:
     """A single symbol extracted from source code."""
@@ -116,6 +153,7 @@ class CodeSymbol:
 # AST extraction (Python only)
 # ---------------------------------------------------------------------------
 
+
 def _extract_python_ast(file_path: Path, source: str) -> list[CodeSymbol]:
     """Extract symbols from a Python file using AST."""
     symbols: list[CodeSymbol] = []
@@ -126,45 +164,54 @@ def _extract_python_ast(file_path: Path, source: str) -> list[CodeSymbol]:
 
     for node in ast.walk(tree):
         if isinstance(node, ast.ClassDef):
-            symbols.append(CodeSymbol(
-                file=str(file_path),
-                symbol=node.name,
-                kind="class",
-                line=node.lineno,
-                column=node.col_offset,
-            ))
+            symbols.append(
+                CodeSymbol(
+                    file=str(file_path),
+                    symbol=node.name,
+                    kind="class",
+                    line=node.lineno,
+                    column=node.col_offset,
+                )
+            )
             # Methods inside class
             for child in ast.iter_child_nodes(node):
                 if isinstance(child, ast.FunctionDef):
-                    symbols.append(CodeSymbol(
-                        file=str(file_path),
-                        symbol=child.name,
-                        kind="method",
-                        line=child.lineno,
-                        column=child.col_offset,
-                    ))
+                    symbols.append(
+                        CodeSymbol(
+                            file=str(file_path),
+                            symbol=child.name,
+                            kind="method",
+                            line=child.lineno,
+                            column=child.col_offset,
+                        )
+                    )
         elif isinstance(node, ast.FunctionDef):
-            symbols.append(CodeSymbol(
-                file=str(file_path),
-                symbol=node.name,
-                kind="function",
-                line=node.lineno,
-                column=node.col_offset,
-            ))
+            symbols.append(
+                CodeSymbol(
+                    file=str(file_path),
+                    symbol=node.name,
+                    kind="function",
+                    line=node.lineno,
+                    column=node.col_offset,
+                )
+            )
         elif isinstance(node, ast.AsyncFunctionDef):
-            symbols.append(CodeSymbol(
-                file=str(file_path),
-                symbol=node.name,
-                kind="function",
-                line=node.lineno,
-                column=node.col_offset,
-            ))
+            symbols.append(
+                CodeSymbol(
+                    file=str(file_path),
+                    symbol=node.name,
+                    kind="function",
+                    line=node.lineno,
+                    column=node.col_offset,
+                )
+            )
     return symbols
 
 
 # ---------------------------------------------------------------------------
 # Regex extraction (fallback for non-Python files)
 # ---------------------------------------------------------------------------
+
 
 def _extract_regex(file_path: Path, source: str) -> list[CodeSymbol]:
     """Extract symbols using regex patterns."""
@@ -178,18 +225,21 @@ def _extract_regex(file_path: Path, source: str) -> list[CodeSymbol]:
             key = (line_num, name)
             if key not in seen:
                 seen.add(key)
-                symbols.append(CodeSymbol(
-                    file=str(file_path),
-                    symbol=name,
-                    kind=kind,
-                    line=line_num,
-                ))
+                symbols.append(
+                    CodeSymbol(
+                        file=str(file_path),
+                        symbol=name,
+                        kind=kind,
+                        line=line_num,
+                    )
+                )
     return symbols
 
 
 # ---------------------------------------------------------------------------
 # File scanner
 # ---------------------------------------------------------------------------
+
 
 def _scan_file(file_path: Path) -> list[CodeSymbol]:
     """Extract symbols from a single file."""
@@ -227,6 +277,7 @@ def _iter_code_files(root: Path) -> Iterator[Path]:
 # ---------------------------------------------------------------------------
 # CodeIndex
 # ---------------------------------------------------------------------------
+
 
 class CodeIndex:
     """In-memory code symbol index with optional persistent cache.
@@ -317,7 +368,9 @@ class CodeIndex:
         for s in old_symbols:
             name = s.symbol
             if name in self._symbols:
-                self._symbols[name] = [x for x in self._symbols[name] if x.file != fpath]
+                self._symbols[name] = [
+                    x for x in self._symbols[name] if x.file != fpath
+                ]
                 if not self._symbols[name]:
                     del self._symbols[name]
 
@@ -387,13 +440,17 @@ class CodeIndex:
                     last_line = min(len(lines), symbols_for_file[0]["line"] + 8)
                     snippet = "\n".join(lines[first_line:last_line])
                 except OSError:
-                    logger.debug("code symbol source read failed (non-fatal): %s", file_path)
+                    logger.debug(
+                        "code symbol source read failed (non-fatal): %s", file_path
+                    )
 
-            out.append({
-                "file": file_path,
-                "symbols": by_file[file_path],
-                "snippet": snippet,
-            })
+            out.append(
+                {
+                    "file": file_path,
+                    "symbols": by_file[file_path],
+                    "snippet": snippet,
+                }
+            )
 
         return {"available": self._loaded, "results": out}
 
@@ -406,15 +463,16 @@ class CodeIndex:
             data = {
                 "built_at": self._built_at,
                 "files": {
-                    fpath: [s.to_dict() | {"source": s.source}
-                            for s in syms]
+                    fpath: [s.to_dict() | {"source": s.source} for s in syms]
                     for fpath, syms in self._file_index.items()
                 },
             }
             self.cache_path.parent.mkdir(parents=True, exist_ok=True)
             self.cache_path.write_text(json.dumps(data, indent=2))
         except OSError:
-            logger.debug("code index cache write failed (non-fatal): %s", self.cache_path)
+            logger.debug(
+                "code index cache write failed (non-fatal): %s", self.cache_path
+            )
 
     def _load_cache(self) -> int:
         """Load from cache file. Returns number of files loaded."""

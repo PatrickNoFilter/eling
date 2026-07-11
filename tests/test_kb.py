@@ -82,7 +82,7 @@ class TestSearch:
     def test_special_chars_sanitized(self, kb):
         kb.index("Some content here", source="doc")
         # Special chars that would break FTS5 should not crash
-        results = kb.search("\"unclosed quote")
+        results = kb.search('"unclosed quote')
         assert isinstance(results, list)
 
 
@@ -106,7 +106,9 @@ class TestRemoveSource:
         kb.index("keep me", source="keep")
         removed = kb.remove_source("rm-me")
         assert removed == 2
-        assert kb.search("alpha") == [] or all("rm-me" not in r["source"] for r in kb.search("alpha"))
+        assert kb.search("alpha") == [] or all(
+            "rm-me" not in r["source"] for r in kb.search("alpha")
+        )
 
 
 class TestStats:

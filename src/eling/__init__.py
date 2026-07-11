@@ -10,10 +10,20 @@ MCP split:
 
 __version__ = "0.9.2"
 __all__ = [
-    "Brain", "HookRegistry", "ALL_HOOKS", "register_default_hooks",
-    "remember", "recall", "reason", "resolve_config", "set_config_key",
-    "get_config", "describe_config",
-    "verify_on_stop", "detect_host_agent", "host_has_verify_on_stop",
+    "Brain",
+    "HookRegistry",
+    "ALL_HOOKS",
+    "register_default_hooks",
+    "remember",
+    "recall",
+    "reason",
+    "resolve_config",
+    "set_config_key",
+    "get_config",
+    "describe_config",
+    "verify_on_stop",
+    "detect_host_agent",
+    "host_has_verify_on_stop",
     "FactMemoryProvider",
 ]
 

@@ -197,7 +197,9 @@ def _handle_initialize(rid: int | str | None, params: dict) -> dict:
     client_info = params.get("clientInfo", {})
     client_name = client_info.get("name", "unknown")
     client_version = client_info.get("version", "?")
-    logger.info("Eling (Notion) MCP client connected: %s %s", client_name, client_version)
+    logger.info(
+        "Eling (Notion) MCP client connected: %s %s", client_name, client_version
+    )
     return {
         "jsonrpc": "2.0",
         "id": rid,
@@ -218,7 +220,9 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
         try:
             text = json.dumps(data, default=str)
         except Exception:
-            text = json.dumps({"error": "result not serializable", "raw": str(data)[:500]})
+            text = json.dumps(
+                {"error": "result not serializable", "raw": str(data)[:500]}
+            )
         return {
             "jsonrpc": "2.0",
             "id": rid,
@@ -231,9 +235,18 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             title = args.pop("title", "") or content[:80]
             category = args.pop("category", "general")
             # Simple category-based child page routing
-            notion_cat = category if category in ("credential", "config", "address", "project_summary") else "task_logs"
+            notion_cat = (
+                category
+                if category in ("credential", "config", "address", "project_summary")
+                else "task_logs"
+            )
             if not notion.available:
-                return ok({"error": "Notion not configured (NOTION_API_KEY missing)", "available": False})
+                return ok(
+                    {
+                        "error": "Notion not configured (NOTION_API_KEY missing)",
+                        "available": False,
+                    }
+                )
             page_id = notion.create_page(title=title, content=content)
             return ok({"layer": "notion", "page_id": page_id, "category": notion_cat})
         elif tool_name == "eling_search":
@@ -263,11 +276,13 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             page_id = notion.create_page(title=title, content=content)
             return ok({"page_id": page_id, "title": title})
         elif tool_name == "eling_stats":
-            return ok({
-                "available": notion.available,
-                "has_api_key": bool(notion.api_key),
-                "has_parent_page_id": bool(notion.parent_page_id),
-            })
+            return ok(
+                {
+                    "available": notion.available,
+                    "has_api_key": bool(notion.api_key),
+                    "has_parent_page_id": bool(notion.parent_page_id),
+                }
+            )
         elif tool_name == "eling_delete_page":
             page_id = args.pop("page_id", "")
             hard = bool(args.pop("hard", False))
@@ -283,7 +298,9 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
         return _error(rid, -32000, f"{type(e).__name__}: {e}", traceback.format_exc())
 
 
-def _error(rid: int | str | None, code: int, message: str, data: str | None = None) -> dict:
+def _error(
+    rid: int | str | None, code: int, message: str, data: str | None = None
+) -> dict:
     err: dict[str, Any] = {"code": code, "message": message}
     if data:
         err["data"] = data

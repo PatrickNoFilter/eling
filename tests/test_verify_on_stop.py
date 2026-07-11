@@ -3,11 +3,10 @@
 import os
 from unittest.mock import patch
 
-import pytest
 
 from eling import verify_on_stop as vos
 from eling.brain import Brain
-from eling.hooks import HOOK_VERIFY_REQUEST, HOOK_FILE_EDIT
+from eling.hooks import HOOK_FILE_EDIT
 
 # ── Detection tests ──────────────────────────────────────────────────────────
 

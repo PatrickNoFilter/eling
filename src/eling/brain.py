@@ -24,7 +24,7 @@ from .layers.notion import NotionLayer
 from . import compress
 from . import hooks as eling_hooks
 from . import permissions
-from .privacy import PrivacyPipeline, redact_kinds
+from .privacy import PrivacyPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -112,10 +112,16 @@ class Brain:
         self.home.mkdir(parents=True, exist_ok=True)
         # Layers
         self.builtin = BuiltinLayer()
-        self.facts = FactsLayer(db_path=self.home / "facts.db", hrr_dim=hrr_dim, embedding_model=embedding_model)
+        self.facts = FactsLayer(
+            db_path=self.home / "facts.db",
+            hrr_dim=hrr_dim,
+            embedding_model=embedding_model,
+        )
         self.kb = KBLayer(db_path=self.home / "kb.db")
         self.code = CodeLayer(project_path=project_path, auto_index=False)
-        self.notion = NotionLayer(api_key=notion_api_key, parent_page_id=notion_parent_id)
+        self.notion = NotionLayer(
+            api_key=notion_api_key, parent_page_id=notion_parent_id
+        )
         # Child page cache: title → page_id (includes task_logs)
         self._child_pages: dict[str, str] = {}
         self.privacy = PrivacyPipeline()
@@ -125,9 +131,12 @@ class Brain:
         # Adapter for verify-on-stop (hermes | opencode | openclaw | auto)
         self._adapter: str = adapter or "auto"
         # Project path (used by verify-on-stop → spec-kit)
-        self._project_path: Path | None = Path(project_path).expanduser().resolve() if project_path else None
+        self._project_path: Path | None = (
+            Path(project_path).expanduser().resolve() if project_path else None
+        )
         if self._project_path:
             from . import verify_on_stop as vos
+
             vos.set_project_path(self._project_path)
 
     @property
@@ -159,7 +168,7 @@ class Brain:
                 return r["id"]
         pid = self.notion.create_page(
             title,
-            f"_auto-managed by eling_",
+            "_auto-managed by eling_",
             parent_id=parent,
         )
         if pid:
@@ -186,6 +195,7 @@ class Brain:
     def snapshot(self, reason: str = "") -> dict:
         """Snapshot the facts database before bulk operations."""
         from . import snapshot as snap_mod
+
         return snap_mod.create_snapshot(self.facts.db_path, reason=reason)
 
     def rollback(self, snapshot_id: str) -> dict:
@@ -195,6 +205,7 @@ class Brain:
         restored database so the in-memory state is consistent.
         """
         from . import snapshot as snap_mod
+
         result = snap_mod.rollback(snapshot_id, self.facts.db_path)
         # Re-initialize facts layer from the restored DB
         old = self.facts
@@ -209,6 +220,7 @@ class Brain:
     def list_snapshots(self) -> list[dict]:
         """List available snapshots."""
         from . import snapshot as snap_mod
+
         return snap_mod.list_snapshots(self.facts.db_path)
 
     # ------------------------------------------------------------------
@@ -251,7 +263,9 @@ class Brain:
                 "message": "content already stored (SHA-256 dedup hit)",
                 "redacted": pp["redacted"],
             }
-            self.fire_hook(eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result)
+            self.fire_hook(
+                eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result
+            )
             return result
 
         clean_content = pp["clean"]
@@ -266,7 +280,15 @@ class Brain:
         # ── Permissions gate (Task 12.4) ──
         target_layer = layer
         if target_layer == "auto":
-            target_layer = "kb" if (len(compressed) > 500 or "\n# " in compressed or "\n## " in compressed) else "facts"
+            target_layer = (
+                "kb"
+                if (
+                    len(compressed) > 500
+                    or "\n# " in compressed
+                    or "\n## " in compressed
+                )
+                else "facts"
+            )
         src_ident = source or "manual"
         if not permissions.check_access(src_ident, target_layer, "write"):
             return {
@@ -282,20 +304,32 @@ class Brain:
                 layer = "facts"
 
         if layer == "facts":
-            fid = self.facts.add(compressed, category=category, tags=tags, source=source or "manual")
+            fid = self.facts.add(
+                compressed, category=category, tags=tags, source=source or "manual"
+            )
             result = {"layer": "facts", "id": fid, "content": compressed[:120], **meta}
-            self.fire_hook(eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result)
+            self.fire_hook(
+                eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result
+            )
             return result
         elif layer == "kb":
             src = source or title or "manual"
             n = self.kb.index(compressed, source=src)
             result = {"layer": "kb", "source": src, "chunks_added": n, **meta}
-            self.fire_hook(eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result)
+            self.fire_hook(
+                eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result
+            )
             return result
         elif layer == "notion":
             if not self.notion.available:
-                result = {"layer": "notion", "error": "Notion not configured (NOTION_API_KEY missing)", **meta}
-                self.fire_hook(eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result)
+                result = {
+                    "layer": "notion",
+                    "error": "Notion not configured (NOTION_API_KEY missing)",
+                    **meta,
+                }
+                self.fire_hook(
+                    eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result
+                )
                 return result
             # Auto-detect category from content if not explicitly set
             notion_cat = _detect_notion_category(compressed, category_hint=category)
@@ -306,8 +340,15 @@ class Brain:
                 content=store,
                 parent_id=parent_id or self.notion.parent_page_id,
             )
-            result = {"layer": "notion", "page_id": pid, "notion_category": notion_cat, **meta}
-            self.fire_hook(eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result)
+            result = {
+                "layer": "notion",
+                "page_id": pid,
+                "notion_category": notion_cat,
+                **meta,
+            }
+            self.fire_hook(
+                eling_hooks.HOOK_POST_TOOL_USE, tool_name="remember", result=result
+            )
             return result
         else:
             raise ValueError(f"unknown layer: {layer}")
@@ -327,7 +368,9 @@ class Brain:
 
         Optional `source` limits results to one agent origin (hermes, opencode, etc.).
         """
-        self.fire_hook(eling_hooks.HOOK_PRE_TOOL_USE, tool_name="recall", arguments=query)
+        self.fire_hook(
+            eling_hooks.HOOK_PRE_TOOL_USE, tool_name="recall", arguments=query
+        )
 
         if not layers:
             layers = ["builtin", "facts", "kb", "code", "notion"]
@@ -337,7 +380,9 @@ class Brain:
         if "builtin" in layers:
             per_layer["builtin"] = self.builtin.search(query)[:limit]
         if "facts" in layers:
-            per_layer["facts"] = self.facts.search(query, min_trust=min_trust, source=source, limit=limit)
+            per_layer["facts"] = self.facts.search(
+                query, min_trust=min_trust, source=source, limit=limit
+            )
         if "kb" in layers:
             per_layer["kb"] = self.kb.search(query, source=source, limit=limit)
         if "code" in layers and self.code.available:
@@ -391,7 +436,7 @@ class Brain:
         """Extract human-readable content from any layer's RRF result item."""
         layer = item.get("_layer", "")
         if layer == "code":
-            return f"{item.get('file','')}::{item.get('symbol','')} ({item.get('kind','')})"
+            return f"{item.get('file', '')}::{item.get('symbol', '')} ({item.get('kind', '')})"
         if layer == "notion":
             return item.get("title", item.get("id", ""))
         if layer == "builtin":
@@ -426,8 +471,10 @@ class Brain:
                 "results": [],
                 "reason_results": [],
                 "gap_analysis": {
-                    "stale_count": 0, "stale_facts": [],
-                    "contradicted_count": 0, "contradicted_facts": [],
+                    "stale_count": 0,
+                    "stale_facts": [],
+                    "contradicted_count": 0,
+                    "contradicted_facts": [],
                     "unknown_count": 1,
                 },
             }
@@ -443,6 +490,7 @@ class Brain:
 
         # 3. Gap analysis — scan recall results for stale / contradicted
         from . import decay
+
         ACTIVE = decay.ACTIVE_THRESHOLD
         stale: list[dict] = []
         contradicted: list[dict] = []
@@ -451,18 +499,22 @@ class Brain:
             strength = fact.get("strength", 1.0)
             tags = fact.get("tags") or ""
             if isinstance(strength, (int, float)) and strength < ACTIVE:
-                stale.append({
-                    "fact_id": fact.get("fact_id"),
-                    "content": self._think_content(fact),
-                    "strength": round(strength, 3),
-                    "source": fact.get("source"),
-                })
+                stale.append(
+                    {
+                        "fact_id": fact.get("fact_id"),
+                        "content": self._think_content(fact),
+                        "strength": round(strength, 3),
+                        "source": fact.get("source"),
+                    }
+                )
             if "contradiction_pending" in tags:
-                contradicted.append({
-                    "fact_id": fact.get("fact_id"),
-                    "content": self._think_content(fact),
-                    "tags": tags,
-                })
+                contradicted.append(
+                    {
+                        "fact_id": fact.get("fact_id"),
+                        "content": self._think_content(fact),
+                        "tags": tags,
+                    }
+                )
 
         # Also check reason results for stale/contradicted
         seen_ids = {f.get("fact_id") for f in merged}
@@ -472,18 +524,22 @@ class Brain:
             strength = fact.get("strength", 1.0)
             tags = fact.get("tags") or ""
             if isinstance(strength, (int, float)) and strength < ACTIVE:
-                stale.append({
-                    "fact_id": fact.get("fact_id"),
-                    "content": self._think_content(fact),
-                    "strength": round(strength, 3),
-                    "source": fact.get("source"),
-                })
+                stale.append(
+                    {
+                        "fact_id": fact.get("fact_id"),
+                        "content": self._think_content(fact),
+                        "strength": round(strength, 3),
+                        "source": fact.get("source"),
+                    }
+                )
             if "contradiction_pending" in tags:
-                contradicted.append({
-                    "fact_id": fact.get("fact_id"),
-                    "content": self._think_content(fact),
-                    "tags": tags,
-                })
+                contradicted.append(
+                    {
+                        "fact_id": fact.get("fact_id"),
+                        "content": self._think_content(fact),
+                        "tags": tags,
+                    }
+                )
             seen_ids.add(fact.get("fact_id"))
 
         unknown_count = 0 if merged else 1  # no results = unknown topic
@@ -493,15 +549,25 @@ class Brain:
         n_facts = len(merged)
         n_layers = len(recall_result.get("per_layer", {}))
         if n_facts:
-            parts.append(f"Found {n_facts} result{'s' if n_facts != 1 else ''} across {n_layers} layer{'s' if n_layers != 1 else ''}.")
+            parts.append(
+                f"Found {n_facts} result{'s' if n_facts != 1 else ''} across {n_layers} layer{'s' if n_layers != 1 else ''}."
+            )
         else:
-            parts.append("No relevant facts found — this appears to be new/unexplored information.")
+            parts.append(
+                "No relevant facts found — this appears to be new/unexplored information."
+            )
         if stale:
-            parts.append(f"{len(stale)} fact{'s' if len(stale) != 1 else ''} {'are' if len(stale) != 1 else 'is'} stale (strength < {ACTIVE}).")
+            parts.append(
+                f"{len(stale)} fact{'s' if len(stale) != 1 else ''} {'are' if len(stale) != 1 else 'is'} stale (strength < {ACTIVE})."
+            )
         if contradicted:
-            parts.append(f"{len(contradicted)} fact{'s' if len(contradicted) != 1 else ''} {'are' if len(contradicted) != 1 else 'is'} flagged as contradicted.")
+            parts.append(
+                f"{len(contradicted)} fact{'s' if len(contradicted) != 1 else ''} {'are' if len(contradicted) != 1 else 'is'} flagged as contradicted."
+            )
         if entities:
-            parts.append(f"Reasoned across {len(entities)} entit{'y' if len(entities) == 1 else 'ies'}: {', '.join(entities)}.")
+            parts.append(
+                f"Reasoned across {len(entities)} entit{'y' if len(entities) == 1 else 'ies'}: {', '.join(entities)}."
+            )
 
         return {
             "query": query,
@@ -519,8 +585,14 @@ class Brain:
 
     # ── verify — check verification-on-stop status ──
 
-    def verify(self, status: str = "", command: str = "", output: str = "",
-               spec_check: bool = False, changed_files: list[str] | None = None) -> dict:
+    def verify(
+        self,
+        status: str = "",
+        command: str = "",
+        output: str = "",
+        spec_check: bool = False,
+        changed_files: list[str] | None = None,
+    ) -> dict:
         """Query or record verification-on-stop status.
 
         When called with no args, returns the current verification status from
@@ -635,8 +707,12 @@ class Brain:
         effective_parent = parent_page_id
         if not effective_parent:
             fact_cat = fact.get("category", "")
-            notion_cat = _detect_notion_category(fact["content"], category_hint=fact_cat)
-            effective_parent = self._route_parent(notion_cat) or self.notion.parent_page_id
+            notion_cat = _detect_notion_category(
+                fact["content"], category_hint=fact_cat
+            )
+            effective_parent = (
+                self._route_parent(notion_cat) or self.notion.parent_page_id
+            )
         if not effective_parent:
             return {"error": "no parent page available for reflect", "promoted": False}
 
@@ -680,7 +756,9 @@ class Brain:
             "privacy": self.privacy.stats(),
             "hooks": {
                 "total_handlers": self.hooks.total_handlers,
-                "hooks_with_handlers": sum(1 for h in eling_hooks.ALL_HOOKS if self.hooks.has_handlers(h)),
+                "hooks_with_handlers": sum(
+                    1 for h in eling_hooks.ALL_HOOKS if self.hooks.has_handlers(h)
+                ),
             },
         }
         result["facts"]["versioning"] = self.facts.versioning_stats()
@@ -733,7 +811,6 @@ class Brain:
                 parsed_start, parsed_end = self.facts.parse_time_query(query)
 
         per_layer: dict[str, list[dict]] = {}
-        layers = ["facts"]
 
         # Use search_temporal on facts layer
         per_layer["facts"] = self.facts.search_temporal(
@@ -763,7 +840,9 @@ class Brain:
 
     # ── Per-Fact Versioning (Memvid-inspired) ─────────────────────────
 
-    def versioned_update(self, fact_id: int, new_content: str, reason: str = "") -> dict | None:
+    def versioned_update(
+        self, fact_id: int, new_content: str, reason: str = ""
+    ) -> dict | None:
         """Update a fact with version tracking."""
         return self.facts.versioned_update(fact_id, new_content, reason=reason)
 
@@ -813,10 +892,13 @@ class Brain:
         }
 
         # ── Fire sync_start hook ──
-        self._fire_hook("sync_start", {
-            "direction": direction,
-            "layer": layer,
-        })
+        self._fire_hook(
+            "sync_start",
+            {
+                "direction": direction,
+                "layer": layer,
+            },
+        )
 
         try:
             # ── flush: persist pending writes ──
@@ -827,7 +909,11 @@ class Brain:
                 result["layers"]["kb_flushed"] = True
 
             # ── push: facts → Notion ──
-            if direction in ("push", "all", "auto") and layer in ("auto", "facts", "notion"):
+            if direction in ("push", "all", "auto") and layer in (
+                "auto",
+                "facts",
+                "notion",
+            ):
                 if self.notion.available:
                     try:
                         pushed = self._sync_push_facts()
@@ -855,13 +941,16 @@ class Brain:
             # ── state tracking ──
             if sync_state_path:
                 from pathlib import Path
+
                 state_path = Path(sync_state_path)
                 state: dict = {}
                 if state_path.exists():
                     try:
                         state = json.loads(state_path.read_text())
                     except Exception:
-                        logger.debug("sync state parse failed (non-fatal): %s", state_path)
+                        logger.debug(
+                            "sync state parse failed (non-fatal): %s", state_path
+                        )
                 state["last_sync"] = __import__("datetime").datetime.now().isoformat()
                 state.setdefault("total_pushed", 0)
                 state["total_pushed"] += result["pushed"]
@@ -873,18 +962,24 @@ class Brain:
                 state_path.write_text(json.dumps(state, indent=2) + "\n")
 
             # ── Fire sync_complete hook ──
-            self._fire_hook("sync_complete", {
-                "direction": direction,
-                "layer": layer,
-                "result": result,
-            })
+            self._fire_hook(
+                "sync_complete",
+                {
+                    "direction": direction,
+                    "layer": layer,
+                    "result": result,
+                },
+            )
 
         except Exception as e:
-            self._fire_hook("sync_error", {
-                "direction": direction,
-                "layer": layer,
-                "error": str(e),
-            })
+            self._fire_hook(
+                "sync_error",
+                {
+                    "direction": direction,
+                    "layer": layer,
+                    "error": str(e),
+                },
+            )
             raise
 
         return result
@@ -906,10 +1001,12 @@ class Brain:
             try:
                 synced = set(json.loads(synced_path.read_text()))
             except Exception:
-                logger.debug("sync push cache parse failed (non-fatal): %s", synced_path)
+                logger.debug(
+                    "sync push cache parse failed (non-fatal): %s", synced_path
+                )
 
         for f in all_facts:
-            fact_id = f.get("id", f.get("fact_id"))
+            f.get("id", f.get("fact_id"))
             content = f.get("content", "")
             trust = f.get("trust_score", f.get("trust", 0.5))
             if not content or trust < 0.7:
@@ -944,7 +1041,9 @@ class Brain:
                 page_id = p["id"]
                 # Skip if already in KB (check by source URL)
                 existing = self.kb.search(f"notion:{page_id}", limit=1)
-                if any("notion:" + page_id in str(r.get("source", "")) for r in existing):
+                if any(
+                    "notion:" + page_id in str(r.get("source", "")) for r in existing
+                ):
                     continue
                 md = self.notion.get_page_markdown(page_id)
                 if md:

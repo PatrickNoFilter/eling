@@ -25,7 +25,6 @@ class TestRemember:
         assert "chunks_added" in out
 
     def test_auto_routes_markdown_to_kb(self, brain):
-        md = "# Title\nSome content here"
         # With heading, should still route to facts (under 500 chars)
         # But once content has \n# it triggers kb routing
         out = brain.remember("normal content\n# heading\nmore")
@@ -142,7 +141,10 @@ class TestRRFFusion:
         # Rank 0 in facts and rank 1 in kb → facts item should rank higher
         per_layer = {
             "facts": [{"fact_id": 1, "content": "high"}],
-            "kb": [{"chunk_id": 99, "content": "skip"}, {"chunk_id": 100, "content": "low"}],
+            "kb": [
+                {"chunk_id": 99, "content": "skip"},
+                {"chunk_id": 100, "content": "low"},
+            ],
         }
         merged = Brain._rrf_fuse(per_layer, limit=5)
         # facts rank 0 has 1/(60+1) = 0.0164
@@ -151,4 +153,8 @@ class TestRRFFusion:
         # Top 2 should be the rank-0 items
         top2 = merged[:2]
         scores = [m["_rrf_score"] for m in top2]
-        assert all(s >= merged[2]["_rrf_score"] for s in scores) if len(merged) > 2 else True
+        assert (
+            all(s >= merged[2]["_rrf_score"] for s in scores)
+            if len(merged) > 2
+            else True
+        )

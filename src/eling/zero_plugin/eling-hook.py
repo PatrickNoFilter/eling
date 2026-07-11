@@ -29,6 +29,7 @@ log = logging.getLogger("eling-hook")
 def get_brain():
     """Lazy-init the Eling Brain."""
     from eling.brain import Brain
+
     return Brain(home=ELING_HOME)
 
 

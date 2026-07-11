@@ -37,13 +37,16 @@ def _require_numpy():
     """
     global _HAS_NUMPY
     import importlib
+
     try:
         mod = importlib.import_module("numpy")
         _HAS_NUMPY = True
         return mod
     except ImportError:
         _HAS_NUMPY = False
-        raise RuntimeError("numpy is required for HRR operations. Install with: pip install eling-memory[hrr]")
+        raise RuntimeError(
+            "numpy is required for HRR operations. Install with: pip install eling-memory[hrr]"
+        )
 
 
 def encode_atom(word: str, dim: int = 1024):
@@ -60,13 +63,13 @@ def encode_atom(word: str, dim: int = 1024):
 
 def bind(a, b):
     """Circular convolution = element-wise phase addition."""
-    np = _require_numpy()
+    _require_numpy()
     return (a + b) % _TWO_PI
 
 
 def unbind(memory, key):
     """Circular correlation = element-wise phase subtraction."""
-    np = _require_numpy()
+    _require_numpy()
     return (memory - key) % _TWO_PI
 
 
@@ -106,7 +109,7 @@ def encode_fact(content: str, entities: list[str], dim: int = 1024):
 
 def phases_to_bytes(phases) -> bytes:
     """Serialize phase vector to bytes (float64, 8KB at dim=1024)."""
-    np = _require_numpy()
+    _require_numpy()
     return phases.tobytes()
 
 
@@ -122,5 +125,10 @@ def snr_estimate(dim: int, n_items: int) -> float:
         return float("inf")
     snr = math.sqrt(dim / n_items)
     if snr < 2.0:
-        logger.warning("HRR storage near capacity: SNR=%.2f (dim=%d, n_items=%d)", snr, dim, n_items)
+        logger.warning(
+            "HRR storage near capacity: SNR=%.2f (dim=%d, n_items=%d)",
+            snr,
+            dim,
+            n_items,
+        )
     return snr

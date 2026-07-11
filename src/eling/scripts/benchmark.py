@@ -13,13 +13,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 import sys
 import tempfile
 import time
 from pathlib import Path
 from statistics import quantiles
-from typing import Any
 
 from eling.brain import Brain
 
@@ -35,7 +33,7 @@ def _seed(brain: Brain, n: int = 100):
             source="benchmark",
         )
         brain.remember(
-            f"FastAPI is a modern Python web framework for building APIs with type hints.",
+            "FastAPI is a modern Python web framework for building APIs with type hints.",
             layer="facts",
             category="code",
             source="benchmark",
@@ -94,21 +92,44 @@ def run_benchmark(runs: int = 20, warmup: int = 3) -> list[dict]:
     _seed(brain)
 
     # ── facts ──
-    results.append(_timer("facts.remember", lambda: brain.remember(
-        "New benchmark fact for timing", layer="facts", category="code"
-    ), warmup, runs))
+    results.append(
+        _timer(
+            "facts.remember",
+            lambda: brain.remember(
+                "New benchmark fact for timing", layer="facts", category="code"
+            ),
+            warmup,
+            runs,
+        )
+    )
 
-    results.append(_timer("facts.search", lambda: brain.recall("Python", limit=5), warmup, runs))
+    results.append(
+        _timer("facts.search", lambda: brain.recall("Python", limit=5), warmup, runs)
+    )
 
     # ── kb ──
-    results.append(_timer("kb.remember", lambda: brain.remember(
-        "New KB chunk for timing", layer="kb"
-    ), warmup, runs))
+    results.append(
+        _timer(
+            "kb.remember",
+            lambda: brain.remember("New KB chunk for timing", layer="kb"),
+            warmup,
+            runs,
+        )
+    )
 
-    results.append(_timer("kb.search", lambda: brain.recall("SQLite", limit=5), warmup, runs))
+    results.append(
+        _timer("kb.search", lambda: brain.recall("SQLite", limit=5), warmup, runs)
+    )
 
     # ── code ──
-    results.append(_timer("code.search", lambda: brain.code.search("benchmark", max_files=5), warmup, runs))
+    results.append(
+        _timer(
+            "code.search",
+            lambda: brain.code.search("benchmark", max_files=5),
+            warmup,
+            runs,
+        )
+    )
 
     # ── stats ──
     results.append(_timer("stats", lambda: brain.stats(), warmup, runs))
@@ -128,7 +149,9 @@ def run_benchmark(runs: int = 20, warmup: int = 3) -> list[dict]:
 
 def print_table(results: list[dict]):
     """Print a human-readable table."""
-    header = f"{'Operation':<20} {'p50':>10} {'p95':>10} {'p99':>10} {'avg':>10} {'runs':>6}"
+    header = (
+        f"{'Operation':<20} {'p50':>10} {'p95':>10} {'p99':>10} {'avg':>10} {'runs':>6}"
+    )
     sep = "-" * len(header)
     print(sep, file=sys.stderr)
     print(header, file=sys.stderr)
@@ -144,8 +167,14 @@ def print_table(results: list[dict]):
 
 def main():
     parser = argparse.ArgumentParser(description="Eling benchmark suite")
-    parser.add_argument("--runs", type=int, default=20, help="Number of measured runs per operation")
-    parser.add_argument("--json", action="store_true", help="JSON output to stdout (table goes to stderr)")
+    parser.add_argument(
+        "--runs", type=int, default=20, help="Number of measured runs per operation"
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="JSON output to stdout (table goes to stderr)",
+    )
     args = parser.parse_args()
 
     results = run_benchmark(runs=args.runs)

@@ -50,7 +50,7 @@ src.close()
 # Import eling
 ELING_HOME.mkdir(parents=True, exist_ok=True)
 sys.path.insert(0, "/root/eling/src")
-from eling.layers.facts import FactsLayer
+from eling.layers.facts import FactsLayer  # noqa: E402
 
 # Open eling DB
 fl = FactsLayer(db_path=ELING_DB)
@@ -81,8 +81,13 @@ for row in facts:
             "UPDATE facts SET retrieval_count = ?, helpful_count = ?, "
             "created_at = ?, updated_at = ? "
             "WHERE fact_id = ?",
-            (row["retrieval_count"], row["helpful_count"],
-             row["created_at"], row["updated_at"], new_id),
+            (
+                row["retrieval_count"],
+                row["helpful_count"],
+                row["created_at"],
+                row["updated_at"],
+                new_id,
+            ),
         )
         fl._conn.commit()
         migrated += 1
@@ -105,6 +110,10 @@ print("=" * 60)
 dst = sqlite3.connect(ELING_DB)
 dst_count = dst.execute("SELECT COUNT(*) FROM facts").fetchone()[0]
 ent_count = dst.execute("SELECT COUNT(*) FROM entities").fetchone()[0]
-hrr_count = dst.execute("SELECT COUNT(*) FROM facts WHERE hrr_vector IS NOT NULL").fetchone()[0]
-print(f"📊 Final eling DB: {dst_count} facts, {ent_count} entities, {hrr_count} with HRR vectors")
+hrr_count = dst.execute(
+    "SELECT COUNT(*) FROM facts WHERE hrr_vector IS NOT NULL"
+).fetchone()[0]
+print(
+    f"📊 Final eling DB: {dst_count} facts, {ent_count} entities, {hrr_count} with HRR vectors"
+)
 dst.close()

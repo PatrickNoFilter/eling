@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from eling.config import (
     SCHEMA_PACKS,

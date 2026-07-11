@@ -51,7 +51,9 @@ class KBLayer:
     def __init__(self, db_path: str | Path):
         self.db_path = Path(db_path).expanduser()
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False, timeout=10.0)
+        self._conn = sqlite3.connect(
+            str(self.db_path), check_same_thread=False, timeout=10.0
+        )
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
         try:
@@ -79,7 +81,9 @@ class KBLayer:
             self._conn.commit()
             return n
 
-    def search(self, query: str, source: str | None = None, limit: int = 5) -> list[dict]:
+    def search(
+        self, query: str, source: str | None = None, limit: int = 5
+    ) -> list[dict]:
         """BM25 + trigram hybrid search across KB."""
         with self._lock:
             query = query.strip()
@@ -118,14 +122,18 @@ class KBLayer:
 
     def remove_source(self, source: str) -> int:
         with self._lock:
-            cur = self._conn.execute("DELETE FROM kb_chunks WHERE source = ?", (source,))
+            cur = self._conn.execute(
+                "DELETE FROM kb_chunks WHERE source = ?", (source,)
+            )
             self._conn.commit()
             return cur.rowcount
 
     def stats(self) -> dict:
         with self._lock:
             count = self._conn.execute("SELECT COUNT(*) as n FROM kb_chunks").fetchone()
-            sources = self._conn.execute("SELECT COUNT(DISTINCT source) as n FROM kb_chunks").fetchone()
+            sources = self._conn.execute(
+                "SELECT COUNT(DISTINCT source) as n FROM kb_chunks"
+            ).fetchone()
             return {
                 "total_chunks": count["n"],
                 "total_sources": sources["n"],

@@ -1,8 +1,6 @@
 """Tests for Eling compression pipeline."""
 
-import pytest
-
-from eling.compress import compress, _truncate_compress, configure
+from eling.compress import compress, configure
 
 
 class TestTruncateCompress:
@@ -86,6 +84,7 @@ That's it.
 class TestCompressPassthrough:
     def test_content_under_min_chars_passes(self):
         from eling.compress import _COMPRESS_MIN_CHARS
+
         assert _COMPRESS_MIN_CHARS > 0
         text = "x" * (_COMPRESS_MIN_CHARS - 1)
         assert compress(text) == text

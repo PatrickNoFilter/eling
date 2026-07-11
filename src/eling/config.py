@@ -106,6 +106,7 @@ SCHEMA_PACKS: dict[str, dict[str, Any]] = {
 def resolve_schema_pack(pack_name: str) -> dict[str, Any]:
     """Resolve a schema pack, merging with 'default' for the base."""
     from copy import deepcopy
+
     base = deepcopy(SCHEMA_PACKS.get("default", {}))
     if pack_name and pack_name != "default":
         overrides = SCHEMA_PACKS.get(pack_name, {})
@@ -151,10 +152,14 @@ def _cast(key: str, value: Any) -> Any:
     if value is None:
         return DEFAULTS.get(key)
     t = TYPE_MAP[key]
-    if t == bool:
+    if t is bool:
         if isinstance(value, bool):
             return value
-        return value.lower() in ("1", "true", "yes", "on") if isinstance(value, str) else bool(value)
+        return (
+            value.lower() in ("1", "true", "yes", "on")
+            if isinstance(value, str)
+            else bool(value)
+        )
     return t(value)
 
 
@@ -166,6 +171,7 @@ def _resolve_env(key: str) -> str | None:
 def _hermes_home() -> str:
     try:
         from hermes_constants import get_hermes_home
+
         return str(get_hermes_home())
     except Exception:
         return os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes"))
@@ -246,7 +252,9 @@ def get_config(home: str | None = None) -> dict:
 def set_config_key(key: str, value: Any, home: str | None = None) -> None:
     """Set a persistent config.json key. Validated against DEFAULTS."""
     if key not in DEFAULTS:
-        raise ValueError(f"Unknown config key: {key}. Valid: {', '.join(sorted(DEFAULTS))}")
+        raise ValueError(
+            f"Unknown config key: {key}. Valid: {', '.join(sorted(DEFAULTS))}"
+        )
     path = _config_path(home)
     data = _read_json(path)
     data[key] = _cast(key, value)
@@ -264,16 +272,76 @@ def remove_config_key(key: str, home: str | None = None) -> None:
 def describe_config() -> dict[str, dict]:
     """Return schema description for all config keys."""
     return {
-        "home": {"type": "string", "default": "", "env": "ELING_HOME", "description": "Data directory"},
-        "hrr_dim": {"type": "int", "default": 512, "env": "ELING_HRR_DIM", "description": "HRR vector dimension (max 2048)"},
-        "default_trust": {"type": "float", "default": 0.5, "env": "ELING_DEFAULT_TRUST", "description": "Default trust for new facts"},
-        "min_trust": {"type": "float", "default": 0.0, "env": "ELING_MIN_TRUST", "description": "Minimum trust threshold for search"},
-        "notion_enabled": {"type": "bool", "default": True, "env": "ELING_NOTION_ENABLED", "description": "Enable Notion layer"},
-        "codegraph_enabled": {"type": "bool", "default": True, "env": "ELING_CODEGRAPH_ENABLED", "description": "Enable codegraph layer"},
-        "dedup_cache_size": {"type": "int", "default": 1000, "env": "ELING_DEDUP_CACHE_SIZE", "description": "Dedup cache entry count"},
-        "auto_sync_turns": {"type": "bool", "default": True, "env": "ELING_AUTO_SYNC_TURNS", "description": "Auto-store user/assistant messages"},
-        "schema_pack": {"type": "str", "default": "default", "env": "ELING_SCHEMA_PACK", "description": "Category schema pack: default | coding | research"},
-        "adapter": {"type": "str", "default": "hermes", "env": "ELING_ADAPTER", "description": "Harness adapter: hermes | claude_cli | opencode | openclaw | openclaude"},
-        "verify_on_stop": {"type": "bool", "default": True, "env": "ELING_VERIFY_ON_STOP", "description": "Enable verify-on-stop nudges for non-Hermes agents"},
-        "verify_on_stop_max_attempts": {"type": "int", "default": 2, "env": "ELING_VERIFY_MAX_ATTEMPTS", "description": "Max verification nudge retries per session"},
+        "home": {
+            "type": "string",
+            "default": "",
+            "env": "ELING_HOME",
+            "description": "Data directory",
+        },
+        "hrr_dim": {
+            "type": "int",
+            "default": 512,
+            "env": "ELING_HRR_DIM",
+            "description": "HRR vector dimension (max 2048)",
+        },
+        "default_trust": {
+            "type": "float",
+            "default": 0.5,
+            "env": "ELING_DEFAULT_TRUST",
+            "description": "Default trust for new facts",
+        },
+        "min_trust": {
+            "type": "float",
+            "default": 0.0,
+            "env": "ELING_MIN_TRUST",
+            "description": "Minimum trust threshold for search",
+        },
+        "notion_enabled": {
+            "type": "bool",
+            "default": True,
+            "env": "ELING_NOTION_ENABLED",
+            "description": "Enable Notion layer",
+        },
+        "codegraph_enabled": {
+            "type": "bool",
+            "default": True,
+            "env": "ELING_CODEGRAPH_ENABLED",
+            "description": "Enable codegraph layer",
+        },
+        "dedup_cache_size": {
+            "type": "int",
+            "default": 1000,
+            "env": "ELING_DEDUP_CACHE_SIZE",
+            "description": "Dedup cache entry count",
+        },
+        "auto_sync_turns": {
+            "type": "bool",
+            "default": True,
+            "env": "ELING_AUTO_SYNC_TURNS",
+            "description": "Auto-store user/assistant messages",
+        },
+        "schema_pack": {
+            "type": "str",
+            "default": "default",
+            "env": "ELING_SCHEMA_PACK",
+            "description": "Category schema pack: default | coding | research",
+        },
+        "adapter": {
+            "type": "str",
+            "default": "hermes",
+            "env": "ELING_ADAPTER",
+            "description": "Harness adapter: hermes | claude_cli | opencode | openclaw | openclaude",
+        },
+        "verify_on_stop": {
+            "type": "bool",
+            "default": True,
+            "env": "ELING_VERIFY_ON_STOP",
+            "description": "Enable verify-on-stop nudges for non-Hermes agents",
+        },
+        "verify_on_stop_max_attempts": {
+            "type": "int",
+            "default": 2,
+            "env": "ELING_VERIFY_MAX_ATTEMPTS",
+            "description": "Max verification nudge retries per session",
+        },
     }

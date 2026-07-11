@@ -90,6 +90,7 @@ HookHandler = Callable[[str, dict], Any]
 # HookRegistry
 # ---------------------------------------------------------------------------
 
+
 class HookRegistry:
     """Thread-safe registry of named hook handlers.
 
@@ -125,7 +126,9 @@ class HookRegistry:
                 result = handler(hook_name, ctx)
                 results.append(result)
             except Exception as e:
-                logger.exception("hook %s handler %s crashed: %s", hook_name, handler, e)
+                logger.exception(
+                    "hook %s handler %s crashed: %s", hook_name, handler, e
+                )
                 results.append(None)
         return results
 
@@ -147,8 +150,10 @@ class HookRegistry:
 # Built-in handlers (the 12 default behaviors)
 # ---------------------------------------------------------------------------
 
+
 def _make_session_start_handler(brain: "Brain") -> HookHandler:
     """HOOK: session_start — load project profile, warm caches."""
+
     def handler(name: str, ctx: dict) -> dict:
         logger.info("hook: session_start — warming caches")
         info = {
@@ -162,11 +167,13 @@ def _make_session_start_handler(brain: "Brain") -> HookHandler:
             top = brain.facts.search("", limit=3)
             info["top_concepts"] = [r.get("content", "")[:80] for r in (top or [])]
         return info
+
     return handler
 
 
 def _make_pre_user_message_handler(brain: "Brain") -> HookHandler:
     """HOOK: pre_user_message — inject relevant memories into context."""
+
     def handler(name: str, ctx: dict) -> dict:
         user_msg = ctx.get("content", "")
         if not user_msg:
@@ -175,21 +182,23 @@ def _make_pre_user_message_handler(brain: "Brain") -> HookHandler:
         results = brain.facts.search(user_msg, limit=5)
         kb_results = brain.kb.search(user_msg, limit=3)
         all_results = []
-        for r in (results or []):
+        for r in results or []:
             r["_layer"] = "facts"
             all_results.append(r)
-        for r in (kb_results or []):
+        for r in kb_results or []:
             r["_layer"] = "kb"
             all_results.append(r)
         return {
             "injected": True,
             "memories": all_results,
         }
+
     return handler
 
 
 def _make_post_user_message_handler(brain: "Brain") -> HookHandler:
     """HOOK: post_user_message — index user prompt to KB."""
+
     def handler(name: str, ctx: dict) -> dict:
         content = ctx.get("content", "")
         source = ctx.get("source", "user_prompt")
@@ -197,11 +206,13 @@ def _make_post_user_message_handler(brain: "Brain") -> HookHandler:
             return {"indexed": False}
         fid = brain.facts.add(content, category="user_prompt", tags="", source=source)
         return {"indexed": True, "fact_id": fid}
+
     return handler
 
 
 def _make_pre_tool_use_handler(brain: "Brain") -> HookHandler:
     """HOOK: pre_tool_use — recall context relevant to tool args."""
+
     def handler(name: str, ctx: dict) -> dict:
         tool_name = ctx.get("tool_name", "")
         args = ctx.get("arguments", "")
@@ -212,11 +223,13 @@ def _make_pre_tool_use_handler(brain: "Brain") -> HookHandler:
         # Use layer APIs directly to avoid re-entrant hooks
         results = brain.facts.search(query, limit=3)
         return {"recalled": True, "results": results or []}
+
     return handler
 
 
 def _make_post_tool_use_handler(brain: "Brain") -> HookHandler:
     """HOOK: post_tool_use — dedup + privacy + store observation."""
+
     def handler(name: str, ctx: dict) -> dict:
         tool_name = ctx.get("tool_name", "")
         result = ctx.get("result", "")
@@ -226,11 +239,13 @@ def _make_post_tool_use_handler(brain: "Brain") -> HookHandler:
         # Store directly to avoid re-entrant hook firing
         fid = brain.facts.add(observation, category="tool_observation", tags=tool_name)
         return {"stored": True, "fact_id": fid}
+
     return handler
 
 
 def _make_post_assistant_message_handler(brain: "Brain") -> HookHandler:
     """HOOK: post_assistant_message — extract entities, store as facts."""
+
     def handler(name: str, ctx: dict) -> dict:
         content = ctx.get("content", "")
         if not content or len(content) < 20:
@@ -238,11 +253,13 @@ def _make_post_assistant_message_handler(brain: "Brain") -> HookHandler:
         # Store directly to avoid re-entrant hooks
         fid = brain.facts.add(content, category="assistant_reply", tags="")
         return {"facts_stored": 1, "fact_id": fid}
+
     return handler
 
 
 def _make_decision_made_handler(brain: "Brain") -> HookHandler:
     """HOOK: decision_made — boost new fact trust, decay old contradicting ones."""
+
     def handler(name: str, ctx: dict) -> dict:
         content = ctx.get("content", "")
         correction = ctx.get("correction", "")
@@ -257,11 +274,13 @@ def _make_decision_made_handler(brain: "Brain") -> HookHandler:
             brain.facts.set_trust(fid, 0.9)
             return {"decided": True, "fact_id": fid}
         return {"decided": False}
+
     return handler
 
 
 def _make_file_edit_handler(brain: "Brain") -> HookHandler:
     """HOOK: file_edit — re-index file in codegraph + track in verification ledger."""
+
     def handler(name: str, ctx: dict) -> dict:
         file_path = ctx.get("file_path", "")
         if not file_path:
@@ -278,6 +297,7 @@ def _make_file_edit_handler(brain: "Brain") -> HookHandler:
             result["reindexed"] = False
         # 2. Track in verification ledger
         from . import verify_on_stop as vos
+
         adapter = getattr(brain, "_adapter", "auto")
         if not vos.host_has_verify_on_stop(adapter=adapter):
             vos.record_edit(file_path)
@@ -290,11 +310,13 @@ def _make_file_edit_handler(brain: "Brain") -> HookHandler:
         else:
             result["verify_tracked"] = False
         return result
+
     return handler
 
 
 def _make_error_occurred_handler(brain: "Brain") -> HookHandler:
     """HOOK: error_occurred — store error + context for future avoidance."""
+
     def handler(name: str, ctx: dict) -> dict:
         error = ctx.get("error", "")
         tool = ctx.get("tool_name", "")
@@ -302,22 +324,26 @@ def _make_error_occurred_handler(brain: "Brain") -> HookHandler:
         content = f"ERROR [{tool}]: {error} | Context: {str(context)[:200]}"
         fid = brain.facts.add(content, category="error", tags=f"error,{tool}")
         return {"stored": True, "fact_id": fid}
+
     return handler
 
 
 def _make_compaction_handler(brain: "Brain") -> HookHandler:
     """HOOK: compaction — snapshot session highlights → facts."""
+
     def handler(name: str, ctx: dict) -> dict:
         summary = ctx.get("summary", "")
         if not summary:
             return {"stored": False}
         fid = brain.facts.add(summary, category="session_summary", tags="compaction")
         return {"stored": True, "fact_id": fid}
+
     return handler
 
 
 def _make_session_end_handler(brain: "Brain") -> HookHandler:
     """HOOK: session_end — summarize → Notion activity log."""
+
     def handler(name: str, ctx: dict) -> dict:
         summary = ctx.get("summary", "")
         if summary and brain.notion.available:
@@ -326,18 +352,24 @@ def _make_session_end_handler(brain: "Brain") -> HookHandler:
                 content=summary,
             )
             if page_id:
-                return {"notion_page": page_id}
+                return {"notion_page": page_id, "stored": True}
             # Fall through to local storage if Notion page creation failed
-            logger.info("session_end: notion page not created, falling back to local storage")
+            logger.info(
+                "session_end: notion page not created, falling back to local storage"
+            )
         if summary:
-            fid = brain.facts.add(summary, category="session_summary", tags="session_end")
+            fid = brain.facts.add(
+                summary, category="session_summary", tags="session_end"
+            )
             return {"stored": True, "fact_id": fid}
         return {"logged": False}
+
     return handler
 
 
 def _make_idle_30min_handler(brain: "Brain") -> HookHandler:
     """HOOK: idle_30min — snapshot, apply decay, sweep contradictions, promote."""
+
     def handler(name: str, ctx: dict) -> dict:
         # Snapshot before bulk operations
         snapshot_meta = {}
@@ -380,11 +412,13 @@ def _make_idle_30min_handler(brain: "Brain") -> HookHandler:
             "contradictions": len(contradictions),
             "evolved": evolution.get("merged", 0),
         }
+
     return handler
 
 
 def _make_verify_request_handler(brain: "Brain") -> HookHandler:
     """HOOK: verify_request — verification nudge for non-Hermes agents."""
+
     def handler(name: str, ctx: dict) -> dict:
         from . import verify_on_stop as vos
 
@@ -403,19 +437,23 @@ def _make_verify_request_handler(brain: "Brain") -> HookHandler:
             "changed_paths_count": len(changed),
             "needs_verification": nudge is not None,
         }
+
     return handler
 
 
 def _make_noop_handler(brain: "Brain" = None) -> HookHandler:  # type: ignore[assignment]
     """Factory: no-op handler for hooks with no default logic."""
+
     def handler(name: str, ctx: dict) -> dict:
         return {"handled": False, "hook": name}
+
     return handler
 
 
 # ---------------------------------------------------------------------------
 # Helper: register all default built-in handlers on a brain
 # ---------------------------------------------------------------------------
+
 
 def register_default_hooks(brain: "Brain") -> HookRegistry:
     """Create and populate a HookRegistry with all 15 built-in handlers."""

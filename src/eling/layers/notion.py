@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+import typing as _t
 
 _HAS_HTTPX: bool | None = None  # lazy — checked on first use
 
@@ -22,6 +22,7 @@ def _require_httpx():
     """Import httpx lazily on first use. Returns the httpx module."""
     global _HAS_HTTPX
     import importlib
+
     try:
         mod = importlib.import_module("httpx")
         _HAS_HTTPX = True
@@ -43,7 +44,7 @@ class NotionLayer:
         self.api_key = api_key or os.environ.get("NOTION_API_KEY")
         self.parent_page_id = parent_page_id or os.environ.get("NOTION_PARENT_PAGE_ID")
         self.timeout = timeout
-        self._client: "httpx.Client | None" = None
+        self._client: "_t.Any" = None  # httpx.Client when available
 
     @property
     def available(self) -> bool:
@@ -64,7 +65,7 @@ class NotionLayer:
                 _HAS_HTTPX = False
         return bool(_HAS_HTTPX)
 
-    def _get_client(self) -> "httpx.Client":
+    def _get_client(self) -> _t.Any:  # httpx.Client
         httpx = _require_httpx()
         if not self.api_key:
             raise RuntimeError("NOTION_API_KEY not set")
@@ -87,19 +88,25 @@ class NotionLayer:
         try:
             r = self._get_client().post(
                 "/search",
-                json={"query": query, "page_size": limit, "filter": {"property": "object", "value": "page"}},
+                json={
+                    "query": query,
+                    "page_size": limit,
+                    "filter": {"property": "object", "value": "page"},
+                },
             )
             r.raise_for_status()
             data = r.json()
             results = []
             for page in data.get("results", []):
                 title = self._extract_title(page)
-                results.append({
-                    "id": page["id"],
-                    "title": title,
-                    "url": page.get("url", ""),
-                    "last_edited": page.get("last_edited_time"),
-                })
+                results.append(
+                    {
+                        "id": page["id"],
+                        "title": title,
+                        "url": page.get("url", ""),
+                        "last_edited": page.get("last_edited_time"),
+                    }
+                )
             return results
         except Exception as e:
             logger.warning("notion.search failed: %s", e)
@@ -153,7 +160,9 @@ class NotionLayer:
             logger.warning("notion.get_page_full_markdown failed: %s", e)
             return ""
 
-    def create_page(self, title: str, content: str, parent_id: str | None = None) -> str | None:
+    def create_page(
+        self, title: str, content: str, parent_id: str | None = None
+    ) -> str | None:
         """Create a new page under parent. Returns new page_id or None."""
         if not self.available:
             return None
@@ -292,23 +301,65 @@ class NotionLayer:
             if not line:
                 continue
             if line.startswith("# "):
-                blocks.append({"object": "block", "type": "heading_1",
-                              "heading_1": {"rich_text": [{"text": {"content": line[2:][:2000]}}]}})
+                blocks.append(
+                    {
+                        "object": "block",
+                        "type": "heading_1",
+                        "heading_1": {
+                            "rich_text": [{"text": {"content": line[2:][:2000]}}]
+                        },
+                    }
+                )
             elif line.startswith("## "):
-                blocks.append({"object": "block", "type": "heading_2",
-                              "heading_2": {"rich_text": [{"text": {"content": line[3:][:2000]}}]}})
+                blocks.append(
+                    {
+                        "object": "block",
+                        "type": "heading_2",
+                        "heading_2": {
+                            "rich_text": [{"text": {"content": line[3:][:2000]}}]
+                        },
+                    }
+                )
             elif line.startswith("### "):
-                blocks.append({"object": "block", "type": "heading_3",
-                              "heading_3": {"rich_text": [{"text": {"content": line[4:][:2000]}}]}})
+                blocks.append(
+                    {
+                        "object": "block",
+                        "type": "heading_3",
+                        "heading_3": {
+                            "rich_text": [{"text": {"content": line[4:][:2000]}}]
+                        },
+                    }
+                )
             elif line.startswith("- "):
-                blocks.append({"object": "block", "type": "bulleted_list_item",
-                              "bulleted_list_item": {"rich_text": [{"text": {"content": line[2:][:2000]}}]}})
+                blocks.append(
+                    {
+                        "object": "block",
+                        "type": "bulleted_list_item",
+                        "bulleted_list_item": {
+                            "rich_text": [{"text": {"content": line[2:][:2000]}}]
+                        },
+                    }
+                )
             elif line.startswith("> "):
-                blocks.append({"object": "block", "type": "quote",
-                              "quote": {"rich_text": [{"text": {"content": line[2:][:2000]}}]}})
+                blocks.append(
+                    {
+                        "object": "block",
+                        "type": "quote",
+                        "quote": {
+                            "rich_text": [{"text": {"content": line[2:][:2000]}}]
+                        },
+                    }
+                )
             else:
-                blocks.append({"object": "block", "type": "paragraph",
-                              "paragraph": {"rich_text": [{"text": {"content": line[:2000]}}]}})
+                blocks.append(
+                    {
+                        "object": "block",
+                        "type": "paragraph",
+                        "paragraph": {
+                            "rich_text": [{"text": {"content": line[:2000]}}]
+                        },
+                    }
+                )
         return blocks
 
     def close(self):

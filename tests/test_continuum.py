@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -23,6 +22,7 @@ def store(tmp_path):
 
 # ── store: projects ──
 
+
 def test_project_create_and_get(store):
     r = store.project_create("/tmp/demo", name="demo")
     assert r["path"] == str(Path("/tmp/demo").resolve())
@@ -40,10 +40,15 @@ def test_project_list_empty_then_one(store):
 
 # ── store: two-tier knowledge ──
 
+
 def test_knowledge_two_tier(store):
     store.project_create("/tmp/demo")
-    store.knowledge_create("/tmp/demo", "rule1", "base branch is main", kind="fundamental")
-    store.knowledge_create("/tmp/demo", "gotcha1", "auth guard order matters", kind="situational")
+    store.knowledge_create(
+        "/tmp/demo", "rule1", "base branch is main", kind="fundamental"
+    )
+    store.knowledge_create(
+        "/tmp/demo", "gotcha1", "auth guard order matters", kind="situational"
+    )
     # fundamental only
     fund = store.knowledge_list("/tmp/demo", kind="fundamental")
     assert len(fund) == 1 and fund[0]["kind"] == "fundamental"
@@ -70,6 +75,7 @@ def test_knowledge_whole_content_replace(store):
 
 # ── store: agent state machine + collisions ──
 
+
 def test_agent_state_machine_valid(store):
     store.project_create("/tmp/demo")
     store.agent_register("/tmp/demo", "a1", reserved_paths=["src/x.py"])
@@ -91,7 +97,9 @@ def test_agent_merged_requires_sha(store):
     store.agent_register("/tmp/demo", "a1")
     store.agent_update("/tmp/demo", "a1", status="active")
     with pytest.raises(ValueError):
-        store.agent_update("/tmp/demo", "a1", status="merged", merged_commit="abc")  # too short
+        store.agent_update(
+            "/tmp/demo", "a1", status="merged", merged_commit="abc"
+        )  # too short
 
 
 def test_reservation_collision_detected(store):
@@ -114,6 +122,7 @@ def test_registry_list_filter(store):
 
 
 # ── plot ──
+
 
 def test_plot_seed_and_get(store):
     store.project_create("/tmp/demo")
@@ -139,9 +148,14 @@ def test_plot_unified_diff_hunk_mismatch():
 
 # ── MCP protocol ──
 
+
 def _call(name, args):
-    req = {"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-           "params": {"name": name, "arguments": args}}
+    req = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": name, "arguments": args},
+    }
     resp = _handle(req)
     assert resp["id"] == 1
     assert "error" not in resp, resp.get("error")
@@ -162,32 +176,49 @@ def test_mcp_dispatch_flow(monkeypatch, tmp_path):
     monkeypatch.setattr("eling.continuum.mcp_server.wt.is_git_repo", lambda p: False)
 
     _call("continuum_project_create", {"path": str(tmp_path / "proj"), "name": "proj"})
-    res = _call("continuum_dispatch", {
-        "project": str(tmp_path / "proj"),
-        "slug": "feat-1",
-        "goal": "add rate limit",
-        "reserved_paths": ["src/api.py"],
-    })
+    res = _call(
+        "continuum_dispatch",
+        {
+            "project": str(tmp_path / "proj"),
+            "slug": "feat-1",
+            "goal": "add rate limit",
+            "reserved_paths": ["src/api.py"],
+        },
+    )
     assert res["slug"] == "feat-1"
     assert "prompt" in res
     assert "not a git repo" in res.get("note", "")
 
     # registered as draft
-    rec = _call("continuum_agent_get", {"project": str(tmp_path / "proj"), "slug": "feat-1"})
+    rec = _call(
+        "continuum_agent_get", {"project": str(tmp_path / "proj"), "slug": "feat-1"}
+    )
     assert rec["status"] == "draft"
 
     # knowledge round trip through MCP
-    _call("continuum_knowledge_create", {
-        "project": str(tmp_path / "proj"), "slug": "k1",
-        "content": "register rate limit after auth guard", "kind": "situational",
-        "embed": False,
-    })
-    hits = _call("continuum_knowledge_search", {"project": str(tmp_path / "proj"), "q": "rate limit"})
+    _call(
+        "continuum_knowledge_create",
+        {
+            "project": str(tmp_path / "proj"),
+            "slug": "k1",
+            "content": "register rate limit after auth guard",
+            "kind": "situational",
+            "embed": False,
+        },
+    )
+    hits = _call(
+        "continuum_knowledge_search",
+        {"project": str(tmp_path / "proj"), "q": "rate limit"},
+    )
     assert any(h["slug"] == "k1" for h in hits["results"])
 
 
 def test_mcp_initialize_handshake():
-    req = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
-           "params": {"clientInfo": {"name": "claude_code", "version": "1.0"}}}
+    req = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "initialize",
+        "params": {"clientInfo": {"name": "claude_code", "version": "1.0"}},
+    }
     resp = _handle(req)
     assert resp["result"]["serverInfo"]["name"] == "eling-continuum"

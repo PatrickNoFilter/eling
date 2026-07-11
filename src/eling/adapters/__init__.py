@@ -6,7 +6,6 @@ and report its context budget so eling can adapt what it serves.
 
 from __future__ import annotations
 
-import os
 import json
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -26,10 +25,10 @@ __all__ = [
 
 # ── Context budgets (conservative estimates) ─────────────────────────
 
-_HERMES_BUDGET = 8_192     # MEMORY.md + USER.md, typically 2-4 KB each
+_HERMES_BUDGET = 8_192  # MEMORY.md + USER.md, typically 2-4 KB each
 _CLAUDE_CLI_BUDGET = 32_000  # CLAUDE.md can be up to ~32 KB
-_OPENCODE_BUDGET = 32_000    # AGENTS.md + opencode.json
-_OPENCLAW_BUDGET = 24_000    # CLAUDE.md equivalent
+_OPENCODE_BUDGET = 32_000  # AGENTS.md + opencode.json
+_OPENCLAW_BUDGET = 24_000  # CLAUDE.md equivalent
 _OPENCLAUDE_BUDGET = 24_000
 
 
@@ -82,7 +81,9 @@ class HermesAdapter(HarnessAdapter):
         parts: list[str] = []
         for path, label in [(self._mem, "MEMORY"), (self._usr, "USER PROFILE")]:
             if path.is_file():
-                parts.append(f"--- {label} ---\n{path.read_text(encoding='utf-8', errors='replace')}")
+                parts.append(
+                    f"--- {label} ---\n{path.read_text(encoding='utf-8', errors='replace')}"
+                )
         return "\n\n".join(parts) if parts else ""
 
     def budget_bytes(self) -> int:
@@ -118,12 +119,14 @@ class OpenCodeAdapter(HarnessAdapter):
 
         agents_path = self.context_file_path("AGENTS.md", project_root)
         if agents_path.is_file():
-            parts.append(f"--- AGENTS.md ---\n{agents_path.read_text(encoding='utf-8', errors='replace')}")
+            parts.append(
+                f"--- AGENTS.md ---\n{agents_path.read_text(encoding='utf-8', errors='replace')}"
+            )
 
         oc_path = root / "opencode.json"
         if oc_path.is_file():
             try:
-                data = json.loads(oc_path.read_text(encoding='utf-8', errors='replace'))
+                data = json.loads(oc_path.read_text(encoding="utf-8", errors="replace"))
                 parts.append(f"--- opencode.json ---\n{json.dumps(data, indent=2)}")
             except (json.JSONDecodeError, OSError):
                 parts.append("--- opencode.json ---\n(invalid)")

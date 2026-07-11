@@ -24,7 +24,9 @@ from typing import Pattern
 SECRET_PATTERNS: list[tuple[str, Pattern[str]]] = [
     (
         "github_token",
-        re.compile(r"ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|ghu_[a-zA-Z0-9]{36}|ghs_[a-zA-Z0-9]{36}|ghr_[a-zA-Z0-9]{36}"),
+        re.compile(
+            r"ghp_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36}|ghu_[a-zA-Z0-9]{36}|ghs_[a-zA-Z0-9]{36}|ghr_[a-zA-Z0-9]{36}"
+        ),
     ),
     (
         "github_old_token",
@@ -68,19 +70,27 @@ SECRET_PATTERNS: list[tuple[str, Pattern[str]]] = [
     ),
     (
         "private_key_pem",
-        re.compile(r"-----BEGIN\s+(RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END\s+(RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"),
+        re.compile(
+            r"-----BEGIN\s+(RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----[\s\S]*?-----END\s+(RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----"
+        ),
     ),
     (
         "pgp_private_key",
-        re.compile(r"-----BEGIN PGP PRIVATE KEY BLOCK-----[\s\S]*?-----END PGP PRIVATE KEY BLOCK-----"),
+        re.compile(
+            r"-----BEGIN PGP PRIVATE KEY BLOCK-----[\s\S]*?-----END PGP PRIVATE KEY BLOCK-----"
+        ),
     ),
     (
         "generic_long_secret",
-        re.compile(r"(?i)(?:password|passwd|pwd|secret|token|apikey|api_key|auth)[\s\"'=:]+\S{20,}"),
+        re.compile(
+            r"(?i)(?:password|passwd|pwd|secret|token|apikey|api_key|auth)[\s\"'=:]+\S{20,}"
+        ),
     ),
     (
         "connection_string",
-        re.compile(r"(?i)(?:mysql|postgres|mongodb|redis|amqp|rabbitmq)://[^\s]+@[^\s]+"),
+        re.compile(
+            r"(?i)(?:mysql|postgres|mongodb|redis|amqp|rabbitmq)://[^\s]+@[^\s]+"
+        ),
     ),
     (
         "heroku_api_key",
@@ -102,7 +112,10 @@ SECRET_PATTERNS: list[tuple[str, Pattern[str]]] = [
 
 # Patterns that should produce a warning but not full redaction (e.g., env file lines)
 SENSITIVE_PATTERNS: list[tuple[str, Pattern[str]]] = [
-    ("env_var_assignment", re.compile(r"^export\s+\w+=(?:\"[^\"]*\"|'[^']*'|\S+)$", re.MULTILINE)),
+    (
+        "env_var_assignment",
+        re.compile(r"^export\s+\w+=(?:\"[^\"]*\"|'[^']*'|\S+)$", re.MULTILINE),
+    ),
 ]
 
 
@@ -138,6 +151,7 @@ def redact_kinds(kinds: list[str]) -> str:
 # ---------------------------------------------------------------------------
 # SHA-256 dedup — 5-minute rolling window
 # ---------------------------------------------------------------------------
+
 
 class DedupCache:
     """Time-aware dedup with configurable TTL.
@@ -188,6 +202,7 @@ class DedupCache:
 # Composite pipeline
 # ---------------------------------------------------------------------------
 
+
 class PrivacyPipeline:
     """Full privacy pipeline: dedup → strip → report."""
 
@@ -196,9 +211,9 @@ class PrivacyPipeline:
 
     def process(self, content: str, *, skip_dedup: bool = False) -> dict:
         """Run full pipeline. Returns:
-            - clean: sanitized content (with secrets redacted)
-            - is_duplicate: bool
-            - redacted: list of redacted kinds
+        - clean: sanitized content (with secrets redacted)
+        - is_duplicate: bool
+        - redacted: list of redacted kinds
         """
         # 1. Strip secrets first (before hashing — hash the clean version for safety)
         clean, redacted = strip_secrets(content)

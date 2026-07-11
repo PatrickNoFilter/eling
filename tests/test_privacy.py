@@ -7,7 +7,6 @@ import pytest
 
 from eling.privacy import (
     SECRET_PATTERNS,
-    SENSITIVE_PATTERNS,
     DedupCache,
     PrivacyPipeline,
     process,
@@ -16,6 +15,7 @@ from eling.privacy import (
 
 
 # ── strip_secrets ──────────────────────────────────────────────────────────
+
 
 class TestStripSecrets:
     def test_github_token(self):
@@ -123,6 +123,7 @@ class TestStripSecrets:
 
 # ── DedupCache ────────────────────────────────────────────────────────────
 
+
 class TestDedupCache:
     def test_basic_dedup(self):
         cache = DedupCache(ttl=60)
@@ -164,6 +165,7 @@ class TestDedupCache:
 
 
 # ── PrivacyPipeline ───────────────────────────────────────────────────────
+
 
 class TestPrivacyPipeline:
     def test_clean_content_passes_through(self):
@@ -217,6 +219,7 @@ class TestPrivacyPipeline:
 
 # ── Module-level convenience ──────────────────────────────────────────────
 
+
 class TestModuleLevel:
     def test_process_function(self):
         result = process("Hello from module level")
@@ -224,6 +227,7 @@ class TestModuleLevel:
 
     def test_pipeline_is_singleton(self):
         from eling.privacy import get_pipeline
+
         p1 = get_pipeline()
         p2 = get_pipeline()
         assert p1 is p2
@@ -238,33 +242,50 @@ def _match_text_for(name: str) -> str:
     Built at runtime so GitHub's static secret scanner sees no real-looking tokens.
     """
     _tokens = {}
-    _tokens["github_token"] = "g" + "hp_" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789ABCDe"
-    _tokens["github_old_token"] = "g" + "hp_" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
-    _tokens["openai_api_key"] = "s" + "k-" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
-    _tokens["anthropic_api_key"] = "s" + "k-ant-" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
-    _tokens["bearer_token"] = "Bearer FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
+    _tokens["github_token"] = (
+        "g" + "hp_" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789ABCDe"
+    )
+    _tokens["github_old_token"] = (
+        "g" + "hp_" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
+    )
+    _tokens["openai_api_key"] = (
+        "s" + "k-" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
+    )
+    _tokens["anthropic_api_key"] = (
+        "s" + "k-ant-" + "FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
+    )
+    _tokens["bearer_token"] = (
+        "Bearer FAKEABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij"
+    )
     _tokens["aws_access_key"] = "AKIAIOSFODNN7EXAMPLE"
     _tokens["google_api_key"] = "AIzaSyABCDeFgHiJkLmNoPqRsTuVwXyZ0123456"
     _tokens["slack_token"] = "x" + "oxb-" + "FAKESLACKTOKENFORTESTINGONLY1234567890"
     _tokens["discord_token"] = (
-        "MFAKETOKENFORTESTINGONLY12"
-        ".XYZabc"
-        ".FAKETOKENFORTESTINGTHISISNOTREAL12345"
+        "MFAKETOKENFORTESTINGONLY12.XYZabc.FAKETOKENFORTESTINGTHISISNOTREAL12345"
     )
     _tokens["jwt_token"] = (
         "eyJABCDeFgHiJkLmNoPqRsTuVw"
         ".eyJXyZ0123456789abcdefghijklmnopqrstuvwxyz"
         ".ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
     )
-    _tokens["private_key_pem"] = "-----BEGIN PRIVATE KEY-----\nABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789\n-----END PRIVATE KEY-----"
-    _tokens["pgp_private_key"] = "-----BEGIN PGP PRIVATE KEY BLOCK-----\nABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789\n-----END PGP PRIVATE KEY BLOCK-----"
-    _tokens["generic_long_secret"] = "export PASSWORD=ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
+    _tokens["private_key_pem"] = (
+        "-----BEGIN PRIVATE KEY-----\nABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789\n-----END PRIVATE KEY-----"
+    )
+    _tokens["pgp_private_key"] = (
+        "-----BEGIN PGP PRIVATE KEY BLOCK-----\nABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789\n-----END PGP PRIVATE KEY BLOCK-----"
+    )
+    _tokens["generic_long_secret"] = (
+        "export PASSWORD=ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
+    )
     _tokens["connection_string"] = "postgres://user:pass@host:5432/db"
     _tokens["heroku_api_key"] = "heroku" + "ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789"
     _tokens["npm_token"] = "npm_" + "ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcd"
     _tokens["git_credentials_in_url"] = "https://user:pass@github.com/repo"
-    _tokens["generic_base64_secret"] = "ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij=="
+    _tokens["generic_base64_secret"] = (
+        "ABCDeFgHiJkLmNoPqRsTuVwXyZ0123456789abcdefghij=="
+    )
     return _tokens[name]
+
 
 class TestPatternDefinitions:
     """SECRET_PATTERNS structure: each entry is a (name, regex) pair."""
@@ -278,13 +299,24 @@ class TestPatternDefinitions:
     @pytest.mark.parametrize(
         "name",
         [
-            "github_token", "github_old_token", "openai_api_key",
-            "anthropic_api_key", "bearer_token", "aws_access_key",
-            "google_api_key", "slack_token", "discord_token",
-            "jwt_token", "private_key_pem", "pgp_private_key",
-            "generic_long_secret", "connection_string",
-            "heroku_api_key", "npm_token",
-            "git_credentials_in_url", "generic_base64_secret",
+            "github_token",
+            "github_old_token",
+            "openai_api_key",
+            "anthropic_api_key",
+            "bearer_token",
+            "aws_access_key",
+            "google_api_key",
+            "slack_token",
+            "discord_token",
+            "jwt_token",
+            "private_key_pem",
+            "pgp_private_key",
+            "generic_long_secret",
+            "connection_string",
+            "heroku_api_key",
+            "npm_token",
+            "git_credentials_in_url",
+            "generic_base64_secret",
         ],
     )
     def test_named_pattern_matches(self, name):
@@ -296,6 +328,5 @@ class TestPatternDefinitions:
         match_text = _match_text_for(name)
         p = patterns_dict[name]
         assert p.search(match_text), (
-            f"Pattern '{name}' /{p.pattern}/ did not match "
-            f"'{match_text[:50]}'"
+            f"Pattern '{name}' /{p.pattern}/ did not match '{match_text[:50]}'"
         )

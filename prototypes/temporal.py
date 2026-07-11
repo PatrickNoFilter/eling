@@ -19,34 +19,43 @@ _TimeHandler = Callable[[re.Match], tuple[str, int]]
 # Relative time patterns (English + Indonesian)
 _RELATIVE_PATTERNS: list[tuple[re.Pattern, _TimeHandler]] = [
     # "last N hours/days/weeks/months"
-    (re.compile(r"(?i)last\s+(\d+)\s*(hour|hours|h|jam|menit|minute|minutes|min)\b"),
-     lambda m: ("hours", int(m.group(1)))),  # noqa: E731
-    (re.compile(r"(?i)last\s+(\d+)\s*(day|days|hari|d)\b"),
-     lambda m: ("days", int(m.group(1)))),  # noqa: E731
-    (re.compile(r"(?i)last\s+(\d+)\s*(week|weeks|minggu|w)\b"),
-     lambda m: ("weeks", int(m.group(1)))),  # noqa: E731
-    (re.compile(r"(?i)last\s+(\d+)\s*(month|months|bulan|mo)\b"),
-     lambda m: ("months", int(m.group(1)))),  # noqa: E731
-    (re.compile(r"(?i)last\s+(\d+)\s*(year|years|tahun|y)\b"),
-     lambda m: ("years", int(m.group(1)))),  # noqa: E731
-
+    (
+        re.compile(r"(?i)last\s+(\d+)\s*(hour|hours|h|jam|menit|minute|minutes|min)\b"),
+        lambda m: ("hours", int(m.group(1))),
+    ),  # noqa: E731
+    (
+        re.compile(r"(?i)last\s+(\d+)\s*(day|days|hari|d)\b"),
+        lambda m: ("days", int(m.group(1))),
+    ),  # noqa: E731
+    (
+        re.compile(r"(?i)last\s+(\d+)\s*(week|weeks|minggu|w)\b"),
+        lambda m: ("weeks", int(m.group(1))),
+    ),  # noqa: E731
+    (
+        re.compile(r"(?i)last\s+(\d+)\s*(month|months|bulan|mo)\b"),
+        lambda m: ("months", int(m.group(1))),
+    ),  # noqa: E731
+    (
+        re.compile(r"(?i)last\s+(\d+)\s*(year|years|tahun|y)\b"),
+        lambda m: ("years", int(m.group(1))),
+    ),  # noqa: E731
     # "yesterday", "kemarin", "today", "hari ini"
-    (re.compile(r"(?i)\byesterday\b|\bkemarin\b"),
-     lambda _: ("days", 1)),  # noqa: E731
-    (re.compile(r"(?i)\btoday\b|\bhari\s*ini\b|\bsekarang\b"),
-     lambda _: ("days", 0)),  # noqa: E731
-
+    (re.compile(r"(?i)\byesterday\b|\bkemarin\b"), lambda _: ("days", 1)),  # noqa: E731
+    (re.compile(r"(?i)\btoday\b|\bhari\s*ini\b|\bsekarang\b"), lambda _: ("days", 0)),  # noqa: E731
     # "this week/month/year"
-    (re.compile(r"(?i)\bthis\s*(week|minggu)\b"),
-     lambda _: ("this_week", 0)),  # noqa: E731
-    (re.compile(r"(?i)\bthis\s*(month|bulan)\b"),
-     lambda _: ("this_month", 0)),  # noqa: E731
-    (re.compile(r"(?i)\bthis\s*(year|tahun)\b"),
-     lambda _: ("this_year", 0)),  # noqa: E731
-
+    (re.compile(r"(?i)\bthis\s*(week|minggu)\b"), lambda _: ("this_week", 0)),  # noqa: E731
+    (re.compile(r"(?i)\bthis\s*(month|bulan)\b"), lambda _: ("this_month", 0)),  # noqa: E731
+    (re.compile(r"(?i)\bthis\s*(year|tahun)\b"), lambda _: ("this_year", 0)),  # noqa: E731
     # "past N days" / "in the last N hours"
-    (re.compile(r"(?i)(?:past|in the last)\s+(\d+)\s*(hours?|h|days?|hari|weeks?|minggu)\b"),
-     lambda m: (m.group(2).lower() + ("s" if not m.group(2).endswith("s") else ""), int(m.group(1)))),  # noqa: E731
+    (
+        re.compile(
+            r"(?i)(?:past|in the last)\s+(\d+)\s*(hours?|h|days?|hari|weeks?|minggu)\b"
+        ),
+        lambda m: (
+            m.group(2).lower() + ("s" if not m.group(2).endswith("s") else ""),
+            int(m.group(1)),
+        ),
+    ),  # noqa: E731
 ]
 
 
@@ -79,7 +88,9 @@ def parse_time_range(query: str) -> tuple[float | None, float | None]:
                 td = timedelta(days=amount * 365)
             elif unit == "this_week":
                 # Start of current week (Monday)
-                d = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+                d = datetime.now(timezone.utc).replace(
+                    hour=0, minute=0, second=0, microsecond=0
+                )
                 start = (d - timedelta(days=d.weekday())).timestamp()
                 end = now
             elif unit == "this_month":
@@ -120,11 +131,15 @@ def make_temporal_filter_clause(
 
     if time_start is not None:
         clauses.append(f"CAST(strftime('%s', {column}) AS REAL) >= ?")
-        ts = datetime.fromtimestamp(time_start, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        ts = datetime.fromtimestamp(time_start, tz=timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
         params.append(ts)
     if time_end is not None:
         clauses.append(f"CAST(strftime('%s', {column}) AS REAL) <= ?")
-        ts = datetime.fromtimestamp(time_end, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        ts = datetime.fromtimestamp(time_end, tz=timezone.utc).strftime(
+            "%Y-%m-%d %H:%M:%S"
+        )
         params.append(ts)
 
     if not clauses:
@@ -148,6 +163,7 @@ def has_temporal_intent(query: str) -> bool:
 
 
 # ── Temporal Augmentation for Search Results ────────────────────────────────
+
 
 def augment_with_temporal_facts(
     results: list[dict],
@@ -193,6 +209,7 @@ def augment_with_temporal_facts(
 
 # ── Time-Aware Fact Search (integration with FactsLayer) ────────────────────
 
+
 def search_with_time(
     facts_layer: Any,
     query: str,
@@ -206,8 +223,12 @@ def search_with_time(
     Falls back to normal search if no temporal parameters.
     """
     # If query has temporal intent but no explicit time bounds, parse them
-    if (time_start is None and time_end is None and
-            has_temporal_intent(query) and query.strip()):
+    if (
+        time_start is None
+        and time_end is None
+        and has_temporal_intent(query)
+        and query.strip()
+    ):
         time_start, time_end = parse_time_range(query)
         # Strip temporal tokens from query for better BM25 matching
         clean_query = _strip_temporal_tokens(query)

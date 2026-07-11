@@ -104,7 +104,9 @@ def detect_agent(project_path: Path) -> list[str]:
     return agents
 
 
-def write_rules(project_root: str | Path, agents: list[str] | None = None, dry_run: bool = False) -> list[dict[str, Any]]:
+def write_rules(
+    project_root: str | Path, agents: list[str] | None = None, dry_run: bool = False
+) -> list[dict[str, Any]]:
     """Write steering rules for detected agents.
 
     Parameters
@@ -147,7 +149,9 @@ def _write_cursor_rules(root: Path, dry_run: bool) -> list[dict[str, Any]]:
     for key, content in RULES.items():
         filename = f"eling-memory-{key}.mdc"
         filepath = rules_dir / filename
-        text = CURSOR_RULES_TEMPLATE.format(title=key.replace("-", " ").title(), content=content)
+        text = CURSOR_RULES_TEMPLATE.format(
+            title=key.replace("-", " ").title(), content=content
+        )
         action = "write"
         if filepath.exists():
             action = "update"
@@ -165,13 +169,17 @@ def _write_claude_rules(root: Path, dry_run: bool) -> list[dict[str, Any]]:
     for key, content in RULES.items():
         filename = f"eling-memory-{key}.md"
         filepath = rules_dir / filename
-        text = CLAUDECODE_RULES_TEMPLATE.format(title=key.replace("-", " ").title(), content=content)
+        text = CLAUDECODE_RULES_TEMPLATE.format(
+            title=key.replace("-", " ").title(), content=content
+        )
         action = "write"
         if filepath.exists():
             action = "update"
         if not dry_run:
             filepath.write_text(text.strip() + "\n")
-        written.append({"agent": "claude_code", "file": str(filepath), "action": action})
+        written.append(
+            {"agent": "claude_code", "file": str(filepath), "action": action}
+        )
     return written
 
 
@@ -187,7 +195,9 @@ def _write_opencode_rules(root: Path, dry_run: bool) -> list[dict[str, Any]]:
     sections = []
     for key, content in RULES.items():
         title = key.replace("-", " ").title()
-        sections.append(OPCODE_AGENTS_TEMPLATE.format(title=title, content=content.strip()))
+        sections.append(
+            OPCODE_AGENTS_TEMPLATE.format(title=title, content=content.strip())
+        )
     new_section = "\n\n".join(sections)
 
     if dry_run:
@@ -195,7 +205,11 @@ def _write_opencode_rules(root: Path, dry_run: bool) -> list[dict[str, Any]]:
 
     if "## Eling Memory" not in existing:
         # Append to existing AGENTS.md
-        text = existing.rstrip() + "\n\n" + new_section + "\n" if existing else new_section + "\n"
+        text = (
+            existing.rstrip() + "\n\n" + new_section + "\n"
+            if existing
+            else new_section + "\n"
+        )
         agents_file.write_text(text, encoding="utf-8")
     else:
         # Already has eling section — skip
@@ -211,6 +225,9 @@ def _write_generic_rules(root: Path, agent: str, dry_run: bool) -> list[dict[str
     if filepath.exists():
         action = "update"
     if not dry_run:
-        sections = [f"# Eling Memory — {key.replace('-', ' ').title()}\n\n{content.strip()}" for key, content in RULES.items()]
+        sections = [
+            f"# Eling Memory — {key.replace('-', ' ').title()}\n\n{content.strip()}"
+            for key, content in RULES.items()
+        ]
         filepath.write_text("\n\n".join(sections) + "\n")
     return [{"agent": agent, "file": str(filepath), "action": action}]

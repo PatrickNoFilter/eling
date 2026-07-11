@@ -39,7 +39,9 @@ KNOWN_LAYERS = ("facts", "kb", "code", "notion", "hrr")
 
 def _default_path() -> Path:
     """Resolve the default permissions file path."""
-    eling_home = Path(os.environ.get("ELING_HOME", Path.home() / ".hermes" / "eling-brain"))
+    eling_home = Path(
+        os.environ.get("ELING_HOME", Path.home() / ".hermes" / "eling-brain")
+    )
     return eling_home / "permissions.json"
 
 

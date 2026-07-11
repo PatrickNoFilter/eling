@@ -11,7 +11,6 @@ import os
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from eling import verify_on_stop as vos
 
@@ -206,7 +205,9 @@ class TestElingGetPageFull:
         import eling.mcp_server as srv
 
         fake_notion = type(
-            "N", (), {"available": False, "get_page_full_markdown": lambda self, pid: ""}
+            "N",
+            (),
+            {"available": False, "get_page_full_markdown": lambda self, pid: ""},
         )()
         with patch.object(srv, "_get_notion", return_value=fake_notion):
             resp = srv._handle_tool_call(

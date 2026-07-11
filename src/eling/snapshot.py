@@ -16,7 +16,6 @@ import itertools
 import json
 import logging
 import shutil
-import threading
 import time
 from pathlib import Path
 from typing import Any
@@ -76,6 +75,7 @@ def create_snapshot(
 
     # Flush WAL to main DB file for a consistent snapshot
     import sqlite3
+
     try:
         tmp_conn = sqlite3.connect(str(src), timeout=5.0)
         tmp_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
@@ -165,6 +165,7 @@ def rollback(
 
     # Ensure the restored DB has a clean WAL
     import sqlite3
+
     try:
         tmp_conn = sqlite3.connect(str(src), timeout=5.0)
         tmp_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")

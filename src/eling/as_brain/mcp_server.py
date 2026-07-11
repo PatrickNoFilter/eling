@@ -304,9 +304,18 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Search query (may include temporal keywords)"},
-                "time_start": {"type": "string", "description": "ISO start date filter (optional)"},
-                "time_end": {"type": "string", "description": "ISO end date filter (optional)"},
+                "query": {
+                    "type": "string",
+                    "description": "Search query (may include temporal keywords)",
+                },
+                "time_start": {
+                    "type": "string",
+                    "description": "ISO start date filter (optional)",
+                },
+                "time_end": {
+                    "type": "string",
+                    "description": "ISO end date filter (optional)",
+                },
                 "category": {"type": "string", "description": "Fact category filter"},
                 "source": {"type": "string", "description": "Source filter"},
                 "limit": {"type": "integer", "default": 10},
@@ -321,7 +330,10 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "fact_id": {"type": "integer", "description": "Fact ID to update"},
-                "new_content": {"type": "string", "description": "New content for the fact"},
+                "new_content": {
+                    "type": "string",
+                    "description": "New content for the fact",
+                },
                 "reason": {"type": "string", "description": "Reason for the update"},
             },
             "required": ["fact_id", "new_content"],
@@ -346,7 +358,10 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "fact_id": {"type": "integer", "description": "Fact ID"},
-                "version_id": {"type": "integer", "description": "Version ID to restore"},
+                "version_id": {
+                    "type": "integer",
+                    "description": "Version ID to restore",
+                },
             },
             "required": ["fact_id", "version_id"],
         },
@@ -470,9 +485,14 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             text = json.dumps(data, default=str)
             # Limit response to 50KB to prevent provider context overflow
             if len(text) > 50_000:
-                text = json.dumps({"warning": "response truncated (50KB limit)", "truncated": True}, default=str)
+                text = json.dumps(
+                    {"warning": "response truncated (50KB limit)", "truncated": True},
+                    default=str,
+                )
         except Exception:
-            text = json.dumps({"error": "result not serializable", "raw": str(data)[:500]})
+            text = json.dumps(
+                {"error": "result not serializable", "raw": str(data)[:500]}
+            )
         return {
             "jsonrpc": "2.0",
             "id": rid,
@@ -540,11 +560,19 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             output = args.pop("output", "")
             spec_check = args.pop("spec_check", False)
             changed_files = args.pop("changed_files", None)
-            return ok(brain.verify(status=status, command=command, output=output,
-                                   spec_check=spec_check, changed_files=changed_files))
+            return ok(
+                brain.verify(
+                    status=status,
+                    command=command,
+                    output=output,
+                    spec_check=spec_check,
+                    changed_files=changed_files,
+                )
+            )
         elif tool_name == "brain_verify_spec":
             changed_files = args.pop("changed_files", None)
             from eling.spec_kit import SpecKitVerifier
+
             project_path = getattr(brain, "_project_path", None)
             v = SpecKitVerifier(project_path) if project_path else SpecKitVerifier()
             result = v.verify(changed_files=changed_files)
@@ -555,7 +583,9 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
         return _error(rid, -32000, f"{type(e).__name__}: {e}", traceback.format_exc())
 
 
-def _error(rid: int | str | None, code: int, message: str, data: str | None = None) -> dict:
+def _error(
+    rid: int | str | None, code: int, message: str, data: str | None = None
+) -> dict:
     err: dict[str, Any] = {"code": code, "message": message}
     if data:
         err["data"] = data

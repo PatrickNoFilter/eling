@@ -7,7 +7,6 @@ and fall back to blocks only when the markdown endpoint fails.
 
 from unittest.mock import MagicMock
 
-import pytest
 
 from eling.layers.notion import NotionLayer
 
@@ -42,7 +41,10 @@ def test_get_page_markdown_falls_back_to_blocks():
     blocks.raise_for_status.return_value = None
     blocks.json.return_value = {
         "results": [
-            {"type": "paragraph", "paragraph": {"rich_text": [{"plain_text": "secret"}]}}
+            {
+                "type": "paragraph",
+                "paragraph": {"rich_text": [{"plain_text": "secret"}]},
+            }
         ],
         "has_more": False,
     }

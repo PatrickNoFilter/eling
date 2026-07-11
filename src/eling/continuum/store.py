@@ -151,7 +151,9 @@ class ContinuumStore:
         if not getattr(self, "_fts_available", False):
             return
         with self._lock:
-            self._con.execute("INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild')")
+            self._con.execute(
+                "INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild')"
+            )
             self._con.commit()
 
     # ── projects ──
@@ -174,7 +176,9 @@ class ContinuumStore:
     def project_get(self, path: str) -> dict | None:
         path = str(Path(path).expanduser().resolve())
         with self._lock:
-            row = self._con.execute("SELECT * FROM projects WHERE path=?", (path,)).fetchone()
+            row = self._con.execute(
+                "SELECT * FROM projects WHERE path=?", (path,)
+            ).fetchone()
         return dict(row) if row else None
 
     def project_list(self) -> list[dict]:
@@ -242,7 +246,18 @@ class ContinuumStore:
                     (project,),
                 ).fetchall()
         return [
-            {k: r[k] for k in ("slug", "project", "agent_slug", "kind", "title", "created_at", "updated_at")}
+            {
+                k: r[k]
+                for k in (
+                    "slug",
+                    "project",
+                    "agent_slug",
+                    "kind",
+                    "title",
+                    "created_at",
+                    "updated_at",
+                )
+            }
             for r in rows
         ]
 
@@ -311,7 +326,12 @@ class ContinuumStore:
                 (slug, project, branch, worktree, prompt, json.dumps(rp)),
             )
             self._con.commit()
-        result = {"project": project, "slug": slug, "status": "draft", "agent_slug": agent_slug}
+        result = {
+            "project": project,
+            "slug": slug,
+            "status": "draft",
+            "agent_slug": agent_slug,
+        }
         # Surface collisions immediately so the orchestrator can decide.
         collisions = self._reservation_collisions(project, slug, rp)
         if collisions:
@@ -348,9 +368,15 @@ class ContinuumStore:
                     f"Allowed: {sorted(allowed) or 'none'}"
                 )
             if status == "merged":
-                mc = merged_commit if merged_commit is not None else current["merged_commit"]
+                mc = (
+                    merged_commit
+                    if merged_commit is not None
+                    else current["merged_commit"]
+                )
                 if not mc or not (7 <= len(mc) <= 40):
-                    raise ValueError("missing_merged_commit: merged requires a 7-40 char SHA")
+                    raise ValueError(
+                        "missing_merged_commit: merged requires a 7-40 char SHA"
+                    )
 
         sets, params = [], []
         for col, val in (
@@ -375,7 +401,11 @@ class ContinuumStore:
                     params,
                 )
                 self._con.commit()
-        result = {"project": project, "slug": slug, "status": status or current["status"]}
+        result = {
+            "project": project,
+            "slug": slug,
+            "status": status or current["status"],
+        }
         if reserved_paths is not None:
             collisions = self._reservation_collisions(project, slug, reserved_paths)
             if collisions:
@@ -394,7 +424,9 @@ class ContinuumStore:
         d["reserved_paths"] = json.loads(d.get("reserved_paths") or "[]")
         return d
 
-    def registry_list(self, project: str, status: str | None = None, limit: int = 50, offset: int = 0) -> list[dict]:
+    def registry_list(
+        self, project: str, status: str | None = None, limit: int = 50, offset: int = 0
+    ) -> list[dict]:
         project = str(Path(project).expanduser().resolve())
         with self._lock:
             if status:
@@ -447,7 +479,9 @@ class ContinuumStore:
     def plot_get(self, project: str) -> str | None:
         project = str(Path(project).expanduser().resolve())
         with self._lock:
-            row = self._con.execute("SELECT content FROM plot WHERE project=?", (project,)).fetchone()
+            row = self._con.execute(
+                "SELECT content FROM plot WHERE project=?", (project,)
+            ).fetchone()
         return row["content"] if row else None
 
     def plot_set(self, project: str, content: str) -> dict:
@@ -476,10 +510,10 @@ class ContinuumStore:
             # Local sentence-transformers model first (if eling[embeddings] installed)
             model = emb._get_model() if emb._HAS_SENTENCE_TRANSFORMERS else None
             if model is not None:
-                import numpy as _np  # sentence-transformers pulls numpy anyway
-
                 vec = model.encode(text, normalize_embeddings=True).tolist()
-                return pickle.dumps(vec), getattr(model, "model_name", "sentence-transformers")
+                return pickle.dumps(vec), getattr(
+                    model, "model_name", "sentence-transformers"
+                )
             # Fall back to Mistral-compatible API (no heavy deps)
             api_key = emb._get_env_key()
             if api_key:
@@ -495,4 +529,3 @@ class ContinuumStore:
             self._con.close()
         except Exception:
             logger.debug("db connection close failed (non-fatal)")
-

@@ -48,7 +48,9 @@ def is_git_repo(project: str) -> bool:
 
 
 def current_branch(project: str) -> str:
-    return _run_git(str(Path(project).expanduser().resolve()), "rev-parse", "--abbrev-ref", "HEAD")
+    return _run_git(
+        str(Path(project).expanduser().resolve()), "rev-parse", "--abbrev-ref", "HEAD"
+    )
 
 
 def dispatch_worktree(
@@ -106,5 +108,5 @@ def list_worktrees(project: str) -> list[str]:
     for block in out.split("\n\n"):
         for line in block.splitlines():
             if line.startswith("worktree "):
-                paths.append(line[len("worktree "):].strip())
+                paths.append(line[len("worktree ") :].strip())
     return paths

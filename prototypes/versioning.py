@@ -13,7 +13,6 @@ import sqlite3
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +63,9 @@ class VersionedFactStore:
 
     def __init__(self, db_path: str | Path):
         self.db_path = Path(db_path).expanduser()
-        self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False, timeout=10.0)
+        self._conn = sqlite3.connect(
+            str(self.db_path), check_same_thread=False, timeout=10.0
+        )
         self._conn.row_factory = sqlite3.Row
         self._lock = threading.RLock()
         try:
@@ -139,8 +140,9 @@ class VersionedFactStore:
             assert version_id is not None
             return int(version_id)
 
-    def update_fact(self, fact_id: int, new_content: str,
-                    reason: str = "update") -> dict:
+    def update_fact(
+        self, fact_id: int, new_content: str, reason: str = "update"
+    ) -> dict:
         """Create a new version and update the live fact. Returns version info."""
         with self._lock:
             # Snapshot current state first

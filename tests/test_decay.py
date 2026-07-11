@@ -4,18 +4,13 @@ from __future__ import annotations
 
 import math
 import sqlite3
-import tempfile
-import threading
 import time
 from pathlib import Path
 
-import pytest
 
 from eling.decay import (
-    CLEARED_RECOVERY_DAYS,
     ACTIVE_THRESHOLD,
     DORMANT_THRESHOLD,
-    DEFAULT_DECAY_RATE,
     compute_lifecycle,
     decay_strength,
 )
@@ -25,6 +20,7 @@ from eling.layers.facts import FactsLayer
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _connect(db_path: str | Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path), check_same_thread=False)
@@ -45,6 +41,7 @@ def _strengths(conn: sqlite3.Connection) -> list[float]:
 # ---------------------------------------------------------------------------
 # decay.py unit tests
 # ---------------------------------------------------------------------------
+
 
 class TestDecayFunction:
     def test_no_decay(self):
@@ -103,13 +100,16 @@ class TestComputeLifecycle:
 # FactsLayer strength + decay integration tests
 # ---------------------------------------------------------------------------
 
+
 class TestFactsLayerStrength:
     def test_add_sets_strength(self, tmp_path: Path):
         db = tmp_path / "facts.db"
         layer = FactsLayer(db)
         fid = layer.add("Paris is the capital of France")
         conn = _connect(db)
-        row = conn.execute("SELECT strength, last_access_at FROM facts WHERE fact_id = ?", (fid,)).fetchone()
+        row = conn.execute(
+            "SELECT strength, last_access_at FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()
         conn.close()
         assert row is not None
         assert math.isclose(float(row["strength"]), 1.0, abs_tol=1e-6)
@@ -119,7 +119,9 @@ class TestFactsLayerStrength:
         layer = FactsLayer(db)
         fid = layer.add("The sky is blue")
         conn = _connect(db)
-        row = conn.execute("SELECT last_access_at FROM facts WHERE fact_id = ?", (fid,)).fetchone()
+        row = conn.execute(
+            "SELECT last_access_at FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()
         conn.close()
         assert row is not None
         # Should be a valid timestamp string
@@ -130,14 +132,18 @@ class TestFactsLayerStrength:
         layer = FactsLayer(db)
         fid = layer.add("Water freezes at 0C")
         conn = _connect(db)
-        before = conn.execute("SELECT last_access_at FROM facts WHERE fact_id = ?", (fid,)).fetchone()["last_access_at"]
+        before = conn.execute(
+            "SELECT last_access_at FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()["last_access_at"]
         conn.close()
 
         time.sleep(0.01)
         layer.get(fid)
 
         conn = _connect(db)
-        after = conn.execute("SELECT last_access_at FROM facts WHERE fact_id = ?", (fid,)).fetchone()["last_access_at"]
+        after = conn.execute(
+            "SELECT last_access_at FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()["last_access_at"]
         conn.close()
         # Updated at should have changed
         assert after != before or after is not None
@@ -164,7 +170,9 @@ class TestApplyDecay:
         result = layer.apply_decay()
 
         conn = _connect(db)
-        row = conn.execute("SELECT strength FROM facts WHERE fact_id = ?", (fid,)).fetchone()
+        row = conn.execute(
+            "SELECT strength FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()
         conn.close()
         strength = float(row["strength"])
 
@@ -180,14 +188,19 @@ class TestApplyDecay:
         fid = layer.add("Obsolete fact from 100 days ago")
 
         conn = _connect(db)
-        conn.execute("UPDATE facts SET last_access_at = datetime('now', '-100 days') WHERE fact_id = ?", (fid,))
+        conn.execute(
+            "UPDATE facts SET last_access_at = datetime('now', '-100 days') WHERE fact_id = ?",
+            (fid,),
+        )
         conn.commit()
         conn.close()
 
         result = layer.apply_decay()
 
         conn = _connect(db)
-        row = conn.execute("SELECT strength FROM facts WHERE fact_id = ?", (fid,)).fetchone()
+        row = conn.execute(
+            "SELECT strength FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()
         conn.close()
         strength = float(row["strength"])
 
@@ -204,7 +217,9 @@ class TestApplyDecay:
         result = layer.apply_decay()
 
         conn = _connect(db)
-        row = conn.execute("SELECT strength FROM facts WHERE fact_id = ?", (fid,)).fetchone()
+        row = conn.execute(
+            "SELECT strength FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()
         conn.close()
         strength = float(row["strength"])
 
@@ -223,9 +238,13 @@ class TestApplyDecay:
         # Age them differently
         conn = _connect(db)
         # fact_id 1 → 10 days old → dormant (e^-0.1*10 = 0.368)
-        conn.execute("UPDATE facts SET last_access_at = datetime('now', '-10 days') WHERE fact_id = 1")
+        conn.execute(
+            "UPDATE facts SET last_access_at = datetime('now', '-10 days') WHERE fact_id = 1"
+        )
         # fact_id 2 → 20 days old → cleared
-        conn.execute("UPDATE facts SET last_access_at = datetime('now', '-20 days') WHERE fact_id = 2")
+        conn.execute(
+            "UPDATE facts SET last_access_at = datetime('now', '-20 days') WHERE fact_id = 2"
+        )
         conn.commit()
         conn.close()
 
@@ -252,7 +271,9 @@ class TestReadBoostsStrength:
         conn = _connect(db)
         conn.execute("UPDATE facts SET strength = 0.5 WHERE fact_id = ?", (fid,))
         conn.commit()
-        before = conn.execute("SELECT strength FROM facts WHERE fact_id = ?", (fid,)).fetchone()["strength"]
+        before = conn.execute(
+            "SELECT strength FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()["strength"]
         conn.close()
 
         # Search for it (boost on recall)
@@ -260,7 +281,9 @@ class TestReadBoostsStrength:
         assert any(r.get("fact_id") == fid for r in results)
 
         conn = _connect(db)
-        after = conn.execute("SELECT strength FROM facts WHERE fact_id = ?", (fid,)).fetchone()["strength"]
+        after = conn.execute(
+            "SELECT strength FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()["strength"]
         conn.close()
 
         assert float(after) > float(before), f"{after} should be > {before} after boost"
@@ -276,7 +299,9 @@ class TestReadBoostsStrength:
             layer.search("Boost me multiple times")
 
         conn = _connect(db)
-        strength = conn.execute("SELECT strength FROM facts WHERE fact_id = ?", (fid,)).fetchone()["strength"]
+        strength = conn.execute(
+            "SELECT strength FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()["strength"]
         conn.close()
         assert strength <= 1.0
 
@@ -292,17 +317,23 @@ class TestDecisionMadeBoostsStrength:
         conn = _connect(db)
         conn.execute("UPDATE facts SET strength = 0.5 WHERE fact_id = ?", (fid,))
         conn.commit()
-        before = conn.execute("SELECT strength FROM facts WHERE fact_id = ?", (fid,)).fetchone()["strength"]
+        before = conn.execute(
+            "SELECT strength FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()["strength"]
         conn.close()
 
         # Good feedback
-        result = layer.update_trust(fid, helpful=True)
+        layer.update_trust(fid, helpful=True)
 
         conn = _connect(db)
-        after = conn.execute("SELECT strength FROM facts WHERE fact_id = ?", (fid,)).fetchone()["strength"]
+        after = conn.execute(
+            "SELECT strength FROM facts WHERE fact_id = ?", (fid,)
+        ).fetchone()["strength"]
         conn.close()
 
-        assert float(after) > float(before), f"{after} should be > {before} after helpful boost"
+        assert float(after) > float(before), (
+            f"{after} should be > {before} after helpful boost"
+        )
 
 
 class TestClearedHiddenByDefault:
@@ -314,7 +345,10 @@ class TestClearedHiddenByDefault:
 
         # Force to cleared
         conn = _connect(db)
-        conn.execute("UPDATE facts SET strength = 0.05, last_access_at = datetime('now', '-50 days') WHERE fact_id = ?", (fid,))
+        conn.execute(
+            "UPDATE facts SET strength = 0.05, last_access_at = datetime('now', '-50 days') WHERE fact_id = ?",
+            (fid,),
+        )
         conn.commit()
         conn.close()
 
@@ -331,7 +365,10 @@ class TestClearedHiddenByDefault:
 
         # Force to cleared
         conn = _connect(db)
-        conn.execute("UPDATE facts SET strength = 0.05, last_access_at = datetime('now', '-50 days') WHERE fact_id = ?", (fid,))
+        conn.execute(
+            "UPDATE facts SET strength = 0.05, last_access_at = datetime('now', '-50 days') WHERE fact_id = ?",
+            (fid,),
+        )
         conn.commit()
         conn.close()
 
@@ -353,7 +390,9 @@ class TestClearedHiddenByDefault:
 
         results = layer.list_all(include_cleared=True)
         found = [r for r in results if r.get("fact_id") == fid]
-        assert len(found) == 1, "cleared fact should be visible with include_cleared=True"
+        assert len(found) == 1, (
+            "cleared fact should be visible with include_cleared=True"
+        )
 
     def test_probe_excludes_cleared(self, tmp_path: Path):
         """probe() also excludes cleared facts."""
@@ -397,9 +436,15 @@ class TestStatsDecay:
 
         conn = _connect(db)
         # Set one to dormant (10 days → ~0.368)
-        conn.execute("UPDATE facts SET last_access_at = datetime('now', '-10 days') WHERE fact_id = ?", (fid_dormant,))
+        conn.execute(
+            "UPDATE facts SET last_access_at = datetime('now', '-10 days') WHERE fact_id = ?",
+            (fid_dormant,),
+        )
         # Set one to cleared
-        conn.execute("UPDATE facts SET last_access_at = datetime('now', '-30 days') WHERE fact_id = ?", (fid_cleared,))
+        conn.execute(
+            "UPDATE facts SET last_access_at = datetime('now', '-30 days') WHERE fact_id = ?",
+            (fid_cleared,),
+        )
         conn.commit()
         conn.close()
 

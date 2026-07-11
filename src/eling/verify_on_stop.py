@@ -33,15 +33,17 @@ logger = logging.getLogger(__name__)
 AGENTS_WITH_VERIFY: frozenset[str] = frozenset({"hermes"})
 
 # Agents that do NOT have built-in verify-on-stop — eling provides it
-AGENTS_WITHOUT_VERIFY: frozenset[str] = frozenset({
-    "opencode",
-    "openclaw",
-    "openclaude",
-    "claude_cli",
-    "cursor",
-    "windsurf",
-    "generic",
-})
+AGENTS_WITHOUT_VERIFY: frozenset[str] = frozenset(
+    {
+        "opencode",
+        "openclaw",
+        "openclaude",
+        "claude_cli",
+        "cursor",
+        "windsurf",
+        "generic",
+    }
+)
 
 # Env-var → agent name mapping for auto-detection
 AGENT_SIGNATURES: dict[str, str] = {
@@ -91,7 +93,12 @@ def host_has_verify_on_stop(adapter: str = "auto") -> bool:
     (the default), Hermes keeps its built-in verification and eling stays a
     no-op for it.
     """
-    if os.environ.get("ELING_VERIFY_ALL_AGENTS", "").strip().lower() in ("1", "true", "yes", "on"):
+    if os.environ.get("ELING_VERIFY_ALL_AGENTS", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ):
         return False
     if adapter != "auto":
         return adapter in AGENTS_WITH_VERIFY
@@ -143,12 +150,14 @@ def record_verification(
         Truncated output from the command.
     """
     global _ledger
-    _ledger["verification_events"].append({
-        "time": time.time(),
-        "status": status,
-        "command": command,
-        "output_summary": output[:500] if output else "",
-    })
+    _ledger["verification_events"].append(
+        {
+            "time": time.time(),
+            "status": status,
+            "command": command,
+            "output_summary": output[:500] if output else "",
+        }
+    )
     if status == "passed":
         _ledger["verified"] = True
         _ledger["last_verify_time"] = time.time()
@@ -172,30 +181,34 @@ def reset_ledger() -> None:
 # Non-code path filter (same heuristic as Hermes' verification_stop.py)
 # ---------------------------------------------------------------------------
 
-_NON_CODE_EXTENSIONS: frozenset[str] = frozenset({
-    ".md",
-    ".markdown",
-    ".mdx",
-    ".rst",
-    ".txt",
-    ".text",
-    ".adoc",
-    ".asciidoc",
-    ".org",
-    ".log",
-    ".csv",
-    ".tsv",
-})
+_NON_CODE_EXTENSIONS: frozenset[str] = frozenset(
+    {
+        ".md",
+        ".markdown",
+        ".mdx",
+        ".rst",
+        ".txt",
+        ".text",
+        ".adoc",
+        ".asciidoc",
+        ".org",
+        ".log",
+        ".csv",
+        ".tsv",
+    }
+)
 
-_NON_CODE_FILENAMES: frozenset[str] = frozenset({
-    "license",
-    "licence",
-    "notice",
-    "authors",
-    "contributors",
-    "changelog",
-    "codeowners",
-})
+_NON_CODE_FILENAMES: frozenset[str] = frozenset(
+    {
+        "license",
+        "licence",
+        "notice",
+        "authors",
+        "contributors",
+        "changelog",
+        "codeowners",
+    }
+)
 
 
 def _is_non_code_path(raw: str) -> bool:
@@ -247,9 +260,7 @@ def build_verify_nudge() -> str | None:
     """
     global _ledger
 
-    paths = sorted(
-        {str(p) for p in _filter_verifiable_paths(_ledger["changed_paths"])}
-    )
+    paths = sorted({str(p) for p in _filter_verifiable_paths(_ledger["changed_paths"])})
     if not paths:
         return None
 
@@ -295,9 +306,7 @@ def verify_status() -> dict[str, Any]:
     Use this from MCP tools to let agents query verification state.
     """
     global _ledger
-    paths = sorted(
-        {str(p) for p in _filter_verifiable_paths(_ledger["changed_paths"])}
-    )
+    paths = sorted({str(p) for p in _filter_verifiable_paths(_ledger["changed_paths"])})
     return {
         "changed_paths": paths,
         "verification_events": _ledger["verification_events"][-3:],
@@ -346,6 +355,7 @@ def _spec_kit_check() -> dict[str, Any]:
 
     if _spec_kit_verifier is None:
         from .spec_kit import SpecKitVerifier
+
         _spec_kit_verifier = SpecKitVerifier(_spec_kit_project_path)
 
     try:

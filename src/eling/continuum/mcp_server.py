@@ -62,7 +62,9 @@ def _get_store() -> ContinuumStore:
             _store_init_error = None
         except Exception as exc:
             _store_init_error = f"{type(exc).__name__}: {exc}"
-            logger.error("Continuum store init failed: %s", _store_init_error, exc_info=True)
+            logger.error(
+                "Continuum store init failed: %s", _store_init_error, exc_info=True
+            )
             raise
     return _store
 
@@ -77,8 +79,15 @@ TOOLS = [
         "inputSchema": {
             "type": "object",
             "properties": {
-                "path": {"type": "string", "description": "Canonical absolute project root"},
-                "name": {"type": "string", "default": "", "description": "Optional human name"},
+                "path": {
+                    "type": "string",
+                    "description": "Canonical absolute project root",
+                },
+                "name": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Optional human name",
+                },
             },
             "required": ["path"],
         },
@@ -108,9 +117,17 @@ TOOLS = [
                 "project": {"type": "string"},
                 "slug": {"type": "string", "description": "Stable id for the lesson"},
                 "content": {"type": "string"},
-                "kind": {"type": "string", "enum": ["fundamental", "situational"], "default": "situational"},
+                "kind": {
+                    "type": "string",
+                    "enum": ["fundamental", "situational"],
+                    "default": "situational",
+                },
                 "title": {"type": "string", "default": ""},
-                "embed": {"type": "boolean", "default": True, "description": "Embed for semantic search if an embedder is available"},
+                "embed": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Embed for semantic search if an embedder is available",
+                },
             },
             "required": ["project", "slug", "content"],
         },
@@ -136,7 +153,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "project": {"type": "string"},
-                "kind": {"type": "string", "enum": ["fundamental", "situational", ""], "default": ""},
+                "kind": {
+                    "type": "string",
+                    "enum": ["fundamental", "situational", ""],
+                    "default": "",
+                },
             },
             "required": ["project"],
         },
@@ -167,7 +188,11 @@ TOOLS = [
                 "branch": {"type": "string", "default": ""},
                 "worktree": {"type": "string", "default": ""},
                 "prompt": {"type": "string", "default": ""},
-                "reserved_paths": {"type": "array", "items": {"type": "string"}, "default": []},
+                "reserved_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": [],
+                },
             },
             "required": ["project", "slug"],
         },
@@ -181,7 +206,10 @@ TOOLS = [
             "properties": {
                 "project": {"type": "string"},
                 "slug": {"type": "string"},
-                "status": {"type": "string", "enum": ["draft", "active", "merged", "abandoned"]},
+                "status": {
+                    "type": "string",
+                    "enum": ["draft", "active", "merged", "abandoned"],
+                },
                 "branch": {"type": "string"},
                 "worktree": {"type": "string"},
                 "prompt": {"type": "string"},
@@ -208,7 +236,11 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "project": {"type": "string"},
-                "status": {"type": "string", "enum": ["draft", "active", "merged", "abandoned", ""], "default": ""},
+                "status": {
+                    "type": "string",
+                    "enum": ["draft", "active", "merged", "abandoned", ""],
+                    "default": "",
+                },
                 "limit": {"type": "integer", "default": 50},
                 "offset": {"type": "integer", "default": 0},
             },
@@ -247,9 +279,20 @@ TOOLS = [
             "properties": {
                 "project": {"type": "string"},
                 "slug": {"type": "string"},
-                "goal": {"type": "string", "description": "What the fresh agent should do"},
-                "reserved_paths": {"type": "array", "items": {"type": "string"}, "default": []},
-                "base_branch": {"type": "string", "default": "", "description": "Branch to fork the worktree from"},
+                "goal": {
+                    "type": "string",
+                    "description": "What the fresh agent should do",
+                },
+                "reserved_paths": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": [],
+                },
+                "base_branch": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Branch to fork the worktree from",
+                },
             },
             "required": ["project", "slug", "goal"],
         },
@@ -267,6 +310,7 @@ TOOLS = [
 
 
 # ── protocol handler ────────────────────────────────────────────────────────
+
 
 def _handle(req: dict) -> dict | None:
     method = req.get("method")
@@ -295,7 +339,9 @@ def _handle_initialize(rid: int | str | None, params: dict) -> dict:
     name = client.get("name", "unknown")
     if name and name != "unknown":
         _handshake_source = name
-    logger.info("Continuum MCP client connected: %s %s", name, client.get("version", "?"))
+    logger.info(
+        "Continuum MCP client connected: %s %s", name, client.get("version", "?")
+    )
     return {
         "jsonrpc": "2.0",
         "id": rid,
@@ -317,8 +363,14 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
         try:
             text = json.dumps(data, default=str)
         except Exception:
-            text = json.dumps({"error": "result not serializable", "raw": str(data)[:500]})
-        return {"jsonrpc": "2.0", "id": rid, "result": {"content": [{"type": "text", "text": text}]}}
+            text = json.dumps(
+                {"error": "result not serializable", "raw": str(data)[:500]}
+            )
+        return {
+            "jsonrpc": "2.0",
+            "id": rid,
+            "result": {"content": [{"type": "text", "text": text}]},
+        }
 
     try:
         if tool_name == "continuum_project_create":
@@ -337,7 +389,13 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             kind = args.get("kind") or None
             return ok({"knowledge": store.knowledge_list(args["project"], kind=kind)})
         elif tool_name == "continuum_knowledge_search":
-            return ok({"results": store.knowledge_search(args["project"], args["q"], args.get("limit", 10))})
+            return ok(
+                {
+                    "results": store.knowledge_search(
+                        args["project"], args["q"], args.get("limit", 10)
+                    )
+                }
+            )
 
         elif tool_name == "continuum_agent_register":
             return ok(store.agent_register(agent_slug=agent, **args))
@@ -347,9 +405,16 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             return ok(store.agent_get(args["project"], args["slug"]))
         elif tool_name == "continuum_registry_list":
             status = args.get("status") or None
-            return ok({"agents": store.registry_list(
-                args["project"], status=status,
-                limit=args.get("limit", 50), offset=args.get("offset", 0))})
+            return ok(
+                {
+                    "agents": store.registry_list(
+                        args["project"],
+                        status=status,
+                        limit=args.get("limit", 50),
+                        offset=args.get("offset", 0),
+                    )
+                }
+            )
 
         elif tool_name == "continuum_plot_get":
             content = store.plot_get(args["project"])
@@ -373,6 +438,7 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
                 rp = a.get("reserved_paths") or []
                 if isinstance(rp, str):
                     import json as _json
+
                     rp = _json.loads(rp or "[]")
                 collisions.append({"agent": a["slug"], "reserved_paths": rp})
             return ok({"active_reservations": collisions})
@@ -384,15 +450,20 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             reserved = args.get("reserved_paths", [])
             # 1. register (collision-checked)
             reg = store.agent_register(
-                project=project, slug=slug, agent_slug=agent,
-                branch=slug, reserved_paths=reserved,
+                project=project,
+                slug=slug,
+                agent_slug=agent,
+                branch=slug,
+                reserved_paths=reserved,
             )
             # 2. try isolated git worktree
             worktree_path = ""
             worktree_note = ""
             if wt.is_git_repo(project):
                 try:
-                    worktree_path = wt.dispatch_worktree(project, branch=slug, base=args.get("base_branch") or None)
+                    worktree_path = wt.dispatch_worktree(
+                        project, branch=slug, base=args.get("base_branch") or None
+                    )
                 except Exception as exc:  # noqa: BLE001
                     worktree_note = f"worktree creation skipped: {exc}"
             else:
@@ -411,7 +482,9 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
                 f"- knowledge_create(kind='situational', ...) for what you learned.\n"
                 f"- agent_update(status='merged', merged_commit='<sha>')\n"
             )
-            store.agent_update(project=project, slug=slug, prompt=prompt, worktree=worktree_path)
+            store.agent_update(
+                project=project, slug=slug, prompt=prompt, worktree=worktree_path
+            )
             reg["worktree"] = worktree_path
             reg["prompt"] = prompt
             if worktree_note:
@@ -424,7 +497,9 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
         return _error(rid, -32000, f"{type(e).__name__}: {e}", traceback.format_exc())
 
 
-def _error(rid: int | str | None, code: int, message: str, data: str | None = None) -> dict:
+def _error(
+    rid: int | str | None, code: int, message: str, data: str | None = None
+) -> dict:
     err: dict[str, Any] = {"code": code, "message": message}
     if data:
         err["data"] = data
@@ -432,6 +507,7 @@ def _error(rid: int | str | None, code: int, message: str, data: str | None = No
 
 
 # ── stdio entry ─────────────────────────────────────────────────────────────
+
 
 def run_stdio() -> None:
     for line in sys.stdin:

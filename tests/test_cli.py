@@ -6,8 +6,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-import pytest
-
 
 def _eling(*args: str, timeout: int = 30) -> subprocess.CompletedProcess:
     """Run `python -m eling.cli` with given args, return completed process.
@@ -20,7 +18,11 @@ def _eling(*args: str, timeout: int = 30) -> subprocess.CompletedProcess:
         capture_output=True,
         text=True,
         timeout=timeout,
-        env={k: v for k, v in os.environ.items() if k not in ("ELING_HOME", "NOTION_API_KEY")},
+        env={
+            k: v
+            for k, v in os.environ.items()
+            if k not in ("ELING_HOME", "NOTION_API_KEY")
+        },
     )
     return result
 
@@ -30,6 +32,7 @@ class TestCLIStats:
         result = _eling("stats")
         assert result.returncode == 0
         import json
+
         data = json.loads(result.stdout)
         assert "facts" in data
         assert "kb" in data
@@ -38,6 +41,7 @@ class TestCLIStats:
     def test_stats_facts_count(self):
         result = _eling("stats")
         import json
+
         data = json.loads(result.stdout)
         assert isinstance(data["facts"]["total_facts"], int)
 
@@ -48,6 +52,7 @@ class TestCLIRemember:
         result = _eling("remember", text)
         assert result.returncode == 0
         import json
+
         data = json.loads(result.stdout)
         assert data.get("fact_id", data.get("id", 0)) > 0
 
@@ -55,6 +60,7 @@ class TestCLIRemember:
         result = _eling("remember", "CLI kb test content", "--layer", "kb")
         assert result.returncode == 0
         import json
+
         data = json.loads(result.stdout)
         assert data.get("chunks_added", 0) >= 1
 
@@ -69,6 +75,7 @@ class TestCLIRecall:
         result = _eling("recall", "pineapple")
         assert result.returncode == 0
         import json
+
         data = json.loads(result.stdout)
         assert "merged" in data
         assert "per_layer" in data
@@ -76,7 +83,8 @@ class TestCLIRecall:
     def test_recall_limit(self):
         result = _eling("recall", "test", "--limit", "3")
         import json
-        data = json.loads(result.stdout)
+
+        json.loads(result.stdout)
         assert result.returncode == 0
 
 
@@ -85,6 +93,7 @@ class TestCLIReason:
         result = _eling("reason", "Eling", "Memory")
         assert result.returncode == 0
         import json
+
         data = json.loads(result.stdout)
         assert isinstance(data, list)
 
@@ -94,6 +103,7 @@ class TestCLIReflect:
         result = _eling("reflect", "999999")
         # Should not crash; return error dict
         import json
+
         data = json.loads(result.stdout)
         assert isinstance(data, dict)
         assert "error" in data or "notion" in data
@@ -114,6 +124,7 @@ class TestCLIConfig:
         result = _eling("config", "schema")
         assert result.returncode == 0
         import json
+
         schema = json.loads(result.stdout)
         assert "hrr_dim" in schema
         assert "home" in schema
@@ -144,6 +155,7 @@ class TestCLISync:
         result = _eling("sync", "--direction", "flush", "--once")
         assert result.returncode == 0
         import json
+
         data = json.loads(result.stdout)
         assert data["layers"]["facts_flushed"] is True
         assert data["layers"]["kb_flushed"] is True
@@ -169,7 +181,8 @@ class TestCLIErrors:
     def test_no_subcommand(self):
         result = subprocess.run(
             [sys.executable, "-m", "eling.cli"],
-            capture_output=True, text=True,
+            capture_output=True,
+            text=True,
             timeout=15,
         )
         assert result.returncode != 0

@@ -51,10 +51,12 @@ class BuiltinLayer:
             content = path.read_text(encoding="utf-8", errors="replace")
             for i, line in enumerate(content.split("\n"), 1):
                 if q in line.lower():
-                    out.append({
-                        "source": label,
-                        "line": i,
-                        "content": line.strip(),
-                        "score": 0.5,
-                    })
+                    out.append(
+                        {
+                            "source": label,
+                            "line": i,
+                            "content": line.strip(),
+                            "score": 0.5,
+                        }
+                    )
         return out

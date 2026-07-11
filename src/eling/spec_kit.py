@@ -116,7 +116,6 @@ def _parse_markdown_sections(text: str) -> list[tuple[str, str, int]]:
     sections: list[tuple[str, str, int]] = []
     current_heading = "preamble"
     current_body: list[str] = []
-    current_line = 0
     start_line = 0
 
     for i, line in enumerate(text.split("\n"), 1):
@@ -248,7 +247,16 @@ def _extract_plan_sections(text: str) -> list[str]:
     for heading, body, _line in _parse_markdown_sections(text):
         if any(
             kw in heading.lower()
-            for kw in ["implementation", "architecture", "component", "api", "data model", "database", "frontend", "backend"]
+            for kw in [
+                "implementation",
+                "architecture",
+                "component",
+                "api",
+                "data model",
+                "database",
+                "frontend",
+                "backend",
+            ]
         ):
             sections.append(f"## {heading}\n\n{body[:500]}")
     return sections
@@ -296,20 +304,92 @@ def _compute_coverage(
         req.covered = len(req.covered_by) > 0
 
 
-_STOP_WORDS: frozenset[str] = frozenset({
-    "should", "would", "could", "must", "shall", "will", "need",
-    "able", "used", "use", "using", "user", "users", "also",
-    "well", "one", "two", "new", "make", "made", "support",
-    "based", "within", "without", "across", "after", "before",
-    "between", "other", "each", "every", "both", "first", "last",
-    "being", "done", "does", "doing", "having", "have", "has",
-    "than", "then", "that", "this", "these", "those", "which",
-    "what", "when", "where", "their", "them", "they", "your",
-    "from", "into", "over", "such", "some", "more", "most",
-    "many", "much", "very", "just", "about", "than", "down",
-    "back", "still", "already", "always", "never", "ever",
-    "here", "there", "only", "really", "way", "thing", "things",
-})
+_STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "should",
+        "would",
+        "could",
+        "must",
+        "shall",
+        "will",
+        "need",
+        "able",
+        "used",
+        "use",
+        "using",
+        "user",
+        "users",
+        "also",
+        "well",
+        "one",
+        "two",
+        "new",
+        "make",
+        "made",
+        "support",
+        "based",
+        "within",
+        "without",
+        "across",
+        "after",
+        "before",
+        "between",
+        "other",
+        "each",
+        "every",
+        "both",
+        "first",
+        "last",
+        "being",
+        "done",
+        "does",
+        "doing",
+        "having",
+        "have",
+        "has",
+        "than",
+        "then",
+        "that",
+        "this",
+        "these",
+        "those",
+        "which",
+        "what",
+        "when",
+        "where",
+        "their",
+        "them",
+        "they",
+        "your",
+        "from",
+        "into",
+        "over",
+        "such",
+        "some",
+        "more",
+        "most",
+        "many",
+        "much",
+        "very",
+        "just",
+        "about",
+        "than",
+        "down",
+        "back",
+        "still",
+        "already",
+        "always",
+        "never",
+        "ever",
+        "here",
+        "there",
+        "only",
+        "really",
+        "way",
+        "thing",
+        "things",
+    }
+)
 
 
 # ---------------------------------------------------------------------------
@@ -392,7 +472,9 @@ class SpecKitVerifier:
         # Constitution
         con_path = self.project_path / CONSTITUTION_PATH
         if con_path.exists():
-            artifact.constitution = con_path.read_text(encoding="utf-8", errors="replace")[:2000]
+            artifact.constitution = con_path.read_text(
+                encoding="utf-8", errors="replace"
+            )[:2000]
 
         # Feature specs
         spec_dirs = _find_spec_dirs(self.project_path)

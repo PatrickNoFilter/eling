@@ -47,22 +47,20 @@ class TestSelfWireGraph:
     """Entity co-occurrence edges created on write."""
 
     def test_pair_gets_edge(self, graph):
-        fid = graph.add("[[Albert Einstein]] developed [[Theory of Relativity]]")
+        graph.add("[[Albert Einstein]] developed [[Theory of Relativity]]")
         edges = graph._conn.execute("SELECT * FROM entity_graph").fetchall()
         assert len(edges) == 1
         assert edges[0]["weight"] == 1.0
 
     def test_triple_gets_three_edges(self, graph):
-        fid = graph.add("[[Alice]], [[Bob]], and [[Charlie]] worked together")
+        graph.add("[[Alice]], [[Bob]], and [[Charlie]] worked together")
         edges = graph._conn.execute("SELECT * FROM entity_graph").fetchall()
         assert len(edges) == 3  # A-B, A-C, B-C
 
     def test_weight_increments_on_repeat(self, graph):
         graph.add("[[Einstein]] and [[Relativity]]")
         graph.add("[[Einstein]] and [[Relativity]] again!")
-        edges = graph._conn.execute(
-            "SELECT weight FROM entity_graph"
-        ).fetchall()
+        edges = graph._conn.execute("SELECT weight FROM entity_graph").fetchall()
         assert edges[0]["weight"] == 2.0
 
     def test_entity_neighbors_returns_sorted(self, graph):
@@ -88,22 +86,30 @@ class TestSelfWireGraph:
         for i in range(6):
             fids.append(graph.add(f"[[Entity{i}]] is here"))
         # Separate facts, no co-occurrence → 0 edges
-        count = graph._conn.execute("SELECT COUNT(*) as n FROM entity_graph").fetchone()["n"]
+        count = graph._conn.execute(
+            "SELECT COUNT(*) as n FROM entity_graph"
+        ).fetchone()["n"]
         assert count == 0
 
     def test_single_entity_no_edge(self, graph):
         graph.add("[[Lonely Entity]]")
-        count = graph._conn.execute("SELECT COUNT(*) as n FROM entity_graph").fetchone()["n"]
+        count = graph._conn.execute(
+            "SELECT COUNT(*) as n FROM entity_graph"
+        ).fetchone()["n"]
         assert count == 0
 
     def test_fact_without_entities_no_edge(self, graph):
         graph.add("plain text without entities")
-        count = graph._conn.execute("SELECT COUNT(*) as n FROM entity_graph").fetchone()["n"]
+        count = graph._conn.execute(
+            "SELECT COUNT(*) as n FROM entity_graph"
+        ).fetchone()["n"]
         assert count == 0
 
     def test_different_facts_same_entity_no_edge(self, graph):
         """Same entity across different facts — no other entity to pair with."""
         graph.add("[[Einstein]] studied physics")
         graph.add("[[Einstein]] won the prize")
-        count = graph._conn.execute("SELECT COUNT(*) as n FROM entity_graph").fetchone()["n"]
+        count = graph._conn.execute(
+            "SELECT COUNT(*) as n FROM entity_graph"
+        ).fetchone()["n"]
         assert count == 0

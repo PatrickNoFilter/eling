@@ -9,8 +9,6 @@ from pathlib import Path
 import pytest
 
 from eling.permissions import (
-    ACCESS_LEVELS,
-    KNOWN_LAYERS,
     check_access,
     load_permissions,
     describe_permissions,

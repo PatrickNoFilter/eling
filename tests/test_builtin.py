@@ -4,7 +4,6 @@ import os
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from eling.layers.builtin import BuiltinLayer
 
@@ -29,8 +28,9 @@ class TestBuiltinLayer:
         assert "USER" in str(bl.user_path)
 
     def test_available_false_when_missing(self):
-        bl = BuiltinLayer(memory_path=self.tmp / "nonexistent.md",
-                          user_path=self.tmp / "nouser.md")
+        bl = BuiltinLayer(
+            memory_path=self.tmp / "nonexistent.md", user_path=self.tmp / "nouser.md"
+        )
         assert not bl.available
 
     def test_available_true_when_memory_exists(self):
@@ -83,6 +83,7 @@ class TestBuiltinLayer:
         bl = BuiltinLayer(memory_path=self.memory_file, user_path=self.user_file)
         results = bl.search("neural")
         assert len(results) >= 2
+
     def test_search_case_insensitive(self):
         self.memory_file.write_text("Hello World")
         bl = BuiltinLayer(memory_path=self.memory_file, user_path=self.user_file)
