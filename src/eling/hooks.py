@@ -472,7 +472,7 @@ def register_default_hooks(brain: "Brain") -> HookRegistry:
         HOOK_VERIFY_REQUEST: _make_verify_request_handler,
         HOOK_ERROR_OCCURRED: _make_error_occurred_handler,
         HOOK_COMPACTION: _make_compaction_handler,
-        HOOK_SESSION_END: _make_session_end_handler,
+        HOOK_SESSION_END: _make_noop_handler,
         HOOK_IDLE_30MIN: _make_idle_30min_handler,
         HOOK_SYNC_START: _make_noop_handler,
         HOOK_SYNC_COMPLETE: _make_noop_handler,
