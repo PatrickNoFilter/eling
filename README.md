@@ -666,10 +666,9 @@ eling/
 
 ## 🤝 Credits
 
-- **HRR phase encoding + facts layer** — adapted from [holographic plugin](https://github.com/dusterbloom) by dusterbloom (Hermes PR #2351, MIT)
-- **Spec-kit integration** — spec-driven development artifacts ([spec-kit](https://github.com/github/spec-kit) by GitHub, [MIT](https://github.com/github/spec-kit?tab=MIT-1-ov-file#readme))
-- **Blackbox flight recorder & efficiency scoring** — ported from [Agent-Blackbox](https://github.com/nousresearch/agent-blackbox) by [Taewoo Park](https://github.com/joint79) (Nous Research, MIT) — 11 context-efficiency metrics, causal timeline, per-archetype baselines
-- **Continuum multi-agent orchestration** — inspired by [continuum](https://github.com/pouyahasanamreji/continuum) by [Pouya Hasanamreji](https://github.com/pouyahasanamreji) — worktree isolation, PLOT protocol, agent dispatch registry
+See [`CREDITS.md`](CREDITS.md) for full attribution — Hermes Agent (Nous Research),
+Agent-Blackbox / Taewoo Park, Continuum / Pouya Hasanamreji, spec-kit (GitHub),
+dusterbloom's holographic plugin, and all other contributors.
 
 ## 📜 License
 
