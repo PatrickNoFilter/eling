@@ -277,7 +277,7 @@ python3 -m eling reflect    1                 # promote fact_id 1 to Notion
 python3 -m eling verify                        # query verification status
 python3 -m eling verify-spec                   # run spec-kit conformance
 
-# Memory version control (v0.5.1)
+# Memory version control
 python3 -m eling snapshot  --reason "pre_evolution"  # snapshot facts DB
 python3 -m eling list-snapshots                       # list all snapshots
 python3 -m eling rollback  <snapshot_id>              # restore to snapshot
@@ -449,7 +449,7 @@ stats = b.versioning_stats()
 
 **Available as MCP tools:** `eling_versioned_update`, `eling_get_version_history`, `eling_undo_to_version`, `eling_versioning_stats`.
 
-## 🧠 Memory Version Control (v0.5.1)
+## 🧠 Memory Version Control
 
 Eling provides Git-like snapshot and rollback for your facts database:
 
@@ -466,7 +466,7 @@ python3 -m eling rollback 20260703-120000-123
 
 Snapshots are file-level copies managed via `snapshot.py`. Available as MCP tools: `eling_snapshot`, `eling_list_snapshots`, `eling_rollback`.
 
-## 🎯 Steering Rules (v0.5.1)
+## 🎯 Steering Rules
 
 Teach your AI agent **when** to use eling's MCP tools. Auto-detects Cursor, Claude Code, OpenCode, Kiro, and Gemini:
 
@@ -483,7 +483,7 @@ This writes:
 
 Rules cover: when to store/retrieve memories, session lifecycle, and memory hygiene.
 
-## 🔍 Vector Embeddings (v0.5.1)
+## 🔍 Vector Embeddings
 
 Optional semantic search via `sentence-transformers`:
 
