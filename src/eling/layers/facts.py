@@ -210,6 +210,14 @@ class FactsLayer:
         self.default_trust = _clamp(default_trust)
         self.hrr_dim = hrr_dim
         self.embedding_model = embedding_model
+        # Probe numpy availability eagerly — _HAS_NUMPY is None until
+        # _require_numpy() is called, and not None is True, so we must
+        # resolve it here.
+        try:
+            import numpy  # noqa: F401
+            hrr._HAS_NUMPY = True
+        except ImportError:
+            hrr._HAS_NUMPY = False
         self._hrr_available = hrr._HAS_NUMPY
 
         if hrr_weight > 0 and not self._hrr_available:

@@ -8,7 +8,7 @@ MCP split:
   - `eling.as_brain.mcp_server` → local layers MCP server (facts, KB, code, builtin, HRR)
 """
 
-__version__ = "0.11.1"
+__version__ = "0.11.2"
 __all__ = [
     "Brain",
     "HookRegistry",
