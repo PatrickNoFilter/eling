@@ -26,14 +26,16 @@ classifiers = [
 ]
 
 dependencies = [
+    "httpx>=0.27",
     # numpy is optional — needed only for HRR.
     # Install via: pip install eling[hrr] or pip install eling[dev]
 ]
 
 [project.optional-dependencies]
+notion = ["httpx>=0.27"]
 hrr = ["numpy>=1.24"]
 embeddings = ["sentence-transformers>=3.0"]
-all = ["eling[hrr,embeddings]"]
+all = ["eling[hrr,embeddings,notion]"]
 dev = [
     "eling[hrr]",
     "pytest>=7.0",
