@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "eling"
 version = "0.12.0"
-description = "Unified second brain for AI agents — 6-tier memory, Blackbox flight recorder, HRR reasoning, 73 MCP tools across 5 servers, Obsidian Layer 6 local Markdown vault, markdownify document-to-Markdown (PDF/DOCX/XLSX/PPTX/images/audio/web), Continuum Layer 8 multi-agent orchestration hub (Hermes/OpenCode/MiMo-Code/Zero/Claude Code/Codex), temporal queries, per-fact versioning, vector search, Zettelkasten, memory evolution, spec-kit verification, universal verify-on-stop, ELING_HOME override, handshake agent auto-attribution"
+description = "Unified second brain for AI agents — 6-tier memory, Blackbox flight recorder, HRR reasoning, 73 MCP tools (5 servers), Obsidian vault, markdownify (PDF/DOCX/XLSX/PPTX/images/audio→MD), Continuum multi-agent hub, temporal queries, per-fact versioning, vector search, Zettelkasten linking, memory evolution, spec-kit verification, verify-on-stop"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
