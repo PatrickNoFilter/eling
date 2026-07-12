@@ -1,4 +1,4 @@
-"""Brain — unified orchestrator across all 5 memory layers.
+"""Brain — unified orchestrator across all 6 memory layers.
 
 Provides:
 - remember(content): smart route to facts or KB
@@ -21,6 +21,7 @@ from .layers.facts import FactsLayer
 from .layers.kb import KBLayer
 from .layers.code import CodeLayer
 from .layers.notion import NotionLayer
+from .layers.obsidian import ObsidianLayer
 from . import compress
 from . import hooks as eling_hooks
 from . import permissions
@@ -96,13 +97,14 @@ def _detect_notion_category(content: str, category_hint: str = "") -> str:
 
 
 class Brain:
-    """Unified second brain across 5 memory layers."""
+    """Unified second brain across 6 memory layers."""
 
     def __init__(
         self,
         home: str | Path | None = None,
         notion_api_key: str | None = None,
         notion_parent_id: str | None = None,
+        obsidian_vault_path: str | Path | None = None,
         project_path: str | Path | None = None,
         hrr_dim: int = 1024,
         adapter: str | None = None,
@@ -119,6 +121,7 @@ class Brain:
         )
         self.kb = KBLayer(db_path=self.home / "kb.db")
         self.code = CodeLayer(project_path=project_path, auto_index=False)
+        self.obsidian = ObsidianLayer(vault_path=obsidian_vault_path)
         self.notion = NotionLayer(
             api_key=notion_api_key, parent_page_id=notion_parent_id
         )

@@ -1,12 +1,12 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Six memory layers, four MCP servers (notion-only `eling` + local-layers `as_brain` + blackbox flight recorder `blackbox` + orchestration `continuum`), zero mandatory external dependencies. v0.10.0 adds the **Blackbox Layer 2** flight recorder with 16 `blackbox_*` MCP tools, 11-metric context-efficiency scoring (ported from Nous Research's Agent-Blackbox), Zero stream-JSON + Hermes session DB adapters, and elevates Continuum to **Layer 7** (multi-agent orchestration). v0.9.0 added the Continuum Layer 6 multi-agent orchestration hub — one shared `continuum.db` that every coding agent (Hermes, OpenCode, MiMo-Code, Zero, Claude Code, Codex) connects to, with isolated git worktrees, a shared registry, two-tier knowledge, and handshake agent auto-attribution; v0.8.0 adds the universal brain: handshake agent attribution, ELING_HOME override, and all-agents verify-on-stop; v0.7.3 splits the MCP server into two focused servers (notion-only `eling` + local `as_brain`); v0.7.2 adds FactMemoryProvider, lazy numpy, Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, steering rules.
+> **Eling** — Unified second brain for AI agents. Six memory layers, four MCP servers (notion-only `eling` + local-layers `as_brain` + blackbox flight recorder `blackbox` + orchestration `continuum`), zero mandatory external dependencies. v0.10.0 adds the **Blackbox Layer 2** flight recorder with 16 `blackbox_*` MCP tools, 11-metric context-efficiency scoring (ported from Nous Research's Agent-Blackbox), Zero stream-JSON + Hermes session DB adapters, the **Obsidian Layer 6** local Markdown vault client, and elevates Continuum to **Layer 8** (multi-agent orchestration).
 
 ```
 elig/
 ├── mcp_server.py             — JSON-RPC stdio server (notion-only, 6 tools)
 ├── as_brain/
-│   └── mcp_server.py         — JSON-RPC stdio server (local layers + Blackbox, 33 tools)
+│   └── mcp_server.py         — JSON-RPC stdio server (local layers + Blackbox + Obsidian, 38 tools)
 ├── blackbox/                  — Layer 2: Flight recorder & telemetry
 │   ├── core.py               — TraceEvent, RunSummary, AgentMetadata
 │   ├── store.py              — SQLite-backed event store
@@ -18,7 +18,7 @@ elig/
 │   └── adapters/
 │       ├── zero.py           — Zero stream-JSON adapter + plugin
 │       └── hermes.py         — Hermes session DB adapter
-├── continuum/                 — Layer 7: Multi-agent orchestration hub
+├── continuum/                 — Layer 8: Multi-agent orchestration hub
 │   ├── mcp_server.py         — JSON-RPC stdio server (15 continuum_* tools)
 │   ├── store.py              — continuum.db: projects, agents, knowledge, plot, reservations
 │   ├── worktree.py           — isolated per-agent git worktree manager
@@ -45,36 +45,42 @@ elig/
     ├── code.py       — Tier 3: CodeLayer wrapper
     ├── code_index.py — Pure-Python AST+regex code indexer
     ├── kb.py         — Tier 4: FTS5 + porter + trigram + RRF
-    └── notion.py     — Tier 5: httpx Notion API client
+    └── notion.py     — Layer 7: httpx Notion API client
 ```
 
 ---
 
-## 🧠 Five Cognitive Tiers
+## 🧠 Eight Cognitive Layers
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ Tier 1: BUILTIN     MEMORY.md + USER.md             ~0ms    │
+│ Layer 1: BUILTIN     MEMORY.md + USER.md             ~0ms    │
 │          Always-on, ~2.2 KB / 1.4 KB                        │
 ├──────────────────────────────────────────────────────────────┤
-│ Tier 2: FACTS       SQLite + HRR + BM25 + Trust    ~14ms    │
+│ Layer 2: BLACKBOX    Flight recorder & telemetry    ~20ms    │
+│          11-metric efficiency scoring, SQLite event store    │
+├──────────────────────────────────────────────────────────────┤
+│ Layer 3: FACTS       SQLite + HRR + BM25 + Trust    ~14ms    │
 │          Compositional reasoning, trust decay                │
 ├──────────────────────────────────────────────────────────────┤
-│ Tier 3: CODE        Pure Python CodeIndex          ~10-50ms │
+│ Layer 4: CODE        Pure Python CodeIndex          ~10-50ms │
 │          AST (Python) + regex (15+ langs)                   │
 ├──────────────────────────────────────────────────────────────┤
-│ Tier 4: KB          FTS5 + porter + trigram + RRF  ~50ms    │
+│ Layer 5: KB          FTS5 + porter + trigram + RRF  ~50ms   │
 │          Knowledge corpus with typo correction               │
 ├──────────────────────────────────────────────────────────────┤
-│ Tier 5: NOTION      httpx direct API               ~200-500ms│
+│ Layer 6: OBSIDIAN    Local Markdown vault            ~5ms    │
+│          Filesystem-first notes, daily logs, research        │
+├──────────────────────────────────────────────────────────────┤
+│ Layer 7: NOTION      httpx direct API               ~200-500ms│
 │          Token bucket, exponential backoff, 5-min cache     │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### 🧩 Layer 6 — Continuum (Multi-Agent Orchestration)
+### 🧩 Layer 8 — Continuum (Multi-Agent Orchestration)
 
 Continuum is **not a memory tier** — it is an orchestration tier that runs as a
-third MCP server (`continuum`) on top of the 5 memory tiers. Its job is to let
+third MCP server (`continuum`) on top of the 6 memory layers. Its job is to let
 *many* coding agents share one eling backend without stepping on each other.
 
 - **Shared `continuum.db`** (resolved via `ELING_HOME` / `HERMES_HOME`) — one store for all agents.
@@ -88,10 +94,32 @@ All six agents connect by pointing their MCP config at the same wrapper:
 `continuum/install.sh`; verify with `continuum/healthcheck.sh`. See
 [`continuum/README.md`](continuum/README.md).
 
-### Tier 1 — Builtin
+### Layer 2 — Blackbox (Flight Recorder)
+
+Blackbox is eling's **observability and telemetry layer**. It records every agent
+action — file reads, file writes, terminal commands, tool calls — as structured
+`TraceEvent` entries in a local SQLite store, then scores each run on
+11 context-efficiency metrics.
+
+**Key capabilities:**
+- **Flight recording** — auto-capture agent actions via Zero stream-JSON adapter
+  or Hermes session DB adapter
+- **Efficiency scoring** — 11 metrics (redundant reads, cache hit ratio, yield
+  density, token efficiency, edit efficiency, etc.)
+- **Effectiveness scoring** — outcomes-based scoring with confidence levels
+- **Causal timeline** — chronological trace of events with causal chains
+- **Optimization suggestions** — derived from metric thresholds and patterns
+- **Cross-session baselines** — per-project metric averages and trend tracking
+
+**MCP tools:** 16 `blackbox_*` tools on a dedicated `blackbox` MCP server
+(watch, ingest, finalize, score, timeline, suggest, etc.).
+
+---
+
+### Layer 1 — Builtin
 Reads Hermes `MEMORY.md` and `USER.md` files directly. Always available, no setup. Provides raw text blocks ranked by BM25 similarity.
 
-### Tier 2 — Facts
+### Layer 3 — Facts
 SQLite-backed fact store with:
 - **HRR** (Holographic Reduced Representations, numpy) — compositional vector binding for multi-entity reasoning
 - **BM25** — FTS5 porter stemming full-text search
@@ -126,7 +154,7 @@ A periodic maintenance pass that merges near-duplicate facts:
 4. Recomputes HRR vector for the merged fact
 5. Runs automatically on `idle_30min` hook; also available via `eling_evolve` MCP tool
 
-### Tier 3 — Code
+### Layer 4 — Code
 Pure-Python code intelligence with **zero external dependencies**:
 - Python files → `ast.walk()` extracts `ClassDef`, `FunctionDef`, `AsyncFunctionDef`
 - Non-Python files → regex patterns for JS, TS, Rust, Go, Java, C++, Ruby, PHP, Swift, Kotlin, C#, Scala, Shell, Lua, Elixir
@@ -136,7 +164,7 @@ Pure-Python code intelligence with **zero external dependencies**:
 
 Replaces the previous `codegraph` (Node.js) external dependency.
 
-### Tier 4 — KB
+### Layer 5 — KB
 FTS5 knowledge base ported from [context-mode](https://github.com/nousresearch/hermes-agent) (MIT):
 - **Porter stemming** — language-aware term normalization
 - **Trigram index** — substring matching for partial/typo-tolerant queries
@@ -144,7 +172,27 @@ FTS5 knowledge base ported from [context-mode](https://github.com/nousresearch/h
 - **Levenshtein** — single-character typo correction
 - **Window extraction** — snippet highlighting around matched terms
 
-### Tier 5 — Notion (Online Memory)
+### Layer 6 — Obsidian (Local Markdown Vault)
+
+Obsidian is eling's **local-first, human-readable note layer**. It writes agent
+notes as plain Markdown files in an Obsidian vault on your local filesystem,
+making them immediately viewable, editable, and syncable via Git, Obsidian Sync,
+or any Markdown editor.
+
+**Key capabilities:**
+- **Vault search** — grep-style content search across all `.md` files
+- **Read/write notes** — create or update any vault path; agent or human edits
+  are visible immediately on both sides
+- **Daily notes** — `Daily/YYYY-MM-DD.md` with timestamped entries
+- **Memory review** — `Memory-Review/` folder with per-category fact dumps
+- **Minimum setup** — point `OBSIDIAN_VAULT_PATH` env var at your vault root
+  (defaults to `~/Documents/Obsidian/Hermes-Agent/` if unset)
+
+**MCP tools:** `brain_obsidian_search`, `brain_obsidian_read`,
+`brain_obsidian_write`, `brain_obsidian_daily`, `brain_obsidian_list`
+(registered on the `as_brain` server).
+
+### Layer 7 — Notion (Online Memory)
 
 Notion is what makes eling **human-readable and recoverable**. High-trust facts are synced to your Notion vault as permanent, well-formatted pages — so a human can browse, edit, and share what the agent learned.
 

@@ -582,6 +582,96 @@ TOOLS = [
             "required": [],
         },
     },
+    # ── Obsidian Layer 6 tools ───────────────────────────────────────────
+    {
+        "name": "brain_obsidian_search",
+        "description": "Search Obsidian vault files by content. "
+        "Returns up to 10 matching files with path, title, and snippet.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Search query",
+                },
+                "limit": {
+                    "type": "integer",
+                    "default": 10,
+                    "description": "Max results",
+                },
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "brain_obsidian_read",
+        "description": "Read a Markdown file from the Obsidian vault.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Relative path under vault root (e.g. Projects/my-project.md)",
+                },
+            },
+            "required": ["path"],
+        },
+    },
+    {
+        "name": "brain_obsidian_write",
+        "description": "Create or overwrite a Markdown file in the Obsidian vault. "
+        "Creates parent folders automatically.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "Relative path under vault root",
+                },
+                "content": {
+                    "type": "string",
+                    "description": "Markdown body content",
+                },
+                "title": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Optional frontmatter title",
+                },
+            },
+            "required": ["path", "content"],
+        },
+    },
+    {
+        "name": "brain_obsidian_daily",
+        "description": "Create or append to today's daily note in Daily/YYYY-MM-DD.md. "
+        "If content is empty, returns the daily note path.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Markdown content to append",
+                },
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "brain_obsidian_list",
+        "description": "List Markdown files in the vault, optionally scoped to a folder.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "folder": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Subfolder to scope to (e.g. Projects)",
+                },
+            },
+            "required": [],
+        },
+    },
 ]
 
 
@@ -714,6 +804,59 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             return ok(brain.undo_to_version(**args))
         elif tool_name == "brain_versioning_stats":
             return ok(brain.versioning_stats())
+
+        # ── Obsidian Layer 6 tools ────────────────────────────────────────
+        elif tool_name == "brain_obsidian_search":
+            query = args.pop("query", "")
+            limit = args.pop("limit", 10)
+            obs = getattr(brain, "obsidian", None)
+            if not obs or not obs.available:
+                return ok(
+                    {
+                        "results": [],
+                        "note": "Obsidian vault not available. Set OBSIDIAN_VAULT_PATH.",
+                    }
+                )
+            return ok({"results": obs.search(query, limit=limit)})
+        elif tool_name == "brain_obsidian_read":
+            path = args.pop("path", "")
+            obs = getattr(brain, "obsidian", None)
+            if not obs or not obs.available:
+                return ok({"error": "Obsidian vault not available"})
+            content = obs.read(path)
+            if content is None:
+                return ok({"error": f"File not found: {path}"})
+            return ok({"content": content, "path": path})
+        elif tool_name == "brain_obsidian_write":
+            path = args.pop("path", "")
+            content = args.pop("content", "")
+            title = args.pop("title", "") or None
+            obs = getattr(brain, "obsidian", None)
+            if not obs or not obs.available:
+                return ok({"error": "Obsidian vault not available"})
+            result = obs.write(
+                path, content, frontmatter={"title": title} if title else None
+            )
+            if result:
+                return ok({"path": result, "status": "written"})
+            return ok({"error": "Write failed"})
+        elif tool_name == "brain_obsidian_daily":
+            content = args.pop("content", "")
+            obs = getattr(brain, "obsidian", None)
+            if not obs or not obs.available:
+                return ok({"error": "Obsidian vault not available"})
+            result = obs.daily_note(content=content)
+            if result:
+                return ok(
+                    {"path": result, "status": "written" if content else "exists"}
+                )
+            return ok({"error": "Failed"})
+        elif tool_name == "brain_obsidian_list":
+            folder = args.pop("folder", "")
+            obs = getattr(brain, "obsidian", None)
+            if not obs or not obs.available:
+                return ok({"files": [], "note": "Obsidian vault not available"})
+            return ok({"files": obs.list_files(folder=folder)})
         elif tool_name == "brain_verify":
             status = args.pop("status", "")
             command = args.pop("command", "")

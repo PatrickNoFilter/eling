@@ -4,7 +4,7 @@
 
 **Lightweight memory, powerful retrieval — 6-tier second brain for AI agents**
 
-Blackbox flight recorder · HRR reasoning · 4 MCP servers (57 tools) · Continuum Layer 7 multi-agent orchestration hub · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
+Blackbox flight recorder · HRR reasoning · 4 MCP servers (62 tools) · Obsidian local vault Layer 6 · Continuum Layer 8 multi-agent orchestration hub · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -17,35 +17,37 @@ Blackbox flight recorder · HRR reasoning · 4 MCP servers (57 tools) · Continu
 
 ## ✨ What is Eling?
 
-Eling is a **lightweight, unified second brain** for AI agents. It merges 6 memory tiers via four MCP servers — and adds a **Continuum Layer 7 orchestration tier** that turns eling into a shared hub for *multiple* AI coding agents. The **Blackbox Layer 2 flight recorder** captures all agent telemetry (file reads, edits, shell commands, tool calls) and scores them with 11 context-efficiency metrics — turning raw observability into actionable optimization suggestions. No external databases, no cloud services needed for local operation (though it optionally syncs to Notion for human readability).
+Eling is a **lightweight, unified second brain** for AI agents. It merges 6 memory tiers via four MCP servers — and adds a **Continuum Layer 8 orchestration tier** that turns eling into a shared hub for *multiple* AI coding agents. The **Blackbox Layer 2 flight recorder** captures all agent telemetry (file reads, edits, shell commands, tool calls) and scores them with 11 context-efficiency metrics — turning raw observability into actionable optimization suggestions. The **Obsidian Layer 6** gives agents local Markdown vault access — scoped project notes, daily logs, research notebooks, and memory review as plain files. No external databases, no cloud services needed for local operation (though it optionally syncs to Notion for online sharing and to Continuum for multi-agent orchestration).
 
 Think of it as one memory stack that serves **both the agent and the human** — and one orchestration hub that serves **every agent you run**, with a flight recorder that watches everything they do:
 
 ```
-📡 Layer 7: CONTINUUM — multi-agent orchestration hub (shared continuum.db, 15 continuum_* tools)
-🧠 Layer 6: NOTION   — online brain, persistent, human-readable (optional)
+📡 Layer 8: CONTINUUM — multi-agent orchestration hub (shared continuum.db, 15 continuum_* tools)
+🧠 Layer 7: NOTION   — online brain, persistent, human-readable (optional)
+📝 Layer 6: OBSIDIAN — local Markdown vault, project notes, daily logs, research (optional)
 📚 Layer 5: KB       — FTS5 knowledge corpus for long-form knowledge
 🕸️ Layer 4: CODE     — codegraph symbol intelligence
 💎 Layer 3: FACTS    — SQLite + HRR + BM25 hybrid with trust scoring
 🔎 Layer 2: BLACKBOX — flight recorder + telemetry + 11-metric efficiency scoring
-📌 Layer 1: BUILTIN  — Hermes MEMORY.md / USER.md (always-on prompt context)
+⚡ Layer 1: BUILTIN  — MEMORY.md / USER.md (always-on, zero setup)
 ```
 
 ### How the tiers work together
 
 | Tier | What it stores | How it's queried | Persistence |
 |------|---------------|-------------------|-------------|
-| **📡 Continuum** | Dispatch registry, agent knowledge, PLOT protocol | `continuum_*` MCP tools | Local SQLite — shared across agents |
+| **📡 Continuum** | Dispatch registry, agent knowledge, PLOT protocol | `continuum_*` MCP tools | `continuum.db` — shared across agents |
 | **🧠 Notion** | Permanent pages, project plans, vault entries | `eling_reflect` promotes facts; `eling_sync push` syncs | Cloud — human-viewable, survives everything |
+| **📝 Obsidian** | Local Markdown notes, daily logs, research, memory review | `brain_obsidian_*` MCP tools | Local filesystem — human-readable, Git-friendly |
 | **📚 KB** | Articles, docs, long-form knowledge chunks | FTS5 full-text search | Local SQLite — persistent |
 | **🕸️ Code** | Function symbols, imports, class hierarchies | Codegraph traversal | Local SQLite — auto-indexed |
 | **💎 Facts** | Short facts, preferences, observations | HRR + BM25 + trigram hybrid with trust scores | Local SQLite — append-only, versioned |
 | **🔎 Blackbox** | Agent telemetry events, efficiency scores, baselines | `blackbox_*` MCP tools (watch/ingest/score) | Local SQLite — auto-recorded |
-| **📌 Builtin** | Agent identity, user profile, conventions | Always in prompt context (MEMORY.md / USER.md) | Hermes config files |
+| **⚡ Builtin** | Agent identity, user profile, conventions | Always in prompt context (MEMORY.md / USER.md) | Flat files |
 
-### 🧠 Notion as Online Memory
+### 🧠 Notion as Online Memory (Layer 7)
 
-Tier 5 (Notion) is what makes eling **human-readable**. While tiers 1–4 live locally as SQLite databases, Tier 5 optionally syncs high-trust facts to your Notion vault as permanent, well-formatted pages:
+Tier 7 (Notion) is what makes eling **human-readable**. While tiers 1–6 live locally as SQLite databases or flat files, Tier 7 optionally syncs high-trust facts to your Notion vault as permanent, well-formatted pages:
 
 - **`eling_reflect <fact_id>`** — promote a high-trust fact to a Notion page
 - **`eling_sync --direction push`** — batch-sync all high-trust facts to Notion
@@ -70,7 +72,7 @@ eling as-brain
 # Run the Blackbox flight recorder MCP (telemetry, scoring, baselines — 16 blackbox_* tools)
 python3 -m eling blackbox mcp
 
-# Run the Continuum Layer 7 orchestration hub (multi-agent, 15 continuum_* tools)
+# Run the Continuum Layer 8 orchestration hub (multi-agent, 15 continuum_* tools)
 python3 -m eling continuum mcp
 # or
 eling-continuum
@@ -93,7 +95,7 @@ eling-install-opencode
 | **Claude Code** | MCP (all 3 servers via `mcpServers`) | ✅ Wiring provided |
 | **Codex** | MCP (all 3 servers via `mcp_servers`) | ✅ Wiring provided |
 
-### One shared hub for every agent (Continuum Layer 7)
+### One shared hub for every agent (Continuum Layer 8)
 
 Continuum turns eling into a **single MCP hub** that all your coding agents connect
 to. Each agent gets isolated git worktrees, a shared orchestration registry, and
@@ -618,7 +620,7 @@ eling/
 │   └── adapters/
 │       ├── zero.py            — Zero stream-JSON adapter + plugin
 │       └── hermes.py          — Hermes session DB adapter
-├── continuum/                  — Layer 7: Multi-agent orchestration hub
+├── continuum/                  — Layer 8: Multi-agent orchestration hub
 │   ├── mcp_server.py          — JSON-RPC stdio server (15 continuum_* tools)
 │   ├── store.py               — continuum.db: projects, agents, knowledge, plot, reservations
 │   ├── worktree.py            — Isolated per-agent git worktree manager
@@ -645,7 +647,8 @@ eling/
     ├── code.py            — Layer 4: CodeLayer wrapper
     ├── code_index.py      — Pure-Python AST+regex code indexer
     ├── kb.py              — Layer 5: FTS5 + porter + trigram + RRF
-    └── notion.py          — Layer 6: httpx Notion API client
+    └── notion.py          — Layer 7: httpx Notion API client
+    └── obsidian.py        — Layer 6: local Markdown vault client
 ```
 
 ## ⚡ Performance
