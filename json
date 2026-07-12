@@ -1,0 +1,58 @@
+                    
+                    
+┌──────────────────┐
+│ 10 Code Findings │
+└──────────────────┘
+                            
+    .github/workflows/ci.yml
+    ❯❱ yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
+          ❰❰ Blocking ❱❱
+          GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently   
+          repointed by the action owner, enabling supply-chain attacks — as seen in the trivy-action and kics-
+          github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: 
+          actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608`.                                         
+          Details: https://sg.run/2LgAL                                                                       
+                                                                                                              
+           24┆ - uses: actions/checkout@v4
+            ⋮┆----------------------------------------
+           27┆ uses: actions/setup-python@v5
+            ⋮┆----------------------------------------
+           55┆ - uses: actions/checkout@v4
+            ⋮┆----------------------------------------
+           58┆ uses: actions/setup-python@v5
+            ⋮┆----------------------------------------
+           85┆ uses: actions/github-script@v7
+                                 
+    .github/workflows/publish.yml
+    ❯❱ yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag
+          ❰❰ Blocking ❱❱
+          GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently   
+          repointed by the action owner, enabling supply-chain attacks — as seen in the trivy-action and kics-
+          github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: 
+          actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608`.                                         
+          Details: https://sg.run/2LgAL                                                                       
+                                                                                                              
+           15┆ - uses: actions/checkout@v4
+            ⋮┆----------------------------------------
+           18┆ uses: actions/setup-python@v5
+            ⋮┆----------------------------------------
+           32┆ uses: pypa/gh-action-pypi-publish@release/v1
+                    
+    src/eling/cli.py
+    ❯❱ python.lang.security.audit.insecure-file-permissions.insecure-file-permissions
+          ❰❰ Blocking ❱❱
+          These permissions `0o755` are widely permissive and grant access to more people than may be       
+          necessary. A good default is `0o644` which gives read and write access to yourself and read access
+          to everyone else.                                                                                 
+          Details: https://sg.run/AXY4                                                                      
+                                                                                                            
+          658┆ os.chmod(str(hook_dst), 0o755)
+                        
+    src/eling/privacy.py
+   ❯❯❱ generic.secrets.security.detected-pgp-private-key-block.detected-pgp-private-key-block
+          ❰❰ Blocking ❱❱
+          Something that looks like a PGP private key block is detected. This is a potential hardcoded secret
+          that could be leaked if this code is committed. Instead, remove this code block from the commit.   
+          Details: https://sg.run/ydKd                                                                       
+                                                                                                             
+           80┆ r"-----BEGIN PGP PRIVATE KEY BLOCK-----[\s\S]*?-----END PGP PRIVATE KEY BLOCK-----"

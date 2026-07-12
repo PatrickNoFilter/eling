@@ -87,9 +87,9 @@ def main():
     p_mcp = sub.add_parser("mcp", help="Run MCP server (stdio)")
     p_mcp.add_argument("--transport", default="stdio")
 
-    # ── continuum subcommand (Layer 6 orchestration tier) ──
+    # ── continuum subcommand (Layer 7 orchestration tier) ──
     p_cont = sub.add_parser(
-        "continuum", help="Continuum Layer 6 — orchestration MCP server"
+        "continuum", help="Continuum Layer 7 — orchestration MCP server"
     )
     p_cont_cmd = p_cont.add_subparsers(dest="continuum_cmd", required=True)
     p_cont_mcp = p_cont_cmd.add_parser(
@@ -99,6 +99,20 @@ def main():
         "--db",
         default="",
         help="Path to continuum.db (default: ELING_HOME/continuum.db)",
+    )
+
+    # ── blackbox subcommand (Layer 2 telemetry) ──
+    p_bb = sub.add_parser(
+        "blackbox", help="Blackbox Layer 2 — flight recorder MCP server"
+    )
+    p_bb_cmd = p_bb.add_subparsers(dest="blackbox_cmd", required=True)
+    p_bb_mcp = p_bb_cmd.add_parser(
+        "mcp", help="Run the Blackbox telemetry MCP server (stdio)"
+    )
+    p_bb_mcp.add_argument(
+        "--db",
+        default="",
+        help="Path to blackbox.db (default: ELING_HOME/blackbox.db)",
     )
 
     # ── config subcommand ──
@@ -231,6 +245,15 @@ def main():
             from .continuum.mcp_server import run_stdio as continuum_run
 
             continuum_run()
+        return
+
+    if args.cmd == "blackbox":
+        if args.blackbox_cmd == "mcp":
+            if args.db:
+                os.environ["ELING_BLACKBOX_DB"] = args.db
+            from .blackbox.cli import main as blackbox_cli
+
+            blackbox_cli(["mcp"])
         return
 
     if args.cmd == "config":

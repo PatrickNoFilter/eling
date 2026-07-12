@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Eling auto-memory hook for Zero.
 
-Receives hook payload on stdin (JSON), auto-stores facts in the local brain.
+Receives hook payload on stdin (JSON), auto-stores facts in the local brain,
+and captures telemetry events for eling-blackbox Layer 2 flight recorder.
+
 Local memory layers (facts, KB) are served via the `as_brain` MCP server.
 Notion sync is optional and handled separately via the `eling` MCP server.
+Telemetry events are forwarded to the BlackboxStore for context-efficiency scoring.
 
 Events handled:
-  - afterTool    → store file edits as facts (in local brain)
+  - afterTool    → store file edits as facts + capture telemetry
   - sessionStart → log session info, warm caches
   - sessionEnd   → flush memory to disk, optionally push to Notion
   - beforeTool   → recall relevant context for the tool
@@ -16,9 +19,11 @@ import json
 import logging
 import os
 import sys
+import time
 
 # ── Config ──────────────────────────────────────────────────────────────
 ELING_HOME = os.environ.get("ELING_HOME", os.path.expanduser("~/.eling"))
+BLACKBOX_ENABLED = os.environ.get("ELING_BLACKBOX_ENABLED", "1") == "1"
 logging.basicConfig(
     level=logging.WARNING,
     format="[eling-hook] %(levelname)s %(message)s",
@@ -31,6 +36,36 @@ def get_brain():
     from eling.brain import Brain
 
     return Brain(home=ELING_HOME)
+
+
+def _get_blackbox():
+    """Lazy-init the BlackboxStore."""
+    if not BLACKBOX_ENABLED:
+        return None
+    try:
+        from eling.blackbox.store import BlackboxStore
+
+        db_path = os.environ.get("ELING_BLACKBOX_DB")
+        return BlackboxStore(db_path=db_path) if db_path else BlackboxStore()
+    except Exception as e:
+        log.warning("blackbox not available: %s", e)
+    return None
+
+
+def _capture_telemetry(payload: dict, event_type_str: str) -> None:
+    """Capture a telemetry event from a Zero hook payload."""
+    bb = _get_blackbox()
+    if bb is None:
+        return
+    try:
+        from eling.blackbox.adapters.zero import parse_zero_event
+
+        ev = parse_zero_event(payload, run_id=payload.get("sessionId", "zero:unknown"))
+        if ev is not None:
+            ev.timestamp = time.time()
+            bb.ingest(ev)
+    except Exception as e:
+        log.debug("telemetry capture failed: %s", e)
 
 
 def handle_before_tool(payload: dict) -> str | None:
@@ -61,6 +96,9 @@ def handle_after_tool(payload: dict) -> str | None:
 
     msgs = []
     brain = None
+
+    # Capture blackbox telemetry
+    _capture_telemetry(payload, "afterTool")
 
     # Remember file edits as facts
     if changed_files and status in ("success", "ok", "", None):
@@ -97,9 +135,13 @@ def handle_after_tool(payload: dict) -> str | None:
 
 
 def handle_session_start(payload: dict) -> str | None:
-    """Session start: warm caches, log session info."""
+    """Session start: warm caches, log session info, start telemetry recording."""
     session_id = payload.get("sessionId", "") or payload.get("session_id", "")
     cwd = payload.get("cwd", "") or payload.get("working_dir", "")
+
+    # Capture session start telemetry
+    _capture_telemetry(payload, "sessionStart")
+
     log.info("Session start: %s in %s", session_id, cwd)
     try:
         brain = get_brain()
@@ -115,7 +157,7 @@ def handle_session_start(payload: dict) -> str | None:
 
 
 def handle_session_end(payload: dict) -> str | None:
-    """Session end: flush memory, sync to Notion."""
+    """Session end: flush memory, sync to Notion, finalize telemetry."""
     try:
         brain = get_brain()
         brain.sync(direction="flush")

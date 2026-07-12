@@ -8,7 +8,7 @@ MCP split:
   - `eling.as_brain.mcp_server` → local layers MCP server (facts, KB, code, builtin, HRR)
 """
 
-__version__ = "0.9.2"
+__version__ = "0.10.0"
 __all__ = [
     "Brain",
     "HookRegistry",
@@ -25,6 +25,11 @@ __all__ = [
     "detect_host_agent",
     "host_has_verify_on_stop",
     "FactMemoryProvider",
+    "BlackboxStore",
+    "EfficiencyScorer",
+    "EffectivenessScorer",
+    "ZeroAdapter",
+    "HermesAdapter",
 ]
 
 from .brain import Brain

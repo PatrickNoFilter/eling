@@ -2,9 +2,9 @@
 
 # 🧠 Eling
 
-**Lightweight memory, powerful retrieval — 5-tier second brain for AI agents**
+**Lightweight memory, powerful retrieval — 6-tier second brain for AI agents**
 
-HRR reasoning · 3 MCP servers (41 tools) · Continuum Layer 6 multi-agent orchestration hub · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
+Blackbox flight recorder · HRR reasoning · 4 MCP servers (57 tools) · Continuum Layer 7 multi-agent orchestration hub · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -17,27 +17,30 @@ HRR reasoning · 3 MCP servers (41 tools) · Continuum Layer 6 multi-agent orche
 
 ## ✨ What is Eling?
 
-Eling is a **lightweight, unified second brain** for AI agents. It merges 5 memory tiers via three MCP servers — and adds a **Continuum Layer 6 orchestration tier** that turns eling into a shared hub for *multiple* AI coding agents. No external databases, no cloud services needed for local operation (though it optionally syncs to Notion for human readability).
+Eling is a **lightweight, unified second brain** for AI agents. It merges 6 memory tiers via four MCP servers — and adds a **Continuum Layer 7 orchestration tier** that turns eling into a shared hub for *multiple* AI coding agents. The **Blackbox Layer 2 flight recorder** captures all agent telemetry (file reads, edits, shell commands, tool calls) and scores them with 11 context-efficiency metrics — turning raw observability into actionable optimization suggestions. No external databases, no cloud services needed for local operation (though it optionally syncs to Notion for human readability).
 
-Think of it as one memory stack that serves **both the agent and the human** — and one orchestration hub that serves **every agent you run**:
+Think of it as one memory stack that serves **both the agent and the human** — and one orchestration hub that serves **every agent you run**, with a flight recorder that watches everything they do:
 
 ```
-🧠 Layer 6: CONTINUUM — multi-agent orchestration hub (shared continuum.db, 15 continuum_* tools)
-🧠 Tier 5: NOTION   — online brain, persistent, human-readable (optional)
-📚 Tier 4: KB       — FTS5 knowledge corpus for long-form knowledge
-🕸️ Tier 3: CODE     — codegraph symbol intelligence
-💎 Tier 2: FACTS    — SQLite + HRR + BM25 hybrid with trust scoring
-📌 Tier 1: BUILTIN   — Hermes MEMORY.md / USER.md (always-on prompt context)
+📡 Layer 7: CONTINUUM — multi-agent orchestration hub (shared continuum.db, 15 continuum_* tools)
+🧠 Layer 6: NOTION   — online brain, persistent, human-readable (optional)
+📚 Layer 5: KB       — FTS5 knowledge corpus for long-form knowledge
+🕸️ Layer 4: CODE     — codegraph symbol intelligence
+💎 Layer 3: FACTS    — SQLite + HRR + BM25 hybrid with trust scoring
+🔎 Layer 2: BLACKBOX — flight recorder + telemetry + 11-metric efficiency scoring
+📌 Layer 1: BUILTIN  — Hermes MEMORY.md / USER.md (always-on prompt context)
 ```
 
 ### How the tiers work together
 
 | Tier | What it stores | How it's queried | Persistence |
 |------|---------------|-------------------|-------------|
+| **📡 Continuum** | Dispatch registry, agent knowledge, PLOT protocol | `continuum_*` MCP tools | Local SQLite — shared across agents |
 | **🧠 Notion** | Permanent pages, project plans, vault entries | `eling_reflect` promotes facts; `eling_sync push` syncs | Cloud — human-viewable, survives everything |
 | **📚 KB** | Articles, docs, long-form knowledge chunks | FTS5 full-text search | Local SQLite — persistent |
 | **🕸️ Code** | Function symbols, imports, class hierarchies | Codegraph traversal | Local SQLite — auto-indexed |
 | **💎 Facts** | Short facts, preferences, observations | HRR + BM25 + trigram hybrid with trust scores | Local SQLite — append-only, versioned |
+| **🔎 Blackbox** | Agent telemetry events, efficiency scores, baselines | `blackbox_*` MCP tools (watch/ingest/score) | Local SQLite — auto-recorded |
 | **📌 Builtin** | Agent identity, user profile, conventions | Always in prompt context (MEMORY.md / USER.md) | Hermes config files |
 
 ### 🧠 Notion as Online Memory
@@ -59,12 +62,15 @@ pip install eling
 # Run the Notion-only MCP server (online/remote memory, 6 tools)
 python3 -m eling mcp
 
-# Run the local-layers MCP server (facts, KB, code, builtin, HRR — 20 tools)
+# Run the local-layers MCP server (facts, KB, code, builtin, Blackbox, HRR — 33 tools)
 python3 -m eling.as_brain.mcp_server
 # or
 eling as-brain
 
-# Run the Continuum Layer 6 orchestration hub (multi-agent, 15 continuum_* tools)
+# Run the Blackbox flight recorder MCP (telemetry, scoring, baselines — 16 blackbox_* tools)
+python3 -m eling blackbox mcp
+
+# Run the Continuum Layer 7 orchestration hub (multi-agent, 15 continuum_* tools)
 python3 -m eling continuum mcp
 # or
 eling-continuum
@@ -80,14 +86,14 @@ eling-install-opencode
 
 | Agent | Integration | Status |
 |-------|-------------|--------|
-| **Hermes** | MCP (Notion `eling` + local `as_brain` + Continuum `continuum`) + Memory Provider + Plugin | ✅ Tested |
+| **Hermes** | MCP (Notion `eling` + local `as_brain` + Blackbox `blackbox` + Continuum `continuum`) + Memory Provider + Plugin | ✅ Tested |
 | **OpenCode** | MCP (all 3 servers) + Lifecycle Plugin | ✅ Tested |
 | **MiMo-Code** | MCP (all 3 servers, OpenCode fork) | ✅ Tested |
 | **Zero** | MCP (all 3 servers) + Hooks + Skill | ✅ Bundled installer |
 | **Claude Code** | MCP (all 3 servers via `mcpServers`) | ✅ Wiring provided |
 | **Codex** | MCP (all 3 servers via `mcp_servers`) | ✅ Wiring provided |
 
-### One shared hub for every agent (Continuum Layer 6)
+### One shared hub for every agent (Continuum Layer 7)
 
 Continuum turns eling into a **single MCP hub** that all your coding agents connect
 to. Each agent gets isolated git worktrees, a shared orchestration registry, and
@@ -108,8 +114,56 @@ Per-agent configs live in `continuum/configs/`; uninstall with `continuum/uninst
 See **[`continuum/README.md`](continuum/README.md)** for the full guide.
 
 Non-tested agents connect via the stdio MCP servers — any MCP-compatible host can use
-`eling` (notion-only, 6 tools), `as_brain` (local layers, 20 tools), and `continuum`
-(orchestration hub, 15 `continuum_*` tools).
+`eling` (notion-only, 6 tools), `as_brain` (local layers, 33 tools), `blackbox`
+(flight recorder, 16 `blackbox_*` tools), and `continuum` (orchestration hub, 15 `continuum_*` tools).
+
+### 🔎 Blackbox Flight Recorder (Layer 2)
+
+Blackbox is eling's **observability layer** — a real-time flight recorder that captures everything
+your agents do and scores their efficiency. Think of it as a black-box data recorder for AI agents:
+it logs every tool call, file read, file edit, shell command, and subagent spawn, then runs
+11 context-efficiency metrics on the collected data.
+
+**16 MCP tools** for telemetry capture and analysis:
+
+| Tool | Purpose |
+|------|---------|
+| `blackbox_watch_start` / `stop` | Watch a Zero stream-JSON session in real-time |
+| `blackbox_ingest` | Ingest telemetry events directly |
+| `blackbox_ingest_zero_jsonl` | Import Zero stream-JSON log files |
+| `blackbox_ingest_hermes_session` | Import a Hermes session from the state DB |
+| `blackbox_runs_list` / `run_get` | List and inspect recorded runs |
+| `blackbox_stats` | Aggregate statistics across runs |
+| `blackbox_run_score` | 11-metric efficiency scoring |
+| `blackbox_run_effectiveness` | Outcome scoring (did the task land?) |
+| `blackbox_run_timeline` | Compact causal timeline of actions |
+| `blackbox_run_suggest` | Optimization suggestions based on scores |
+| `blackbox_run_handoff` | Export run summary for another agent |
+| `blackbox_baselines_get` | Per-archetype baseline comparison |
+
+**11 efficiency metrics** (ported from [Agent-Blackbox](https://github.com/nousresearch/agent-blackbox) by Taewoo Park):
+
+| Metric | What it measures |
+|--------|-----------------|
+| Redundant reads | Files read twice without changes between |
+| Cache hit ratio | Terminal output reuse vs. re-execution |
+| Read amplification | Lines read per line written |
+| Retry waste | Bash/compile failures retried |
+| Yield density | Edits per tool call |
+| Token efficiency | Total tokens used |
+| Edit efficiency | Edits per file open |
+| Test success | Passes per test run |
+| Commit frequency | Commits per hour |
+| Context window utilization | Proportion of context actually used |
+| Subagent overhead | Orchestration cost of subagents |
+
+**Agent support:**
+- **Zero** — auto-captures telemetry via the eling hook plugin; watch live streams with `blackbox_watch_start`
+- **Hermes** — import past sessions with `blackbox_ingest_hermes_session`; live capture via as_brain MCP
+- **Any MCP agent** — ingest events directly via `blackbox_ingest`
+
+The Blackbox recorder feeds its findings into the Facts layer (Layer 3) for persistent causal memory,
+and baselines are stored per project across runs so you can track agent efficiency over time.
 
 ### Hermes
 
@@ -550,26 +604,48 @@ plugins:
 
 ```
 eling/
-├── mcp_server.py          — JSON-RPC stdio server (Notion-only, 5 tools: eling_*)
+├── mcp_server.py              — JSON-RPC stdio server (Notion-only, 5 tools: eling_*)
 ├── as_brain/
-│   └── mcp_server.py      — JSON-RPC stdio server (local brain, 20 tools: brain_*)
-├── brain.py               — Orchestrator: routing + RRF fusion + sync + linking
+│   └── mcp_server.py          — JSON-RPC stdio server (local brain + Blackbox, 33 tools)
+├── blackbox/                   — Layer 2: Flight recorder & telemetry
+│   ├── core.py                — TraceEvent, RunSummary, AgentMetadata
+│   ├── store.py               — SQLite-backed event store
+│   ├── score.py               — 11-metric efficiency scoring engine
+│   ├── effectiveness.py       — Outcome scoring
+│   ├── timeline.py            — Causal timeline builder
+│   ├── mcp_server.py          — 16 blackbox_* MCP tools
+│   ├── cli.py                 — Blackbox CLI subcommands
+│   └── adapters/
+│       ├── zero.py            — Zero stream-JSON adapter + plugin
+│       └── hermes.py          — Hermes session DB adapter
+├── continuum/                  — Layer 7: Multi-agent orchestration hub
+│   ├── mcp_server.py          — JSON-RPC stdio server (15 continuum_* tools)
+│   ├── store.py               — continuum.db: projects, agents, knowledge, plot, reservations
+│   ├── worktree.py            — Isolated per-agent git worktree manager
+│   ├── plot.py                — PLOT.md canonical protocol (unified-diff mutations)
+│   └── continuum.sh           — Shared wrapper exec'd by every agent's MCP config
+├── brain.py               — Orchestrator: routing + RRF fusion + sync + snapshot
 ├── config.py              — Layered config: env → json → defaults
-├── hooks.py               — 15 lifecycle hooks + HookRegistry + evolution
+├── hooks.py               — 15 lifecycle hooks + HookRegistry
 ├── verify_on_stop.py      — Verification ledger + nudge builder + spec-kit wiring
 ├── spec_kit.py            — Spec-kit artifact parser + coverage analyzer
+├── snapshot.py            — Git-like snapshot & rollback for facts DB
+├── rules.py               — Steering rules generator (Cursor, Claude Code, OpenCode)
 ├── privacy.py             — PII/secret stripping (19 patterns)
 ├── compress.py            — SHA-256 dedup + length compression
-├── cli.py                 — CLI client (install-zero wires BOTH MCP servers)
-├── fact_memory_provider.py — Standalone facts layer provider (no Brain dependency)
+├── cli.py                 — `eling` CLI (18 subcommands, includes blackbox dispatch)
+├── fact_memory_provider.py — Standalone facts layer provider (no Brain)
+├── opencode_plugin/       — Bundled OpenCode lifecycle plugin
+│   └── eling-memory.js
 └── layers/
-    ├── builtin.py    — Tier 1: Hermes MEMORY.md / USER.md loader
-    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + trust + linking + evolution
-    ├── hrr.py        — Holographic Reduced Representations (optional numpy)
-    ├── code.py       — Tier 3: CodeLayer wrapper
-    ├── code_index.py — Pure-Python AST+regex code indexer
-    ├── kb.py         — Tier 4: FTS5 + porter + trigram + RRF
-    └── notion.py     — Tier 5: httpx Notion API client (lazy import)
+    ├── builtin.py         — Layer 1: MEMORY.md / USER.md loader
+    ├── facts.py           — Layer 3: SQLite + HRR + BM25 + Embeddings + Trust + Zettelkasten + Temporal + Versioning
+    ├── embeddings.py      — Optional vector embeddings (Mistral API + sentence-transformers)
+    ├── hrr.py             — Holographic Reduced Representations (numpy)
+    ├── code.py            — Layer 4: CodeLayer wrapper
+    ├── code_index.py      — Pure-Python AST+regex code indexer
+    ├── kb.py              — Layer 5: FTS5 + porter + trigram + RRF
+    └── notion.py          — Layer 6: httpx Notion API client
 ```
 
 ## ⚡ Performance
@@ -589,6 +665,8 @@ eling/
 
 - **HRR phase encoding + facts layer** — adapted from [holographic plugin](https://github.com/dusterbloom) by dusterbloom (Hermes PR #2351, MIT)
 - **Spec-kit integration** — spec-driven development artifacts ([spec-kit](https://github.com/github/spec-kit) by GitHub, [MIT](https://github.com/github/spec-kit?tab=MIT-1-ov-file#readme))
+- **Blackbox flight recorder & efficiency scoring** — ported from [Agent-Blackbox](https://github.com/nousresearch/agent-blackbox) by [Taewoo Park](https://github.com/joint79) (Nous Research, MIT) — 11 context-efficiency metrics, causal timeline, per-archetype baselines
+- **Continuum multi-agent orchestration** — inspired by [continuum](https://github.com/pouyahasanamreji/continuum) by [Pouya Hasanamreji](https://github.com/pouyahasanamreji) — worktree isolation, PLOT protocol, agent dispatch registry
 
 ## 📜 License
 

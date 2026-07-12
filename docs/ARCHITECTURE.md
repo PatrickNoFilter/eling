@@ -1,22 +1,33 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Five memory layers, three MCP servers (notion-only `eling` + local-layers `as_brain` + orchestration `continuum`), zero mandatory external dependencies. v0.9.0 adds the **Continuum Layer 6** multi-agent orchestration hub — one shared `continuum.db` that every coding agent (Hermes, OpenCode, MiMo-Code, Zero, Claude Code, Codex) connects to, with isolated git worktrees, a shared registry, two-tier knowledge, and handshake agent auto-attribution; v0.8.0 adds the universal brain: handshake agent attribution, ELING_HOME override, and all-agents verify-on-stop; v0.7.3 splits the MCP server into two focused servers (notion-only `eling` + local `as_brain`); v0.7.2 adds FactMemoryProvider, lazy numpy, Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, steering rules.
+> **Eling** — Unified second brain for AI agents. Six memory layers, four MCP servers (notion-only `eling` + local-layers `as_brain` + blackbox flight recorder `blackbox` + orchestration `continuum`), zero mandatory external dependencies. v0.10.0 adds the **Blackbox Layer 2** flight recorder with 16 `blackbox_*` MCP tools, 11-metric context-efficiency scoring (ported from Nous Research's Agent-Blackbox), Zero stream-JSON + Hermes session DB adapters, and elevates Continuum to **Layer 7** (multi-agent orchestration). v0.9.0 added the Continuum Layer 6 multi-agent orchestration hub — one shared `continuum.db` that every coding agent (Hermes, OpenCode, MiMo-Code, Zero, Claude Code, Codex) connects to, with isolated git worktrees, a shared registry, two-tier knowledge, and handshake agent auto-attribution; v0.8.0 adds the universal brain: handshake agent attribution, ELING_HOME override, and all-agents verify-on-stop; v0.7.3 splits the MCP server into two focused servers (notion-only `eling` + local `as_brain`); v0.7.2 adds FactMemoryProvider, lazy numpy, Hermes session-end flush; v0.6.0 adds temporal queries, per-fact versioning, Mistral vector embeddings; v0.5.1 adds crash resilience fixes; v0.5.0 added snapshot/rollback, vector embeddings, steering rules.
 
 ```
-eling/
-├── mcp_server.py         — JSON-RPC stdio server (notion-only, 6 tools)
+elig/
+├── mcp_server.py             — JSON-RPC stdio server (notion-only, 6 tools)
 ├── as_brain/
-│   └── mcp_server.py     — JSON-RPC stdio server (local layers, 20 tools)
-├── continuum/             — Layer 6: multi-agent orchestration hub
-│   ├── mcp_server.py     — JSON-RPC stdio server (orchestration, 15 continuum_* tools)
-│   ├── store.py          — continuum.db: projects, agents, knowledge, plot, reservations
-│   ├── worktree.py       — isolated per-agent git worktree manager
-│   ├── plot.py           — PLOT.md canonical protocol (unified-diff mutations)
-│   └── continuum.sh      — shared wrapper exec'd by every agent's MCP config
-├── brain.py          — Orchestrator: routing + RRF fusion + sync + snapshot
-├── config.py         — Layered config: env → json → defaults
-├── hooks.py          — 15 lifecycle hooks + HookRegistry
-├── verify_on_stop.py — Verification ledger + nudge builder + spec-kit wiring
+│   └── mcp_server.py         — JSON-RPC stdio server (local layers + Blackbox, 33 tools)
+├── blackbox/                  — Layer 2: Flight recorder & telemetry
+│   ├── core.py               — TraceEvent, RunSummary, AgentMetadata
+│   ├── store.py              — SQLite-backed event store
+│   ├── score.py              — 11-metric efficiency scoring engine
+│   ├── effectiveness.py      — Outcome scoring
+│   ├── timeline.py           — Causal timeline builder
+│   ├── mcp_server.py         — 16 blackbox_* MCP tools
+│   ├── cli.py                — Blackbox CLI subcommands
+│   └── adapters/
+│       ├── zero.py           — Zero stream-JSON adapter + plugin
+│       └── hermes.py         — Hermes session DB adapter
+├── continuum/                 — Layer 7: Multi-agent orchestration hub
+│   ├── mcp_server.py         — JSON-RPC stdio server (15 continuum_* tools)
+│   ├── store.py              — continuum.db: projects, agents, knowledge, plot, reservations
+│   ├── worktree.py           — isolated per-agent git worktree manager
+│   ├── plot.py               — PLOT.md canonical protocol (unified-diff mutations)
+│   └── continuum.sh          — shared wrapper exec'd by every agent's MCP config
+├── brain.py                   — Orchestrator: routing + RRF fusion + sync + snapshot
+├── config.py                  — Layered config: env → json → defaults
+├── hooks.py                   — 15 lifecycle hooks + HookRegistry + evolution
+├── verify_on_stop.py          — Verification ledger + nudge builder + spec-kit wiring
 ├── spec_kit.py       — Spec-kit artifact parser + coverage analyzer
 ├── snapshot.py       — Git-like snapshot & rollback for facts DB
 ├── rules.py          — Steering rules generator (Cursor, Claude Code, OpenCode)

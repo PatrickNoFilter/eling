@@ -422,6 +422,166 @@ TOOLS = [
             "required": [],
         },
     },
+    # ── Blackbox Layer 2 tools ─────────────────────────────────────────────
+    {
+        "name": "blackbox_watch_start",
+        "description": "Start watching an agent telemetry stream (Zero stream-JSON).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "host": {
+                    "type": "string",
+                    "enum": ["zero"],
+                    "description": "Agent host to watch",
+                },
+                "command": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Zero exec command (default: 'zero exec --output-format stream-json')",
+                },
+            },
+            "required": ["host"],
+        },
+    },
+    {
+        "name": "blackbox_watch_stop",
+        "description": "Stop an active telemetry watch.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+    },
+    {
+        "name": "blackbox_ingest",
+        "description": "Ingest raw telemetry events into the blackbox store.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {"type": "object"},
+                    "description": "Array of TraceEvent dicts",
+                },
+            },
+            "required": ["events"],
+        },
+    },
+    {
+        "name": "blackbox_ingest_hermes_session",
+        "description": "Ingest a Hermes session from the session DB.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "session_id": {
+                    "type": "integer",
+                    "description": "Hermes session ID",
+                },
+            },
+            "required": ["session_id"],
+        },
+    },
+    {
+        "name": "blackbox_runs_list",
+        "description": "List recorded blackbox runs.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "host": {"type": "string", "default": ""},
+                "project_key": {"type": "string", "default": ""},
+                "limit": {"type": "integer", "default": 20},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "blackbox_run_get",
+        "description": "Get full details for a run.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "include_events": {"type": "boolean", "default": False},
+            },
+            "required": ["run_id"],
+        },
+    },
+    {
+        "name": "blackbox_run_score",
+        "description": "Score a run's 11-metric context efficiency.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+                "archetype": {
+                    "type": "string",
+                    "enum": ["auto", "research", "debug", "ops", "feature", "edit"],
+                    "default": "auto",
+                },
+            },
+            "required": ["run_id"],
+        },
+    },
+    {
+        "name": "blackbox_run_effectiveness",
+        "description": "Score a run's outcome effectiveness.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+            },
+            "required": ["run_id"],
+        },
+    },
+    {
+        "name": "blackbox_run_timeline",
+        "description": "Get the causal timeline for a run.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+            },
+            "required": ["run_id"],
+        },
+    },
+    {
+        "name": "blackbox_run_suggest",
+        "description": "Get optimization suggestions for a run.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "run_id": {"type": "string"},
+            },
+            "required": ["run_id"],
+        },
+    },
+    {
+        "name": "blackbox_hermes_sessions",
+        "description": "List recent Hermes sessions available for ingestion.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "default": 10},
+            },
+            "required": [],
+        },
+    },
+    {
+        "name": "blackbox_stats",
+        "description": "Get blackbox store statistics.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "blackbox_install_zero_plugin",
+        "description": "Install the eling-blackbox telemetry plugin for Zero.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target_dir": {"type": "string", "default": ""},
+            },
+            "required": [],
+        },
+    },
 ]
 
 
@@ -577,6 +737,13 @@ def _handle_tool_call(rid: int | str | None, params: dict) -> dict:
             v = SpecKitVerifier(project_path) if project_path else SpecKitVerifier()
             result = v.verify(changed_files=changed_files)
             return ok(result)
+
+        # ── Blackbox Layer 2 tools ───────────────────────────────────────
+        elif tool_name.startswith("blackbox_"):
+            from eling.blackbox.mcp_server import _handle_tool_call as bb_handle
+
+            return bb_handle(rid, params)
+
         else:
             return _error(rid, -32601, f"unknown tool: {tool_name}")
     except Exception as e:
