@@ -1,6 +1,6 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Six memory layers, four MCP servers (notion-only `eling` + local-layers `as_brain` + blackbox flight recorder `blackbox` + orchestration `continuum`), zero mandatory external dependencies. v0.10.0 adds the **Blackbox Layer 2** flight recorder with 16 `blackbox_*` MCP tools, 11-metric context-efficiency scoring (ported from Nous Research's Agent-Blackbox), Zero stream-JSON + Hermes session DB adapters, the **Obsidian Layer 6** local Markdown vault client, and elevates Continuum to **Layer 8** (multi-agent orchestration).
+> **Eling** — Unified second brain for AI agents. Six memory layers, four MCP servers (notion-only `eling` + local-layers `as_brain` + blackbox flight recorder `blackbox` + orchestration `continuum`), zero mandatory external dependencies. v0.11.0 adds the **Obsidian Layer 6** local Markdown vault with 5 `brain_obsidian_*` MCP tools. v0.10.0 added the **Blackbox Layer 2** flight recorder, Zero stream-JSON + Hermes session DB adapters, and elevated Continuum to **Layer 8**.
 
 ```
 elig/

@@ -64,7 +64,7 @@ pip install eling
 # Run the Notion-only MCP server (online/remote memory, 6 tools)
 python3 -m eling mcp
 
-# Run the local-layers MCP server (facts, KB, code, builtin, Blackbox, HRR — 33 tools)
+# Run the local-layers MCP server (facts, KB, code, builtin, Blackbox, Obsidian, HRR — 38 tools)
 python3 -m eling.as_brain.mcp_server
 # or
 eling as-brain

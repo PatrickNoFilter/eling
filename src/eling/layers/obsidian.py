@@ -215,7 +215,7 @@ class ObsidianLayer:
             full_content = existing.rstrip("\n") + "\n" + entry
         else:
             full_content = (
-                f"# Daily — {date.isoformat()}\n\n_Created by Eling v0.10.0_\n\n{entry}"
+                f"# Daily — {date.isoformat()}\n\n_Created by Eling v0.11.0_\n\n{entry}"
             )
 
         return self.write(path, full_content)
