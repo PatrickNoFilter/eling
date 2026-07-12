@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eling"
-version = "0.11.2"
-description = "Unified second brain for AI agents — 6-tier memory, Blackbox flight recorder, HRR reasoning, 62 MCP tools across 4 servers, Obsidian Layer 6 local Markdown vault, Continuum Layer 8 multi-agent orchestration hub (Hermes/OpenCode/MiMo-Code/Zero/Claude Code/Codex), temporal queries, per-fact versioning, vector search, Zettelkasten, memory evolution, spec-kit verification, universal verify-on-stop, ELING_HOME override, handshake agent auto-attribution"
+version = "0.12.0"
+description = "Unified second brain for AI agents — 6-tier memory, Blackbox flight recorder, HRR reasoning, 73 MCP tools across 5 servers, Obsidian Layer 6 local Markdown vault, markdownify document-to-Markdown (PDF/DOCX/XLSX/PPTX/images/audio/web), Continuum Layer 8 multi-agent orchestration hub (Hermes/OpenCode/MiMo-Code/Zero/Claude Code/Codex), temporal queries, per-fact versioning, vector search, Zettelkasten, memory evolution, spec-kit verification, universal verify-on-stop, ELING_HOME override, handshake agent auto-attribution"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -35,6 +35,8 @@ dependencies = [
 notion = ["httpx>=0.27"]
 hrr = ["numpy>=1.24"]
 embeddings = ["sentence-transformers>=3.0"]
+markdownify = ["markitdown[pdf]"]
+markdownify_all = ["markitdown[all]"]
 all = ["eling[hrr,embeddings,notion]"]
 dev = [
     "eling[hrr]",
@@ -47,12 +49,13 @@ eling-install-opencode = "eling.cli:_run_install_opencode_cli"
 eling-install-zero = "eling.cli:_run_install_zero_cli"
 eling-install-termux = "eling.cli:_run_install_termux_cli"
 eling-continuum = "eling.cli:_run_continuum_cli"
+eling-markdownify = "eling.markdownify.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-eling = ["opencode_plugin/*", "zero_plugin/*", "blackbox/*", "blackbox/adapters/*"]
+eling = ["opencode_plugin/*", "zero_plugin/*", "blackbox/*", "blackbox/adapters/*", "markdownify/*", "markdownify/markdownify.sh"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

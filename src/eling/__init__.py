@@ -3,12 +3,15 @@
 5-layer architecture: builtin / facts / kb / code / notion
 Features: HRR reasoning, gap analysis, Notion auto-sync, verify-on-stop.
 
-MCP split:
+MCP modules:
   - `eling.mcp_server` → notion-only MCP server
   - `eling.as_brain.mcp_server` → local layers MCP server (facts, KB, code, builtin, HRR)
+  - `eling.blackbox.mcp_server` → flight recorder / telemetry
+  - `eling.continuum.mcp_server` → multi-agent orchestration hub
+  - `eling.markdownify.mcp_server` → document-to-Markdown conversion (markitdown)
 """
 
-__version__ = "0.11.2"
+__version__ = "0.12.0"
 __all__ = [
     "Brain",
     "HookRegistry",
@@ -28,36 +31,4 @@ __all__ = [
     "BlackboxStore",
     "EfficiencyScorer",
     "EffectivenessScorer",
-    "ZeroAdapter",
-    "HermesAdapter",
 ]
-
-from .brain import Brain
-from .hooks import HookRegistry, ALL_HOOKS, register_default_hooks
-from .config import resolve_config, set_config_key, get_config, describe_config
-from . import verify_on_stop
-from .fact_memory_provider import FactMemoryProvider
-
-_default_brain: Brain | None = None
-
-
-def _get_default() -> Brain:
-    global _default_brain
-    if _default_brain is None:
-        _default_brain = Brain()
-    return _default_brain
-
-
-def remember(content: str, **kwargs) -> dict:
-    """Quick-access remember on default brain."""
-    return _get_default().remember(content, **kwargs)
-
-
-def recall(query: str, **kwargs) -> dict:
-    """Quick-access recall on default brain."""
-    return _get_default().recall(query, **kwargs)
-
-
-def reason(entities: list[str], **kwargs) -> list[dict]:
-    """Quick-access reason on default brain."""
-    return _get_default().reason(entities, **kwargs)

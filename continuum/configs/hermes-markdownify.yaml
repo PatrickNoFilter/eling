@@ -1,0 +1,18 @@
+# Hermes MCP config snippet for eling-markdownify
+# Append to ~/.hermes/config.yaml under mcp_servers:
+#
+# mcp_servers:
+#   markdownify:
+#     command: /path/to/eling/src/eling/markdownify/markdownify.sh
+#     args: []
+#     enabled: true
+#     env:
+#       MD_ALLOWED_PATHS: /data
+#
+# Or via pip-installed eling:
+#   markdownify:
+#     command: python3
+#     args: ["-m", "eling.markdownify.mcp_server"]
+#     enabled: true
+#     env:
+#       MD_ALLOWED_PATHS: /data

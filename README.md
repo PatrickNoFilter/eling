@@ -2,9 +2,9 @@
 
 # 🧠 Eling
 
-**Lightweight memory, powerful retrieval — 6-tier second brain for AI agents**
+**Lightweight memory, powerful retrieval — 5-tier second brain for AI agents**
 
-Blackbox flight recorder · HRR reasoning · 4 MCP servers (62 tools) · Obsidian local vault Layer 6 · Continuum Layer 8 multi-agent orchestration hub · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
+Blackbox flight recorder · HRR reasoning · 5 MCP servers (71 tools) · Obsidian local vault Layer 6 · markdownify document-to-Markdown · Continuum Layer 8 multi-agent orchestration hub · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -17,19 +17,21 @@ Blackbox flight recorder · HRR reasoning · 4 MCP servers (62 tools) · Obsidia
 
 ## ✨ What is Eling?
 
-Eling is a **lightweight, unified second brain** for AI agents. It merges 6 memory tiers via four MCP servers — and adds a **Continuum Layer 8 orchestration tier** that turns eling into a shared hub for *multiple* AI coding agents. The **Blackbox Layer 2 flight recorder** captures all agent telemetry (file reads, edits, shell commands, tool calls) and scores them with 11 context-efficiency metrics — turning raw observability into actionable optimization suggestions. The **Obsidian Layer 6** gives agents local Markdown vault access — scoped project notes, daily logs, research notebooks, and memory review as plain files. No external databases, no cloud services needed for local operation (though it optionally syncs to Notion for online sharing and to Continuum for multi-agent orchestration).
+Eling is a **lightweight, unified second brain** for AI agents. It merges 6 memory tiers via five MCP servers — and adds a **Continuum Layer 8 orchestration tier** that turns eling into a shared hub for *multiple* AI coding agents. The **Blackbox Layer 2 flight recorder** captures all agent telemetry (file reads, edits, shell commands, tool calls) and scores them with 11 context-efficiency metrics — turning raw observability into actionable optimization suggestions. The **Obsidian Layer 6** gives agents local Markdown vault access — scoped project notes, daily logs, research notebooks, and memory review as plain files. The **markdownify MCP server** converts PDFs, Word docs, Excel sheets, PowerPoint decks, images, audio files, and web pages to clean Markdown — no Node.js required, using Microsoft's markitdown library natively. No external databases, no cloud services needed for local operation (though it optionally syncs to Notion for online sharing and to Continuum for multi-agent orchestration).
 
 Think of it as one memory stack that serves **both the agent and the human** — and one orchestration hub that serves **every agent you run**, with a flight recorder that watches everything they do:
 
 ```
-📡 Layer 8: CONTINUUM — multi-agent orchestration hub (shared continuum.db, 15 continuum_* tools)
-🧠 Layer 7: NOTION   — online brain, persistent, human-readable (optional)
-📝 Layer 6: OBSIDIAN — local Markdown vault, project notes, daily logs, research (optional)
-📚 Layer 5: KB       — FTS5 knowledge corpus for long-form knowledge
-🕸️ Layer 4: CODE     — codegraph symbol intelligence
-💎 Layer 3: FACTS    — SQLite + HRR + BM25 hybrid with trust scoring
-🔎 Layer 2: BLACKBOX — flight recorder + telemetry + 11-metric efficiency scoring
-⚡ Layer 1: BUILTIN  — MEMORY.md / USER.md (always-on, zero setup)
+📡 Layer 8: CONTINUUM   — multi-agent orchestration hub (shared continuum.db, 15 continuum_* tools)
+🧠 Layer 7: NOTION     — online brain, persistent, human-readable (optional)
+📝 Layer 6: OBSIDIAN   — local Markdown vault, project notes, daily logs, research (optional)
+📚 Layer 5: KB         — FTS5 knowledge corpus for long-form knowledge
+🕸️ Layer 4: CODE       — codegraph symbol intelligence
+💎 Layer 3: FACTS      — SQLite + HRR + BM25 hybrid with trust scoring
+🔎 Layer 2: BLACKBOX   — flight recorder + telemetry + 11-metric efficiency scoring
+⚡ Layer 1: BUILTIN    — MEMORY.md / USER.md (always-on, zero setup)
+
+🔄 Layer 7b: MARKDOWNIFY — document-to-Markdown (PDF/DOCX/XLSX/PPTX/images/audio/web)
 ```
 
 ### How the tiers work together
@@ -39,6 +41,7 @@ Think of it as one memory stack that serves **both the agent and the human** —
 | **📡 Continuum** | Dispatch registry, agent knowledge, PLOT protocol | `continuum_*` MCP tools | `continuum.db` — shared across agents |
 | **🧠 Notion** | Permanent pages, project plans, vault entries | `eling_reflect` promotes facts; `eling_sync push` syncs | Cloud — human-viewable, survives everything |
 | **📝 Obsidian** | Local Markdown notes, daily logs, research, memory review | `brain_obsidian_*` MCP tools | Local filesystem — human-readable, Git-friendly |
+| **🔄 Markdownify** | Document-to-Markdown (PDF, DOCX, XLSX, PPTX, images, audio, web) | `markdownify_*` MCP tools (9 tools) | On-the-fly conversion — no storage |
 | **📚 KB** | Articles, docs, long-form knowledge chunks | FTS5 full-text search | Local SQLite — persistent |
 | **🕸️ Code** | Function symbols, imports, class hierarchies | Codegraph traversal | Local SQLite — auto-indexed |
 | **💎 Facts** | Short facts, preferences, observations | HRR + BM25 + trigram hybrid with trust scores | Local SQLite — append-only, versioned |
@@ -77,6 +80,11 @@ python3 -m eling continuum mcp
 # or
 eling-continuum
 
+# Run the Markdownify document-to-Markdown MCP server (9 tools: PDF/DOCX/XLSX/PPTX/images/audio/web)
+python3 -m eling markdownify mcp
+# or
+eling-markdownify
+
 # Use the CLI
 python3 -m eling --help
 
@@ -88,12 +96,12 @@ eling-install-opencode
 
 | Agent | Integration | Status |
 |-------|-------------|--------|
-| **Hermes** | MCP (Notion `eling` + local `as_brain` + Blackbox `blackbox` + Continuum `continuum`) + Memory Provider + Plugin | ✅ Tested |
-| **OpenCode** | MCP (all 3 servers) + Lifecycle Plugin | ✅ Tested |
-| **MiMo-Code** | MCP (all 3 servers, OpenCode fork) | ✅ Tested |
-| **Zero** | MCP (all 3 servers) + Hooks + Skill | ✅ Bundled installer |
-| **Claude Code** | MCP (all 3 servers via `mcpServers`) | ✅ Wiring provided |
-| **Codex** | MCP (all 3 servers via `mcp_servers`) | ✅ Wiring provided |
+| **Hermes** | MCP (Notion `eling` + local `as_brain` + Blackbox `blackbox` + Continuum `continuum` + Markdownify `markdownify`) + Memory Provider + Plugin | ✅ Tested |
+| **OpenCode** | MCP (all 5 servers) + Lifecycle Plugin | ✅ Tested |
+| **MiMo-Code** | MCP (all 5 servers, OpenCode fork) | ✅ Tested |
+| **Zero** | MCP (all 5 servers) + Hooks + Skill | ✅ Bundled installer |
+| **Claude Code** | MCP (all 5 servers via `mcpServers`) | ✅ Wiring provided |
+| **Codex** | MCP (all 5 servers via `mcp_servers`) | ✅ Wiring provided |
 
 ### One shared hub for every agent (Continuum Layer 8)
 
@@ -116,8 +124,9 @@ Per-agent configs live in `continuum/configs/`; uninstall with `continuum/uninst
 See **[`continuum/README.md`](continuum/README.md)** for the full guide.
 
 Non-tested agents connect via the stdio MCP servers — any MCP-compatible host can use
-`eling` (notion-only, 6 tools), `as_brain` (local layers, 33 tools), `blackbox`
-(flight recorder, 16 `blackbox_*` tools), and `continuum` (orchestration hub, 15 `continuum_*` tools).
+`eling` (notion-only, 7 tools), `as_brain` (local layers, 26 tools), `blackbox`
+(flight recorder, 16 `blackbox_*` tools), `continuum` (orchestration hub, 15 `continuum_*` tools),
+and `markdownify` (document-to-Markdown, 9 `markdownify_*` tools).
 
 ### 🔎 Blackbox Flight Recorder (Layer 2)
 
@@ -296,6 +305,10 @@ python3 -m eling sync       --direction push   # facts → Notion
 python3 -m eling install-opencode              # install OpenCode lifecycle plugin
 python3 -m eling install-zero                  # install Zero hooks + skill + MCP
 python3 -m eling init-rules                    # write steering rules for AI agents
+
+# Markdownify — document-to-Markdown conversion
+python3 -m eling markdownify mcp               # run the MCP server (stdio)
+eling-markdownify                              # same, via console script
 
 # Temporal search (v0.6.0)
 python3 -m eling search-temporal "last 3 days" --category testing
@@ -626,6 +639,9 @@ eling/
 │   ├── worktree.py            — Isolated per-agent git worktree manager
 │   ├── plot.py                — PLOT.md canonical protocol (unified-diff mutations)
 │   └── continuum.sh           — Shared wrapper exec'd by every agent's MCP config
+├── markdownify/                — Layer: Document-to-Markdown conversion
+│   ├── mcp_server.py          — JSON-RPC stdio server (9 markdownify_* tools)
+│   └── markdownify.sh         — Shell wrapper for MCP configs
 ├── brain.py               — Orchestrator: routing + RRF fusion + sync + snapshot
 ├── config.py              — Layered config: env → json → defaults
 ├── hooks.py               — 15 lifecycle hooks + HookRegistry
@@ -667,8 +683,8 @@ eling/
 ## 🤝 Credits
 
 See [`CREDITS.md`](CREDITS.md) for full attribution — Hermes Agent (Nous Research),
-Agent-Blackbox / Taewoo Park, Continuum / Pouya Hasanamreji, spec-kit (GitHub),
-dusterbloom's holographic plugin, and all other contributors.
+Agent-Blackbox / Taewoo Park, Continuum / Pouya Hasanamreji, markdownify-mcp / Zach Caceres,
+spec-kit (GitHub), dusterbloom's holographic plugin, and all other contributors.
 
 ## 📜 License
 

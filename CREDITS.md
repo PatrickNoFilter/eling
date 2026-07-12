@@ -35,6 +35,10 @@ Eling builds on ideas, patterns, and code from several open-source projects and 
 
 - **MCP** (Model Context Protocol) — all Eling servers speak JSON-RPC over stdio
   following the Anthropic MCP specification.
+- **Markdownify MCP** — document-to-Markdown conversion adapted from
+  [markdownify-mcp](https://github.com/zcaceres/markdownify-mcp) by
+  [Zach Caceres](https://zach.dev). Eling's implementation uses Microsoft's
+  markitdown Python library natively (no Node.js dependency).
 - **Zero stream-JSON** — Blackbox Zero adapter processes line-delimited JSON
   telemetry from Zero CLI agents.
 

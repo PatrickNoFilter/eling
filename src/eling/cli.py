@@ -115,6 +115,18 @@ def main():
         help="Path to blackbox.db (default: ELING_HOME/blackbox.db)",
     )
 
+    # ── markdownify subcommand (document-to-Markdown conversion) ──
+    p_md = sub.add_parser(
+        "markdownify", help="Markdownify — document-to-Markdown MCP server"
+    )
+    p_md_cmd = p_md.add_subparsers(dest="markdownify_cmd", required=True)
+    p_md_mcp = p_md_cmd.add_parser("mcp", help="Run the Markdownify MCP server (stdio)")
+    p_md_mcp.add_argument(
+        "--allowed-paths",
+        default="",
+        help="Colon-separated list of allowed directories for file reads",
+    )
+
     # ── config subcommand ──
     p_cfg = sub.add_parser("config", help="Manage Eling configuration")
     p_cfg_cmd = p_cfg.add_subparsers(dest="config_cmd", required=True)
@@ -254,6 +266,15 @@ def main():
             from .blackbox.cli import main as blackbox_cli
 
             blackbox_cli(["mcp"])
+        return
+
+    if args.cmd == "markdownify":
+        if args.markdownify_cmd == "mcp":
+            if args.allowed_paths:
+                os.environ["MD_ALLOWED_PATHS"] = args.allowed_paths
+            from .markdownify.mcp_server import run_stdio as markdownify_run
+
+            markdownify_run()
         return
 
     if args.cmd == "config":
