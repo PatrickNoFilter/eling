@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "eling"
-version = "0.12.0"
-description = "Unified second brain for AI agents — 6-tier memory, Blackbox flight recorder, HRR reasoning, 73 MCP tools (5 servers), Obsidian vault, markdownify (PDF/DOCX/XLSX/PPTX/images/audio→MD), Continuum multi-agent hub, temporal queries, per-fact versioning, vector search, Zettelkasten linking, memory evolution, spec-kit verification, verify-on-stop"
+version = "0.12.1"
+description = "Unified second brain for AI agents — 8-layer memory, Blackbox flight recorder, HRR reasoning, 73 MCP tools (5 servers), Obsidian vault, markdownify (PDF/DOCX/XLSX/PPTX/images/audio->MD), Continuum multi-agent hub, temporal queries, per-fact versioning, vector search, Zettelkasten linking, memory evolution, spec-kit verification, verify-on-stop"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"

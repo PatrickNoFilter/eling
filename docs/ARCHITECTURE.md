@@ -1,12 +1,12 @@
 # Eling Architecture
 
-> **Eling** — Unified second brain for AI agents. Six memory layers, four MCP servers (notion-only `eling` + local-layers `as_brain` + blackbox flight recorder `blackbox` + orchestration `continuum`), zero mandatory external dependencies. v0.11.0 adds the **Obsidian Layer 6** local Markdown vault with 5 `brain_obsidian_*` MCP tools. v0.10.0 added the **Blackbox Layer 2** flight recorder, Zero stream-JSON + Hermes session DB adapters, and elevated Continuum to **Layer 8**.
+> **Eling** — Unified second brain for AI agents. Eight memory layers, five MCP servers (notion-only `eling` + local-layers `as_brain` + blackbox flight recorder `blackbox` + orchestration `continuum` + document-to-Markdown `markdownify`), zero mandatory external dependencies. v0.12.0 adds the **Markdownify Layer** document-to-Markdown conversion (9 `markdownify_*` tools) using Microsoft's markitdown library. v0.11.0 adds the **Obsidian Layer 6** local Markdown vault with 5 `brain_obsidian_*` MCP tools. v0.10.0 added the **Blackbox Layer 2** flight recorder, Zero stream-JSON + Hermes session DB adapters, and elevated Continuum to **Layer 8**.
 
 ```
 elig/
-├── mcp_server.py             — JSON-RPC stdio server (notion-only, 6 tools)
+├── mcp_server.py             — JSON-RPC stdio server (notion-only, 7 tools)
 ├── as_brain/
-│   └── mcp_server.py         — JSON-RPC stdio server (local layers + Blackbox + Obsidian, 38 tools)
+│   └── mcp_server.py         — JSON-RPC stdio server (local layers + Blackbox + Obsidian, 26 tools)
 ├── blackbox/                  — Layer 2: Flight recorder & telemetry
 │   ├── core.py               — TraceEvent, RunSummary, AgentMetadata
 │   ├── store.py              — SQLite-backed event store
@@ -21,9 +21,12 @@ elig/
 ├── continuum/                 — Layer 8: Multi-agent orchestration hub
 │   ├── mcp_server.py         — JSON-RPC stdio server (15 continuum_* tools)
 │   ├── store.py              — continuum.db: projects, agents, knowledge, plot, reservations
-│   ├── worktree.py           — isolated per-agent git worktree manager
+│   ├── worktree.py           — Isolated per-agent git worktree manager
 │   ├── plot.py               — PLOT.md canonical protocol (unified-diff mutations)
-│   └── continuum.sh          — shared wrapper exec'd by every agent's MCP config
+│   └── continuum.sh          — Shared wrapper exec'd by every agent's MCP config
+├── markdownify/               — Layer: Document-to-Markdown conversion
+│   ├── mcp_server.py         — JSON-RPC stdio server (9 markdownify_* tools)
+│   └── markdownify.sh        — Shell wrapper for MCP configs
 ├── brain.py                   — Orchestrator: routing + RRF fusion + sync + snapshot
 ├── config.py                  — Layered config: env → json → defaults
 ├── hooks.py                   — 15 lifecycle hooks + HookRegistry + evolution
@@ -38,13 +41,14 @@ elig/
 ├── opencode_plugin/  — Bundled OpenCode lifecycle plugin
 │   └── eling-memory.js
 └── layers/
-    ├── builtin.py    — Tier 1: MEMORY.md / USER.md loader
-    ├── facts.py      — Tier 2: SQLite + HRR + BM25 + Embeddings + Trust + Zettelkasten + Temporal + Versioning
+    ├── builtin.py    — Layer 1: MEMORY.md / USER.md loader
+    ├── facts.py      — Layer 2: SQLite + HRR + BM25 + Embeddings + Trust + Zettelkasten + Temporal + Versioning
     ├── embeddings.py — Optional vector embeddings (Mistral API + sentence-transformers)
     ├── hrr.py        — Holographic Reduced Representations (numpy)
-    ├── code.py       — Tier 3: CodeLayer wrapper
+    ├── code.py       — Layer 3: CodeLayer wrapper
     ├── code_index.py — Pure-Python AST+regex code indexer
-    ├── kb.py         — Tier 4: FTS5 + porter + trigram + RRF
+    ├── kb.py         — Layer 4: FTS5 + porter + trigram + RRF
+    ├── obsidian.py   — Layer 5: Obsidian vault client
     └── notion.py     — Layer 7: httpx Notion API client
 ```
 
@@ -79,8 +83,8 @@ elig/
 
 ### 🧩 Layer 8 — Continuum (Multi-Agent Orchestration)
 
-Continuum is **not a memory tier** — it is an orchestration tier that runs as a
-third MCP server (`continuum`) on top of the 6 memory layers. Its job is to let
+Continuum is **not a memory layer** — it is an orchestration layer that runs as a
+third MCP server (`continuum`) on top of the 8 memory layers. Its job is to let
 *many* coding agents share one eling backend without stepping on each other.
 
 - **Shared `continuum.db`** (resolved via `ELING_HOME` / `HERMES_HOME`) — one store for all agents.
@@ -89,7 +93,7 @@ third MCP server (`continuum`) on top of the 6 memory layers. Its job is to let
 - **Two-tier knowledge** — `fundamental` lessons (binding rules, loaded into every dispatch prompt) vs `situational` lessons (BM25/semantic search on demand).
 - **Canonical PLOT** — `continuum_plot_get` / `continuum_plot_update` keep a single `PLOT.md` protocol per project, mutated via unified diff so agents never overwrite each other's edits wholesale.
 
-All six agents connect by pointing their MCP config at the same wrapper:
+All agents connect by pointing their MCP config at the same wrapper:
 `eling continuum mcp` (or `continuum/continuum.sh`). Wire them all with
 `continuum/install.sh`; verify with `continuum/healthcheck.sh`. See
 [`continuum/README.md`](continuum/README.md).
@@ -204,7 +208,7 @@ Notion is what makes eling **human-readable and recoverable**. High-trust facts 
 
 **Vault structure:** The opinionated layout keeps the main page as a clean index of credential children, with all log entries auto-routed to a dedicated child page (never write to the main vault page directly).
 
-**Why Notion?** It's the only tier that survives local data loss. Even if your SQLite databases are wiped, the Notion vault retains curated facts and permanent project knowledge — a recoverable brain.
+**Why Notion?** It's the only layer that survives local data loss. Even if your SQLite databases are wiped, the Notion vault retains curated facts and permanent project knowledge — a recoverable brain.
 
 ---
 

@@ -215,6 +215,7 @@ class FactsLayer:
         # resolve it here.
         try:
             import numpy  # noqa: F401
+
             hrr._HAS_NUMPY = True
         except ImportError:
             hrr._HAS_NUMPY = False

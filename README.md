@@ -2,9 +2,9 @@
 
 # 🧠 Eling
 
-**Lightweight memory, powerful retrieval — 5-tier second brain for AI agents**
+**Lightweight memory, powerful retrieval — 8-layer second brain for AI agents**
 
-Blackbox flight recorder · HRR reasoning · 5 MCP servers (71 tools) · Obsidian local vault Layer 6 · markdownify document-to-Markdown · Continuum Layer 8 multi-agent orchestration hub · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
+Blackbox flight recorder · HRR reasoning · 5 MCP servers (73 tools) · Obsidian local vault · markdownify document-to-Markdown · Continuum multi-agent orchestration hub · temporal queries · per-fact versioning · vector search · Zettelkasten linking · memory evolution · spec-kit verification · conditional + universal verify-on-stop · ELING_HOME override · handshake agent auto-attribution · full-page retrieval (eling_get_page_full) · FactMemoryProvider
 
 *"Eling" (Javanese): to remember, to be conscious, to be aware*
 
@@ -17,7 +17,7 @@ Blackbox flight recorder · HRR reasoning · 5 MCP servers (71 tools) · Obsidia
 
 ## ✨ What is Eling?
 
-Eling is a **lightweight, unified second brain** for AI agents. It merges 6 memory tiers via five MCP servers — and adds a **Continuum Layer 8 orchestration tier** that turns eling into a shared hub for *multiple* AI coding agents. The **Blackbox Layer 2 flight recorder** captures all agent telemetry (file reads, edits, shell commands, tool calls) and scores them with 11 context-efficiency metrics — turning raw observability into actionable optimization suggestions. The **Obsidian Layer 6** gives agents local Markdown vault access — scoped project notes, daily logs, research notebooks, and memory review as plain files. The **markdownify MCP server** converts PDFs, Word docs, Excel sheets, PowerPoint decks, images, audio files, and web pages to clean Markdown — no Node.js required, using Microsoft's markitdown library natively. No external databases, no cloud services needed for local operation (though it optionally syncs to Notion for online sharing and to Continuum for multi-agent orchestration).
+Eling is a **lightweight, unified second brain** for AI agents. It merges 8 memory layers across five MCP servers — and adds a **Continuum Layer 8 orchestration tier** that turns eling into a shared hub for *multiple* AI coding agents. The **Blackbox Layer 2 flight recorder** captures all agent telemetry (file reads, edits, shell commands, tool calls) and scores them with 11 context-efficiency metrics — turning raw observability into actionable optimization suggestions. The **Obsidian Layer 6** gives agents local Markdown vault access — scoped project notes, daily logs, research notebooks, and memory review as plain files. The **markdownify MCP server** converts PDFs, Word docs, Excel sheets, PowerPoint decks, images, audio files, and web pages to clean Markdown — no Node.js required, using Microsoft's markitdown library natively. No external databases, no cloud services needed for local operation (though it optionally syncs to Notion for online sharing and to Continuum for multi-agent orchestration).
 
 Think of it as one memory stack that serves **both the agent and the human** — and one orchestration hub that serves **every agent you run**, with a flight recorder that watches everything they do:
 
@@ -34,9 +34,9 @@ Think of it as one memory stack that serves **both the agent and the human** —
 🔄 Layer 7b: MARKDOWNIFY — document-to-Markdown (PDF/DOCX/XLSX/PPTX/images/audio/web)
 ```
 
-### How the tiers work together
+### How the layers work together
 
-| Tier | What it stores | How it's queried | Persistence |
+| Layer | What it stores | How it's queried | Persistence |
 |------|---------------|-------------------|-------------|
 | **📡 Continuum** | Dispatch registry, agent knowledge, PLOT protocol | `continuum_*` MCP tools | `continuum.db` — shared across agents |
 | **🧠 Notion** | Permanent pages, project plans, vault entries | `eling_reflect` promotes facts; `eling_sync push` syncs | Cloud — human-viewable, survives everything |
@@ -50,7 +50,7 @@ Think of it as one memory stack that serves **both the agent and the human** —
 
 ### 🧠 Notion as Online Memory (Layer 7)
 
-Tier 7 (Notion) is what makes eling **human-readable**. While tiers 1–6 live locally as SQLite databases or flat files, Tier 7 optionally syncs high-trust facts to your Notion vault as permanent, well-formatted pages:
+Layer 7 (Notion) is what makes eling **human-readable**. While layers 1–6 live locally as SQLite databases or flat files, Layer 7 optionally syncs high-trust facts to your Notion vault as permanent, well-formatted pages:
 
 - **`eling_reflect <fact_id>`** — promote a high-trust fact to a Notion page
 - **`eling_sync --direction push`** — batch-sync all high-trust facts to Notion

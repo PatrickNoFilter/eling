@@ -2,8 +2,8 @@
 
 One MCP hub. **Every** AI coding agent connects to it and shares the same memory
 + orchestration state. This adapts [Continuum](https://github.com/pouyahasanamreji/continuum)
-into a pure-Python tier on top of [eling](https://github.com/PatrickNoFilter/eling)'s
-5 memory tiers.
+into a pure-Python layer on top of [eling](https://github.com/PatrickNoFilter/eling)'s
+8 memory layers.
 
 ```
  agent A ─┐

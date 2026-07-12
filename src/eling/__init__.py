@@ -1,6 +1,5 @@
 """Eling — unified second brain for AI agents.
-
-5-layer architecture: builtin / facts / kb / code / notion
+8-layer architecture: builtin / blackbox / facts / code / kb / obsidian / notion / continuum
 Features: HRR reasoning, gap analysis, Notion auto-sync, verify-on-stop.
 
 MCP modules:
@@ -11,7 +10,7 @@ MCP modules:
   - `eling.markdownify.mcp_server` → document-to-Markdown conversion (markitdown)
 """
 
-__version__ = "0.12.0"
+__version__ = "0.12.1"
 __all__ = [
     "Brain",
     "HookRegistry",
